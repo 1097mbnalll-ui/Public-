@@ -1,0 +1,286 @@
+import { describe, expect, it } from 'vitest';
+import { initialState } from '../src/lib/defaults';
+import { parseQuick } from '../src/lib/parse';
+import { addDays, atTime, todayKey } from '../src/lib/dates';
+import { planStudy } from '../src/lib/engine/study';
+import { planDay, scoreItem, suggestDeferrals } from '../src/lib/engine/planner';
+import { calibration, coursePace } from '../src/lib/engine/learning';
+import { buildInsights } from '../src/lib/engine/insights';
+import { procStage } from '../src/lib/engine/procedures';
+import type { AppState, Task } from '../src/lib/types';
+
+// Fixed "now": Tuesday 2026-10-20, 9:00 local
+const NOW = atTime('2026-10-20', '09:00');
+const TODAY = todayKey(NOW);
+
+function task(p: Partial<Task>): Task {
+  return {
+    id: Math.random().toString(36).slice(2),
+    title: 'مهمة',
+    notes: '',
+    area: 'life',
+    priority: 1,
+    hard: false,
+    spent: 0,
+    status: 'open',
+    checklist: [],
+    deferrals: 0,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...p,
+  };
+}
+
+function withCourse(s: AppState, pages: number[], examInDays: number, reviewDays = 1) {
+  s.courses.push({ id: 'c1', name: 'إحصاء', color: '#f00', difficulty: 3, sizeLabel: 'صفحة', notes: '', archived: false, createdAt: NOW });
+  pages.forEach((size, i) =>
+    s.units.push({ id: `u${i}`, courseId: 'c1', title: `فصل ${i + 1}`, size, progress: 0, reviewed: false, spent: 0, order: i }),
+  );
+  s.exams.push({
+    id: 'e1',
+    courseId: 'c1',
+    title: 'الميد',
+    date: addDays(TODAY, examInDays),
+    unitIds: pages.map((_, i) => `u${i}`),
+    reviewDays,
+    createdAt: NOW,
+  });
+}
+
+describe('quick add parser', () => {
+  it('extracts date, time, priority, area and duration', () => {
+    const p = parseQuick('اطبع ملف العقد بكرة الساعة 10 ص !عاجل #عمل 30د', [], NOW);
+    expect(p.title).toBe('اطبع ملف العقد');
+    expect(p.due).toBe(addDays(TODAY, 1));
+    expect(p.dueTime).toBe('10:00');
+    expect(p.priority).toBe(3);
+    expect(p.area).toBe('work');
+    expect(p.estimate).toBe(30);
+  });
+
+  it('understands PM times, weekday names and hour durations', () => {
+    const p = parseQuick('مذاكرة إحصاء الخميس 5م ساعتين', [], NOW);
+    expect(p.dueTime).toBe('17:00');
+    expect(p.due).toBe('2026-10-22');
+    expect(p.estimate).toBe(120);
+    expect(p.area).toBe('study');
+    expect(p.areaGuessed).toBe(true);
+  });
+
+  it('handles "بعد 3 أيام" and Arabic-Indic digits', () => {
+    expect(parseQuick('تجديد الهوية بعد ٣ أيام', [], NOW).due).toBe(addDays(TODAY, 3));
+  });
+
+  it('matches a saved procedure template by prefix', () => {
+    const s = initialState();
+    const p = parseQuick('معاملة مؤسسة الأمل', s.templates, NOW);
+    expect(p.template?.name).toBe('معاملة');
+    expect(p.templateRest).toBe('مؤسسة الأمل');
+  });
+
+  it('keeps plain text untouched', () => {
+    expect(parseQuick('شراء هدية لأمي', [], NOW).title).toBe('شراء هدية لأمي');
+  });
+});
+
+describe('priority scoring', () => {
+  it('ranks overdue + urgent above far-away + low', () => {
+    const a = scoreItem({ priority: 3, due: addDays(TODAY, -1), createdAt: NOW }, TODAY, NOW);
+    const b = scoreItem({ priority: 0, due: addDays(TODAY, 20), createdAt: NOW }, TODAY, NOW);
+    expect(a.score).toBeGreaterThan(b.score);
+    expect(a.reasons.join(' ')).toContain('متأخرة');
+  });
+});
+
+describe('study planner', () => {
+  it('is on track when material fits comfortably', () => {
+    const s = initialState();
+    withCourse(s, [10, 10], 10); // 20 pages * 5 min * 1.2 review = 120 min over ~9 days
+    const plan = planStudy(s, NOW);
+    expect(plan.exams[0].status).toBe('ok');
+    expect(plan.exams[0].mid).toBeCloseTo(120, 0);
+    expect(plan.exams[0].todayMinutes).toBeGreaterThan(0);
+  });
+
+  it('flags behind and lists unreachable units when time is short', () => {
+    const s = initialState();
+    s.settings.studyCap = [60, 60, 60, 60, 60, 60, 60];
+    withCourse(s, [60, 60, 60], 3); // 180 pages ≈ 1080 min, only ~2 study days
+    const ep = planStudy(s, NOW).exams[0];
+    expect(ep.status).toBe('behind');
+    expect(ep.shortfall).toBeGreaterThan(0);
+    expect(ep.unreachable.length).toBeGreaterThan(0);
+    expect(ep.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('asks for units when an exam has none', () => {
+    const s = initialState();
+    withCourse(s, [], 5);
+    expect(planStudy(s, NOW).exams[0].status).toBe('unknown');
+  });
+
+  it('learns pace from real sessions', () => {
+    const s = initialState();
+    withCourse(s, [10], 10);
+    const before = coursePace(s, s.courses[0]);
+    for (let i = 0; i < 4; i++)
+      s.sessions.push({ id: `s${i}`, courseId: 'c1', unitId: 'u0', date: TODAY, minutes: 20, amount: 10, at: NOW });
+    const after = coursePace(s, s.courses[0]);
+    expect(before.source).toBe('default');
+    expect(after.source).toBe('data');
+    expect(after.pace).toBeLessThan(before.pace); // 2 min/page is faster than the 5 min default
+    expect(after.spread).toBeLessThan(before.spread);
+  });
+
+  it('ignores implausible study sessions when learning pace', () => {
+    const s = initialState();
+    withCourse(s, [10], 10);
+    s.sessions.push({ id: 'bad', courseId: 'c1', unitId: 'u0', date: TODAY, minutes: 1, amount: 20, at: NOW });
+    expect(coursePace(s, s.courses[0]).source).toBe('default');
+  });
+
+  it('assigns shared units to the earliest exam only', () => {
+    const s = initialState();
+    withCourse(s, [10, 10], 5);
+    s.exams.push({ id: 'e2', courseId: 'c1', title: 'النهائي', date: addDays(TODAY, 20), unitIds: ['u0', 'u1'], reviewDays: 1, createdAt: NOW });
+    const plan = planStudy(s, NOW);
+    expect(plan.exams[1].mid).toBe(0);
+  });
+});
+
+describe('daily study quota', () => {
+  it('spreads the remaining material over study days and names the lessons', () => {
+    const s = initialState();
+    withCourse(s, [20, 20, 20], 12, 2); // 60 pages * 5 min * 1.2 = 360 min, study days = 12 - 2 - 1 + 1 = 10
+    const ep = planStudy(s, NOW).exams[0];
+    expect(ep.studyDays).toBe(10);
+    expect(ep.quota).toBe(40); // 360 / 10 → rounded up to 5
+    expect(ep.todayMinutes).toBe(40);
+    expect(ep.portion[0].unit.title).toBe('فصل 1');
+  });
+
+  it('stays the same during the day while today’s remainder shrinks', () => {
+    const s = initialState();
+    withCourse(s, [20, 20, 20], 12, 2);
+    s.sessions.push({ id: 's', courseId: 'c1', unitId: 'u0', date: TODAY, minutes: 30, amount: 5, at: NOW });
+    s.units[0].progress = 0.25;
+    const ep = planStudy(s, NOW).exams[0];
+    expect(ep.quota).toBe(40);
+    expect(ep.doneToday).toBe(30);
+    expect(ep.todayMinutes).toBe(10);
+  });
+
+  it('grows the next day when yesterday’s quota was not studied', () => {
+    const s = initialState();
+    withCourse(s, [30, 30, 30], 12, 2); // 540 min: 55/day today, 60/day tomorrow if nothing is studied
+    const q1 = planStudy(s, NOW).exams[0].quota;
+    s.quotaLog[TODAY] = { e1: q1 };
+    const tomorrow = NOW + 86_400_000;
+    const ep = planStudy(s, tomorrow).exams[0];
+    expect(ep.quota).toBeGreaterThan(q1);
+    expect(ep.yesterday).toEqual({ quota: q1, done: 0 });
+  });
+
+  it('asks for nothing new during review days', () => {
+    const s = initialState();
+    withCourse(s, [20], 2, 2);
+    const ep = planStudy(s, NOW).exams[0];
+    expect(ep.inReview || ep.reviewCompressed).toBe(true);
+  });
+});
+
+describe('day planner', () => {
+  it('always includes must-do items and detects overload', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 60;
+    s.tasks.push(task({ title: 'أ', due: TODAY, hard: true, estimate: 50, priority: 2 }));
+    s.tasks.push(task({ title: 'ب', due: TODAY, estimate: 40, priority: 2 }));
+    s.tasks.push(task({ title: 'ج', estimate: 30, priority: 0 }));
+    const plan = planDay(s, NOW);
+    const titles = plan.items.map((i) => i.title);
+    expect(titles).toContain('أ');
+    expect(titles).toContain('ب');
+    expect(titles).not.toContain('ج');
+    expect(plan.overloaded).toBe(true);
+    const defer = suggestDeferrals(plan, s);
+    expect(defer.map((d) => d.title)).toEqual(['ب']); // never the hard deadline
+  });
+
+  it('starts urgent work due tomorrow today, even when the day is full', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 30;
+    s.tasks.push(task({ title: 'واجب', due: addDays(TODAY, 1), priority: 3, estimate: 120 }));
+    const plan = planDay(s, NOW);
+    expect(plan.items.map((i) => i.title)).toContain('واجب');
+    expect(plan.overloaded).toBe(true);
+  });
+
+  it('puts عاجلة tasks in today no matter their date, and never suggests deferring them', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 30;
+    s.tasks.push(task({ title: 'عاجل', priority: 3, estimate: 60, due: addDays(TODAY, 10) }));
+    s.tasks.push(task({ title: 'عادي', priority: 1, estimate: 20, due: TODAY }));
+    const plan = planDay(s, NOW);
+    const u = plan.items.find((i) => i.title === 'عاجل')!;
+    expect(u.must).toBe(true);
+    expect(u.level).toBe('urgent');
+    expect(plan.items[0].title).toBe('عاجل');
+    expect(suggestDeferrals(plan, s).map((i) => i.title)).not.toContain('عاجل');
+  });
+
+  it('مهمة: flexible on day one, must-do from the next day', () => {
+    const s = initialState();
+    s.tasks.push(task({ title: 'جديدة', priority: 2, estimate: 20 }));
+    s.tasks.push(task({ title: 'من أمس', priority: 2, estimate: 20, createdAt: NOW - 86_400_000 }));
+    const plan = planDay(s, NOW);
+    const fresh = [...plan.items, ...plan.later].find((i) => i.title === 'جديدة')!;
+    const old = plan.items.find((i) => i.title === 'من أمس')!;
+    expect(fresh.must).toBe(false);
+    expect(fresh.reasons[0]).toContain('اليوم أو بكرة');
+    expect(old.must).toBe(true);
+  });
+
+  it('skips tasks deferred to a later day and waiting tasks', () => {
+    const s = initialState();
+    s.tasks.push(task({ title: 'لاحقًا', plannedFor: addDays(TODAY, 1), priority: 3 }));
+    s.tasks.push(task({ title: 'معلقة', waitingOn: 'المدير', priority: 3 }));
+    expect(planDay(s, NOW).items).toHaveLength(0);
+  });
+
+  it('applies the learned estimate correction', () => {
+    const s = initialState();
+    for (let i = 0; i < 4; i++)
+      s.tasks.push(task({ status: 'done', estimate: 30, spent: 60, completedAt: NOW, area: 'work' }));
+    expect(calibration(s, 'work').factor).toBe(2);
+    s.tasks.push(task({ title: 'جديدة', estimate: 30, area: 'work', due: TODAY, priority: 2 }));
+    const item = planDay(s, NOW).items.find((i) => i.title === 'جديدة');
+    expect(item?.minutes).toBe(60);
+  });
+});
+
+describe('procedures & insights', () => {
+  it('derives stage and surfaces forgotten steps', () => {
+    const s = initialState();
+    const old = NOW - 4 * 86_400_000;
+    s.procedures.push({
+      id: 'p1',
+      title: 'معاملة مؤسسة الأمل',
+      notes: '',
+      fields: [],
+      priority: 1,
+      log: [],
+      archived: false,
+      createdAt: old,
+      updatedAt: old,
+      steps: [
+        { id: 'a', title: 'تنفيذ', kind: 'action', done: true, doneAt: old },
+        { id: 'b', title: 'إرسال للمدير', kind: 'send', target: 'المدير', done: false },
+      ],
+    });
+    expect(procStage(s.procedures[0])).toBe('partial');
+    const study = planStudy(s, NOW);
+    const ins = buildInsights(s, planDay(s, NOW, study), study, NOW);
+    const hit = ins.find((i) => i.id.startsWith('proc-partial'));
+    expect(hit?.title).toContain('إرسال للمدير');
+  });
+});

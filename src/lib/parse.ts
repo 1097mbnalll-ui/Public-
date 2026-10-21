@@ -1,0 +1,145 @@
+// Quick-add parser: understands short Arabic phrases like
+// "اطبع ملف العقد بكرة الساعة 10 ص !عاجل #عمل 30د"
+
+import type { Area, Priority, Template } from './types';
+import { addDays, dateKey, todayKey, weekday } from './dates';
+import { normalize } from './text';
+
+export interface Parsed {
+  title: string;
+  area?: Area;
+  areaGuessed?: boolean;
+  priority?: Priority;
+  due?: string;
+  dueTime?: string;
+  estimate?: number;
+  hard?: boolean;
+  template?: Template;
+  templateRest?: string;
+}
+
+// Arabic letters aren't \w, so build explicit word boundaries
+const B = '(?:^|\\s)';
+const E = '(?=\\s|$|[،,.!؟?])';
+
+const DAYS: [RegExp, number][] = [
+  [/الاحد|الأحد/, 0],
+  [/الاثنين|الإثنين|الاثنين|الأثنين/, 1],
+  [/الثلاثاء|الثلاثا|الثلاثا/, 2],
+  [/الاربعاء|الأربعاء|الاربعا|الأربعا/, 3],
+  [/الخميس/, 4],
+  [/الجمعة|الجمعه/, 5],
+  [/السبت/, 6],
+];
+
+const toWestern = (s: string) => s.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+
+export function parseQuick(input: string, templates: Template[] = [], now = Date.now()): Parsed {
+  let s = ' ' + toWestern(input) + ' ';
+  const out: Parsed = { title: '' };
+  const today = todayKey(now);
+  const take = (re: RegExp, fn: (m: RegExpMatchArray) => void) => {
+    const m = s.match(re);
+    if (m) {
+      fn(m);
+      s = s.replace(m[0], ' ');
+      return true;
+    }
+    return false;
+  };
+
+  // area tags
+  take(new RegExp(`${B}#(عمل|دراسة|دراسه|جامعة|جامعه|شخصي|حياة|حياه|بيت)${E}`), (m) => {
+    const t = m[1];
+    out.area = /عمل/.test(t) ? 'work' : /دراس|جامع/.test(t) ? 'study' : 'life';
+  });
+
+  // priority
+  take(new RegExp(`${B}(!!+|!?عاجل(?:ة|ه)?|ضروري(?:ة|ه)?)${E}`), () => (out.priority = 3)) ||
+    take(new RegExp(`${B}(!|!?مهم(?:ة|ه)?)${E}`), () => (out.priority = 2));
+  take(new RegExp(`${B}(لازم|موعد نهائي|ما يتأجل|مايتأجل|لا يتأجل)${E}`), () => (out.hard = true));
+
+  // durations (before times so "ساعتين" isn't a clock)
+  take(new RegExp(`${B}(\\d+(?:\\.\\d+)?)\\s*(د|دق|دقيقة|دقيقه|دقايق|دقائق)${E}`), (m) => (out.estimate = Math.round(+m[1])));
+  take(new RegExp(`${B}(\\d+(?:\\.\\d+)?)\\s*(س|ساعة|ساعه|ساعات)${E}`), (m) => (out.estimate = Math.round(+m[1] * 60)));
+  take(new RegExp(`${B}(ساعتين|ساعتان)${E}`), () => (out.estimate = 120));
+  take(new RegExp(`${B}(ساعة ونص|ساعه ونص|ساعة ونصف|ساعه ونصف)${E}`), () => (out.estimate = 90));
+  take(new RegExp(`${B}(نص ساعة|نص ساعه|نصف ساعة|نصف ساعه)${E}`), () => (out.estimate = 30));
+  take(new RegExp(`${B}(ربع ساعة|ربع ساعه)${E}`), () => (out.estimate = 15));
+
+  // dates
+  const dateHit =
+    take(new RegExp(`${B}(بعد بكرة|بعد بكره|بعد غد|بعد الغد)${E}`), () => (out.due = addDays(today, 2))) ||
+    take(new RegExp(`${B}(بكرة|بكره|غدا|غدًا|غداً|الغد)${E}`), () => (out.due = addDays(today, 1))) ||
+    take(new RegExp(`${B}(اليوم|الليلة|الليله|الحين)${E}`), () => (out.due = today)) ||
+    take(new RegExp(`${B}بعد\\s+(\\d+)\\s*(يوم|ايام|أيام)${E}`), (m) => (out.due = addDays(today, +m[1]))) ||
+    take(new RegExp(`${B}بعد\\s+(يومين)${E}`), () => (out.due = addDays(today, 2))) ||
+    take(new RegExp(`${B}بعد\\s+(اسبوع|أسبوع)${E}`), () => (out.due = addDays(today, 7))) ||
+    take(new RegExp(`${B}(\\d{1,2})[/\\-](\\d{1,2})(?:[/\\-](\\d{2,4}))?${E}`), (m) => {
+      const d = new Date(now);
+      let y = m[3] ? +m[3] : d.getFullYear();
+      if (y < 100) y += 2000;
+      let k = dateKey(new Date(y, +m[2] - 1, +m[1]));
+      if (!m[3] && k < today) k = dateKey(new Date(y + 1, +m[2] - 1, +m[1]));
+      out.due = k;
+    });
+  if (!dateHit) {
+    for (const [re, wd] of DAYS) {
+      const hit = take(new RegExp(`${B}(?:يوم\\s+)?(?:${re.source})${E}`), () => {
+        let diff = (wd - weekday(today) + 7) % 7;
+        if (diff === 0) diff = 7;
+        out.due = addDays(today, diff);
+      });
+      if (hit) break;
+    }
+  }
+
+  // clock time
+  take(
+    new RegExp(`${B}(?:الساعة|الساعه|ساعة|الساعة)?\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(ص|م|صباحا|صباحًا|صباحاً|الصبح|مساء|مساءً|مساءا|العصر|الظهر|الليل|بالليل)${E}`),
+    (m) => (out.dueTime = clock(+m[1], m[2] ? +m[2] : 0, m[3])),
+  ) ||
+    take(new RegExp(`${B}(?:الساعة|الساعه)\\s*(\\d{1,2})(?::(\\d{2}))?${E}`), (m) => (out.dueTime = clock(+m[1], m[2] ? +m[2] : 0))) ||
+    take(new RegExp(`${B}(\\d{1,2}):(\\d{2})${E}`), (m) => (out.dueTime = clock(+m[1], +m[2], undefined, true)));
+  if (out.dueTime && !out.due) out.due = today;
+
+  out.title = s.replace(/\s+/g, ' ').trim();
+
+  // area guess from keywords when not tagged
+  if (!out.area) {
+    const n = normalize(out.title);
+    if (/(اختبار|امتحان|مذاكره|مذاكرة|كويز|واجب|محاضره|محاضرة|مشروع التخرج|بحث|تكليف|مقرر|دكتور|جامعه)/.test(n)) {
+      out.area = 'study';
+      out.areaGuessed = true;
+    } else if (/(شركه|شركة|فاتوره|فاتورة|مورد|طباعه|طباعة|تصديق|الغرفه|مشتريات|عرض سعر|عقد|تحويل|معامله|ايميل|العميل)/.test(n)) {
+      out.area = 'work';
+      out.areaGuessed = true;
+    }
+  }
+
+  // reusable procedure match: "معاملة مؤسسة الأمل" → template "معاملة"
+  const nt = normalize(out.title);
+  for (const t of [...templates].sort((a, b) => b.name.length - a.name.length)) {
+    const nn = normalize(t.name);
+    if (nn && (nt === nn || nt.startsWith(nn + ' '))) {
+      out.template = t;
+      out.templateRest = out.title.split(/\s+/).slice(t.name.trim().split(/\s+/).length).join(' ');
+      break;
+    }
+  }
+  return out;
+}
+
+function clock(h: number, m: number, mark?: string, is24 = false): string {
+  if (mark) {
+    if (/^ص|صباح|الصبح/.test(mark)) {
+      if (h === 12) h = 0;
+    } else if (/الظهر/.test(mark)) {
+      if (h <= 5) h += 12;
+    } else if (h < 12) h += 12; // م، مساء، العصر، الليل
+  } else if (!is24 && h >= 1 && h <= 6) {
+    h += 12; // "الساعة 5" most likely means 5 PM
+  }
+  h = Math.min(23, Math.max(0, h));
+  return `${String(h).padStart(2, '0')}:${String(Math.min(59, m)).padStart(2, '0')}`;
+}
