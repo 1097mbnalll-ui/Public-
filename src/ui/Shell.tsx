@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { CoachChat } from './Coach';
 import { Sheet, useNow } from './kit';
 import { Icon } from './Icon';
 import { getState, mutate, rollover, useApp } from '../lib/store';
@@ -49,8 +48,6 @@ export function SheetHost() {
       return <Onboarding />;
     case 'transfer':
       return <TransferSheet />;
-    case 'coach':
-      return <CoachChat />;
   }
 }
 

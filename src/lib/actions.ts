@@ -591,10 +591,17 @@ export function setCoachLast(last: AppState['coach']['last']) {
   });
 }
 
-export function addCoachMessage(role: 'user' | 'assistant', text: string) {
+export function addCoachMessage(role: 'user' | 'assistant', text: string, actions?: AppState['coach']['chat'][number]['actions']) {
   mutate((s) => {
-    s.coach.chat.push({ role, text, at: now() });
+    s.coach.chat.push({ role, text, at: now(), ...(actions?.length ? { actions } : {}) });
     s.coach.chat = s.coach.chat.slice(-40);
+  });
+}
+
+export function markCoachActionUsed(index: number) {
+  mutate((s) => {
+    const m = s.coach.chat[index];
+    if (m) m.used = true;
   });
 }
 

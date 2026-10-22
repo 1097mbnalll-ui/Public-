@@ -186,10 +186,22 @@ export interface CoachSettings {
   about: string;
 }
 
+export interface CoachAction {
+  label: string;
+  /** defer: move the given task/procedure ids to tomorrow · go: open a page */
+  kind: 'defer' | 'go';
+  ids?: string[];
+  path?: string;
+}
+
 export interface CoachMessage {
   role: 'user' | 'assistant';
   text: string;
   at: number;
+  /** buttons under an assistant reply (e.g. «أجّلها لبكرة») */
+  actions?: CoachAction[];
+  /** set once an action was used, so it can't be applied twice */
+  used?: boolean;
 }
 
 export interface CoachState {

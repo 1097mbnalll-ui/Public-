@@ -17,6 +17,7 @@ export function PageTop({ title, sub, actions, back }: { title: React.ReactNode;
         )}
         <div className="actions">
           {actions}
+          <button className="icon-btn hide-desktop coach-top" onClick={() => go('coach')} aria-label={L("المدرب", "Coach")}><Icon name="coach" /></button>
           <button className="icon-btn hide-desktop" onClick={() => openSheet({ type: 'palette' })} aria-label={L("بحث", "Search")}><Icon name="search" /></button>
           <button className="icon-btn hide-desktop" onClick={() => go('me')} aria-label={L("أنت والإعدادات", "You & settings")}><Icon name="user" /></button>
         </div>

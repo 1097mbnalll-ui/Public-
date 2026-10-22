@@ -15,6 +15,7 @@ import { Insights } from './pages/Insights';
 import { Settings } from './pages/Settings';
 import { Import } from './pages/Import';
 import { Receive } from './pages/Receive';
+import { CoachPage } from './pages/Coach';
 import { todayKey } from './lib/dates';
 import { L } from './lib/i18n';
 
@@ -25,6 +26,7 @@ const NAV = [
   { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
+  { id: 'coach', get label() { return L('المدرب', "Coach"); }, icon: 'coach' },
 ];
 
 /** old links keep working */
@@ -101,6 +103,9 @@ export function App() {
     case 'receive':
       body = <Receive />;
       break;
+    case 'coach':
+      body = <CoachPage />;
+      break;
   }
 
   return (
@@ -138,7 +143,7 @@ export function App() {
         <button className="tab-add" onClick={() => openSheet({ type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
-        {NAV.slice(2).map((n) => (
+        {NAV.slice(2, 4).map((n) => (
           <button key={n.id} className={`tab ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
             <Icon name={n.icon} size={22} /> {n.label}
           </button>

@@ -114,7 +114,7 @@ a {
 
 .app {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100dvh;
 }
 
@@ -127,7 +127,8 @@ a {
   max-width: 920px;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top) + 14px) 16px calc(var(--tabbar) + env(safe-area-inset-bottom) + 40px);
-  overflow-x: hidden;
+  /* clip (not hidden) so sticky children like the coach composer still stick */
+  overflow-x: clip;
   animation: page-in 0.45s var(--ease);
 }
 
@@ -144,7 +145,7 @@ a {
 
 @media (min-width: 900px) {
   .app {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
   }
   .sidebar {
     display: flex;
@@ -389,7 +390,7 @@ h3 {
 .grid-2 {
   display: grid;
   gap: 16px;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 1100px) {
@@ -2223,7 +2224,7 @@ h3 {
 /* laptop: frosted sidebar, roomier content */
 @media (min-width: 900px) {
   .app {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 260px minmax(0, 1fr);
   }
   .sidebar {
     margin: 14px;
@@ -2406,4 +2407,62 @@ h3 {
   to {
     transform: rotate(360deg);
   }
+}
+
+.coach-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 140px);
+}
+
+.coach-page .coach-chat {
+  flex: 1;
+  padding-bottom: 12px;
+}
+
+.coach-hello {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 40px 0 20px;
+  text-align: center;
+}
+
+.coach-av.big {
+  width: 64px;
+  height: 64px;
+}
+
+.coach-compose {
+  position: sticky;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 30px);
+  padding: 12px;
+  border-radius: 24px;
+  background: var(--bar-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.coach-compose .hscroll {
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.coach-top {
+  color: var(--accent);
+}
+
+@media (min-width: 900px) {
+  .coach-compose {
+    bottom: 16px;
+  }
+}
+
+.coach-page,
+.coach-page > *,
+.coach-compose .hscroll {
+  min-width: 0;
+  max-width: 100%;
 }

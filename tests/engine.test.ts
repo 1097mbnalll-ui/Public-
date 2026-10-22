@@ -471,3 +471,37 @@ describe('today only holds what belongs to today', () => {
     expect(parseQuick('تسليم البحث ما يتأجل', [], NOW).hard).toBe(true);
   });
 });
+
+describe('assistant — answers from your data', () => {
+  it('understands everyday questions', async () => {
+    const { detectIntent } = await import('../src/lib/engine/assistant');
+    expect(detectIntent('وش عندي اليوم؟')).toBe('today');
+    expect(detectIntent('عطني ملخص')).toBe('summary');
+    expect(detectIntent('وش أأجل؟')).toBe('defer');
+    expect(detectIntent('وش رأيك في أدائي')).toBe('performance');
+    expect(detectIntent('وش أسوي الحين')).toBe('now');
+    expect(detectIntent('What can I postpone?')).toBe('defer');
+  });
+
+  it('«what can wait» never offers urgent items, and offers a one-tap move', async () => {
+    const { answer } = await import('../src/lib/engine/assistant');
+    const s = initialState();
+    s.tasks.push(task({ title: 'تجديد الجواز', priority: 3 }));
+    s.tasks.push(task({ title: 'دفع الفاتورة', priority: 1, due: addDays(TODAY, 1) }));
+    const r = answer('defer', s, 'firm', NOW);
+    expect(r.text).toContain('دفع الفاتورة');
+    const ids = r.actions?.[0].ids || [];
+    expect(ids).toHaveLength(1);
+    expect(s.tasks.find((t) => t.id === ids[0])?.title).toBe('دفع الفاتورة');
+  });
+
+  it('performance compares this week with last week', async () => {
+    const { performance } = await import('../src/lib/engine/assistant');
+    const s = initialState();
+    s.days[TODAY] = { done: 4, minutes: 60, study: 30 };
+    s.days[addDays(TODAY, -8)] = { done: 1, minutes: 10, study: 0 };
+    const p = performance(s, NOW);
+    expect(p.done7).toBe(4);
+    expect(p.donePrev7).toBe(1);
+  });
+});
