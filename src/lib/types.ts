@@ -184,6 +184,8 @@ export interface Settings {
   /** max study minutes per weekday */
   studyCap: number[];
   dayEnd: string; // HH:MM
+  /** interface language */
+  lang: 'ar' | 'en';
   /** focus session lengths, minutes */
   pomodoroWork: number;
   pomodoroBreak: number;

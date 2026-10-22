@@ -12,6 +12,7 @@ import { openSheet } from '../ui/sheets';
 import { useRoute } from '../ui/router';
 import { completeTaskUI } from '../ui/ops';
 import { toast } from '../ui/toast';
+import { L } from '../lib/i18n';
 
 export function TaskRow({ t }: { t: Task }) {
   const today = todayKey();
@@ -23,10 +24,10 @@ export function TaskRow({ t }: { t: Task }) {
   if (t.priority >= 2) meta.push(<span key="p" style={{ color: t.priority === 3 ? 'var(--red)' : 'var(--amber)' }}>{PRIORITY_LABEL[t.priority]}</span>);
   meta.push(<span key="a">{AREA_LABEL[t.area]}</span>);
   if (t.estimate) meta.push(<span key="e">{fmtMinutes(t.estimate)}</span>);
-  if (cl) meta.push(<span key="c">{cd}/{cl} خطوات</span>);
-  if (t.waitingOn) meta.push(<span key="w" style={{ color: 'var(--violet)' }}>بانتظار {t.waitingOn}</span>);
-  if (t.plannedFor === today && t.due !== today) meta.push(<span key="pl" style={{ color: 'var(--accent)' }}>في خطة اليوم</span>);
-  if (t.deferrals >= 2) meta.push(<span key="df">أُجّلت {t.deferrals}×</span>);
+  if (cl) meta.push(<span key="c">{cd}/{cl}{L(" خطوات", " steps")}</span>);
+  if (t.waitingOn) meta.push(<span key="w" style={{ color: 'var(--violet)' }}>{L("بانتظار ", "Waiting on ")}{t.waitingOn}</span>);
+  if (t.plannedFor === today && t.due !== today) meta.push(<span key="pl" style={{ color: 'var(--accent)' }}>{L("في خطة اليوم", "In today's plan")}</span>);
+  if (t.deferrals >= 2) meta.push(<span key="df">{L("أُجّلت ", "Postponed ")}{t.deferrals}×</span>);
   return (
     <div className={`r tap ${t.status !== 'open' ? 'done' : ''}`} onClick={() => openSheet({ type: 'task', id: t.id })}>
       <Check on={t.status === 'done'} onClick={() => (t.status === 'open' ? completeTaskUI(t.id) : A.reopenTask(t.id))} />
@@ -39,9 +40,7 @@ export function TaskRow({ t }: { t: Task }) {
         </div>
       </div>
       {t.status === 'open' && t.plannedFor !== today && t.due !== today && (
-        <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); A.planToday(t.id); toast('أُضيفت لخطة اليوم'); }} title="اعمل عليها اليوم">
-          لليوم
-        </button>
+        <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); A.planToday(t.id); toast(L('أُضيفت لخطة اليوم', "Added to today's plan")); }} title={L("اعمل عليها اليوم", "Work on it today")}>{L("لليوم", "Today")}</button>
       )}
     </div>
   );
@@ -72,12 +71,12 @@ export function Tasks() {
     const open = filtered.filter((t) => t.status === 'open' && !t.waitingOn);
     const sorted = [...open].sort((a, b) => scoreItem(b, today, Date.now()).score - scoreItem(a, today, Date.now()).score);
     const g: { k: string; title: string; items: Task[] }[] = [
-      { k: 'over', title: 'متأخرة', items: [] },
-      { k: 'today', title: 'اليوم', items: [] },
-      { k: 'tom', title: 'غدًا', items: [] },
-      { k: 'week', title: 'هذا الأسبوع', items: [] },
-      { k: 'later', title: 'لاحقًا', items: [] },
-      { k: 'none', title: 'بلا موعد', items: [] },
+      { k: 'over', title: L('متأخرة', "Overdue"), items: [] },
+      { k: 'today', title: L('اليوم', "Today"), items: [] },
+      { k: 'tom', title: L('غدًا', "Tomorrow"), items: [] },
+      { k: 'week', title: L('هذا الأسبوع', "This week"), items: [] },
+      { k: 'later', title: L('لاحقًا', "Later"), items: [] },
+      { k: 'none', title: L('بلا موعد', "No date"), items: [] },
     ];
     for (const t of sorted) {
       const d = t.due ? diffDays(today, t.due) : null;
@@ -99,9 +98,9 @@ export function Tasks() {
   return (
     <div>
       <PageTop
-        title="المهام"
-        sub={openCount ? `${openCount} مفتوحة` : 'كل ما تريد إنجازه، مرتب حسب الموعد والأهمية'}
-        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} /> مهمة</button>}
+        title={L("المهام", "Tasks")}
+        sub={openCount ? L(`${openCount} مفتوحة`, `${openCount} open`) : L('كل ما تريد إنجازه، مرتب حسب الموعد والأهمية', "Everything you want to get done, sorted by date and importance")}
+        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>}
       />
 
       <div className="col" style={{ gap: 12, marginBottom: 18 }}>
@@ -109,21 +108,21 @@ export function Tasks() {
           value={view}
           onChange={setView}
           options={[
-            { v: 'open', l: 'المفتوحة' },
-            { v: 'waiting', l: `بانتظار${waiting.length ? ` (${waiting.length})` : ''}` },
-            { v: 'done', l: 'المنجزة' },
-            { v: 'goals', l: 'الأهداف' },
+            { v: 'open', l: L('المفتوحة', "Open") },
+            { v: 'waiting', l: L(`بانتظار${waiting.length ? ` (${waiting.length})` : ''}`, `Waiting${waiting.length ? ` (${waiting.length})` : ''}`) },
+            { v: 'done', l: L('المنجزة', "Done") },
+            { v: 'goals', l: L('الأهداف', "Goals") },
           ]}
         />
         {view !== 'goals' && (
           <div className="row wrap" style={{ gap: 8 }}>
             <div className="row grow" style={{ minWidth: 200, position: 'relative' }}>
-              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث في المهام…" />
+              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث في المهام…", "Search tasks…")} />
             </div>
             <div className="row" style={{ gap: 6 }}>
               {(['all', 'study', 'work', 'life'] as const).map((a) => (
                 <button key={a} className={`chip btnish ${area === a ? 'on' : ''}`} onClick={() => setArea(a)}>
-                  {a === 'all' ? 'الكل' : AREA_LABEL[a]}
+                  {a === 'all' ? L('الكل', "All") : AREA_LABEL[a]}
                 </button>
               ))}
             </div>
@@ -131,8 +130,8 @@ export function Tasks() {
         )}
         {onlyOverdue && view === 'open' && (
           <div className="notice amber row between">
-            <span>تعرض المتأخرة فقط</span>
-            <a href="#/tasks">عرض الكل</a>
+            <span>{L("تعرض المتأخرة فقط", "Showing overdue only")}</span>
+            <a href="#/tasks">{L("عرض الكل", "Show all")}</a>
           </div>
         )}
       </div>
@@ -147,21 +146,21 @@ export function Tasks() {
             </div>
           ))
         ) : (
-          <div className="card"><Empty icon="tasks" title={q ? 'لا نتائج' : 'لا مهام مفتوحة'}>{q ? '' : 'أضف مهمة بزر + أو اضغط N.'}</Empty></div>
+          <div className="card"><Empty icon="tasks" title={q ? L('لا نتائج', "No results") : L('لا مهام مفتوحة', "No open tasks")}>{q ? '' : L('أضف مهمة بزر + أو اضغط N.', "Add a task with the + button or press N.")}</Empty></div>
         ))}
 
       {view === 'waiting' &&
         (waiting.length ? (
           <Group>{waiting.map((t) => <TaskRow key={t.id} t={t} />)}</Group>
         ) : (
-          <div className="card"><Empty icon="hourglass" title="لا شيء معلق">عندما تنتظر ردًا من أحد، اكتب اسمه في «بانتظار أحد؟» داخل المهمة.</Empty></div>
+          <div className="card"><Empty icon="hourglass" title={L("لا شيء معلق", "Nothing waiting")}>{L("عندما تنتظر ردًا من أحد، اكتب اسمه في «بانتظار أحد؟» داخل المهمة.", "When you're waiting on someone, write their name in “Waiting on someone?” inside the task.")}</Empty></div>
         ))}
 
       {view === 'done' &&
         (done.length ? (
           <Group>{done.slice(0, 200).map((t) => <TaskRow key={t.id} t={t} />)}</Group>
         ) : (
-          <div className="card"><Empty icon="check" title="لم تنجز مهام بعد" /></div>
+          <div className="card"><Empty icon="check" title={L("لم تنجز مهام بعد", "No tasks done yet")} /></div>
         ))}
 
       {view === 'goals' && <Goals />}
@@ -183,13 +182,13 @@ function Goals() {
   return (
     <div className="col" style={{ gap: 14 }}>
       <div className="card">
-        <div className="small muted" style={{ marginBottom: 10 }}>الأهداف الكبيرة تُقسّم لخطوات صغيرة، والخطوات تدخل خطتك اليومية تلقائيًا حسب أولويتها.</div>
+        <div className="small muted" style={{ marginBottom: 10 }}>{L("الأهداف الكبيرة تُقسّم لخطوات صغيرة، والخطوات تدخل خطتك اليومية تلقائيًا حسب أولويتها.", "Big goals get split into small steps, and the steps enter your daily plan automatically by priority.")}</div>
         <div className="row wrap" style={{ gap: 8 }}>
-          <input className="input grow" style={{ minWidth: 200 }} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="مثال: رفع معدلي إلى 4.5، إنهاء مشروع التخرج…" />
+          <input className="input grow" style={{ minWidth: 200 }} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder={L("مثال: رفع معدلي إلى 4.5، إنهاء مشروع التخرج…", "e.g. raise my GPA to 4.5, finish my graduation project…")} />
           <select className="select" style={{ width: 'auto' }} value={area} onChange={(e) => setArea(e.target.value as Area)}>
             {(['study', 'work', 'life'] as Area[]).map((a) => <option key={a} value={a}>{AREA_LABEL[a]}</option>)}
           </select>
-          <button className="btn primary" onClick={add} disabled={!title.trim()}>أضف هدفًا</button>
+          <button className="btn primary" onClick={add} disabled={!title.trim()}>{L("أضف هدفًا", "Add goal")}</button>
         </div>
       </div>
       {goals.length ? (
@@ -207,15 +206,15 @@ function Goals() {
                 <h3 style={{ margin: '10px 0 8px' }}>{g.doneAt ? '✓ ' : ''}{g.title}</h3>
                 <Bar value={ts.length ? d / ts.length : 0} color={`var(--${g.area})`} />
                 <div className="faint tiny" style={{ marginTop: 8 }}>
-                  {ts.length ? `${d}/${ts.length} خطوات` : 'لم تُقسّم بعد — افتحه وأضف خطوات'}
-                  {next && ` · التالي: ${next.title}`}
+                  {ts.length ? L(`${d}/${ts.length} خطوات`, `${d}/${ts.length} steps`) : L('لم تُقسّم بعد — افتحه وأضف خطوات', "Not split yet — open it and add steps")}
+                  {next && L(` · التالي: ${next.title}`, ` · next: ${next.title}`)}
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="card"><Empty icon="target" title="لا أهداف بعد" /></div>
+        <div className="card"><Empty icon="target" title={L("لا أهداف بعد", "No goals yet")} /></div>
       )}
     </div>
   );

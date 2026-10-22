@@ -7,9 +7,10 @@ import { calibration, taskTime } from './learning';
 import { availableFor, dayRecord, minutesLeftToday } from './capacity';
 import { planStudy, portionText, type StudyPlan } from './study';
 import { kindInfo, nextStep, procMinutes, procStage } from './procedures';
+import { L } from '../i18n';
 
-export const PRIORITY_LABEL: Record<Priority, string> = { 0: 'منخفضة', 1: 'عادية', 2: 'مهمة', 3: 'عاجلة' };
-export const AREA_LABEL: Record<Area, string> = { study: 'دراسة', work: 'عمل', life: 'شخصي' };
+export const PRIORITY_LABEL: Record<Priority, string> = { get 0() { return L('منخفضة', "Low"); }, get 1() { return L('عادية', "Normal"); }, get 2() { return L('مهمة', "Important"); }, get 3() { return L('عاجلة', "Urgent"); } };
+export const AREA_LABEL: Record<Area, string> = { get study() { return L('دراسة', "Study"); }, get work() { return L('عمل', "Work"); }, get life() { return L('شخصي', "Personal"); } };
 
 export interface Scored {
   score: number;
@@ -23,27 +24,27 @@ export function scoreItem(
 ): Scored {
   const reasons: string[] = [];
   let score = [8, 20, 38, 60][item.priority];
-  if (item.priority >= 2) reasons.push(item.priority === 3 ? 'عاجلة' : 'مهمة');
+  if (item.priority >= 2) reasons.push(item.priority === 3 ? L('عاجلة', "Urgent") : L('مهمة', "Important"));
   if (item.due) {
     const d = diffDays(today, item.due);
     let u: number;
     if (d < 0) {
       u = 55 + Math.min(25, -d * 5);
-      reasons.push(`متأخرة ${daysWord(-d)}`);
+      reasons.push(L(`متأخرة ${daysWord(-d)}`, `Overdue ${daysWord(-d)}`));
     } else if (d === 0) {
       u = 48;
-      reasons.push('موعدها اليوم');
+      reasons.push(L('موعدها اليوم', "Due today"));
     } else if (d === 1) {
       u = 34;
-      reasons.push('موعدها غدًا');
+      reasons.push(L('موعدها غدًا', "Due tomorrow"));
     } else if (d <= 3) {
       u = 22;
-      reasons.push(`موعدها بعد ${daysWord(d)}`);
+      reasons.push(L(`موعدها بعد ${daysWord(d)}`, `Due in ${daysWord(d)}`));
     } else if (d <= 7) u = 12;
     else u = 4;
     if (item.hard) {
       u *= 1.3;
-      if (d <= 3) reasons.push('لا تحتمل التأجيل');
+      if (d <= 3) reasons.push(L('لا تحتمل التأجيل', "Can't be postponed"));
     }
     score += u;
   }
@@ -52,7 +53,7 @@ export function scoreItem(
   const def = item.deferrals || 0;
   if (def) {
     score += Math.min(12, def * 4);
-    if (def >= 2) reasons.push(`أُجّلت ${def} مرات`);
+    if (def >= 2) reasons.push(L(`أُجّلت ${def} مرات`, `Postponed ${def} times`));
   }
   return { score: Math.round(score), reasons };
 }
@@ -122,17 +123,17 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
   // study blocks from the exam planner
   for (const ep of studyPlan.exams) {
     if (ep.todayMinutes <= 0) continue;
-    const units = ep.portion.map((x) => portionText(x, ep.course.sizeLabel)).join('، ');
+    const units = ep.portion.map((x) => portionText(x, ep.course.sizeLabel)).join(L('، ', ", "));
     const urgent = ep.status === 'behind' || ep.status === 'tight' || ep.daysLeft <= 3;
     cands.push({
       kind: 'study',
       id: ep.exam.id,
-      title: `مذاكرة ${ep.course.name}`,
+      title: L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`),
       sub: units ? `${units}` : undefined,
       area: 'study',
       minutes: ep.todayMinutes,
       score: urgent ? 90 : 55,
-      reasons: [`${ep.exam.title} ${ep.daysLeft === 1 ? 'غدًا' : `بعد ${daysWord(ep.daysLeft)}`}`],
+      reasons: [L(`${ep.exam.title} ${ep.daysLeft === 1 ? 'غدًا' : `بعد ${daysWord(ep.daysLeft)}`}`, `${ep.exam.title} ${ep.daysLeft === 1 ? 'tomorrow' : `in ${daysWord(ep.daysLeft)}`}`)],
       must: urgent,
       courseColor: ep.course.color,
     });
@@ -162,12 +163,12 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       (dueToday && !!t.dueTime) ||
       (dueTomorrow && t.hard);
     // the priority explanation leads the reasons
-    s.reasons = s.reasons.filter((r) => r !== 'عاجلة' && r !== 'مهمة');
-    if (urgent) s.reasons.unshift('عاجلة — ضرورية جدًا اليوم');
-    else if (importantDue) s.reasons.unshift(t.deferrals >= 2 ? `مهمة وأجّلتها ${t.deferrals} مرات — لا تؤجلها أكثر` : 'مهمة — اليوم آخر موعد مريح لها');
-    else if (important) s.reasons.unshift('مهمة — خلّصها اليوم أو بكرة');
-    if (dueTomorrow && must && !pinned && !urgent) s.reasons.push('ابدأ اليوم لتلحق غدًا');
-    if (pinned) s.reasons.unshift('خططت لها اليوم');
+    s.reasons = s.reasons.filter((r) => r !== L('عاجلة', "Urgent") && r !== L('مهمة', "Important"));
+    if (urgent) s.reasons.unshift(L('عاجلة — ضرورية جدًا اليوم', "Urgent — must be done today"));
+    else if (importantDue) s.reasons.unshift(t.deferrals >= 2 ? L(`مهمة وأجّلتها ${t.deferrals} مرات — لا تؤجلها أكثر`, `Important, postponed ${t.deferrals} times — don't postpone again`) : L('مهمة — اليوم آخر موعد مريح لها', "Important — today is its last comfortable day"));
+    else if (important) s.reasons.unshift(L('مهمة — خلّصها اليوم أو بكرة', "Important — finish it today or tomorrow"));
+    if (dueTomorrow && must && !pinned && !urgent) s.reasons.push(L('ابدأ اليوم لتلحق غدًا', "Start today to make tomorrow"));
+    if (pinned) s.reasons.unshift(L('خططت لها اليوم', "You planned it for today"));
     cands.push({
       kind: 'task',
       id: t.id,
@@ -193,13 +194,13 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
     const lvl = procLevel(p, today);
     if (stage === 'partial') {
       base.score += 10;
-      base.reasons.push('بدأت فيه ولم يكتمل');
+      base.reasons.push(L('بدأت فيه ولم يكتمل', "Started but not finished"));
     }
     // the priority explanation leads the reasons
-    base.reasons = base.reasons.filter((r) => r !== 'عاجلة' && r !== 'مهمة');
-    if (lvl.urgent) base.reasons.unshift('عاجل — ضروري جدًا اليوم');
-    else if (lvl.important && lvl.must) base.reasons.unshift((p.deferrals || 0) >= 2 ? `مهم وأجّلته ${p.deferrals} مرات — لا تؤجله أكثر` : 'مهم — اليوم آخر موعد مريح له');
-    else if (lvl.important) base.reasons.unshift('مهم — خلّصه اليوم أو بكرة');
+    base.reasons = base.reasons.filter((r) => r !== L('عاجلة', "Urgent") && r !== L('مهمة', "Important"));
+    if (lvl.urgent) base.reasons.unshift(L('عاجل — ضروري جدًا اليوم', "Urgent — must be done today"));
+    else if (lvl.important && lvl.must) base.reasons.unshift((p.deferrals || 0) >= 2 ? L(`مهم وأجّلته ${p.deferrals} مرات — لا تؤجله أكثر`, `Important, postponed ${p.deferrals} times — don't postpone again`) : L('مهم — اليوم آخر موعد مريح له', "Important — today is its last comfortable day"));
+    else if (lvl.important) base.reasons.unshift(L('مهم — خلّصه اليوم أو بكرة', "Important — finish it today or tomorrow"));
     cands.push({
       kind: 'procedure',
       id: p.id,
@@ -314,7 +315,7 @@ export function weekLoad(state: AppState, now = Date.now(), days = 7, study?: St
     for (const b of sp.byDay[day] || []) {
       const ep = sp.exams.find((e) => e.exam.id === b.examId);
       studyM += b.minutes;
-      items.push({ title: `مذاكرة ${ep?.course.name || ''}`, minutes: b.minutes, kind: 'study' });
+      items.push({ title: L(`مذاكرة ${ep?.course.name || ''}`, `Study ${ep?.course.name || ''}`), minutes: b.minutes, kind: 'study' });
     }
     let tasksM = 0;
     for (const t of openTasks(state)) {

@@ -405,3 +405,15 @@ describe('work procedures priority', () => {
     expect(a?.detail).not.toContain('«عاجل»');
   });
 });
+
+describe('quick add — English keywords', () => {
+  it('reads urgent / important / tomorrow / #work', () => {
+    const now = new Date(2026, 9, 22, 10).getTime();
+    const a = parseQuick('Renew passport urgent tomorrow #work', [], now);
+    expect(a.priority).toBe(3);
+    expect(a.area).toBe('work');
+    expect(a.due).toBe('2026-10-23');
+    expect(a.title).toBe('Renew passport');
+    expect(parseQuick('Send report important', [], now).priority).toBe(2);
+  });
+});

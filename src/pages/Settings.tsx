@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Collapse, Group, Row, Stepper, Switch } from '../ui/kit';
+import { Collapse, Group, Row, Seg, Stepper, Switch } from '../ui/kit';
 import { PageTop } from '../ui/PageTop';
 import { openSheet } from '../ui/sheets';
 import { receiveFile } from './Receive';
@@ -7,13 +7,14 @@ import { go } from '../ui/router';
 import { Icon } from '../ui/Icon';
 import { getState, replaceState, useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { DAY_NAMES, fmtDate, fmtMinutes, timeAgo } from '../lib/dates';
+import { dayNames, fmtDate, fmtMinutes, timeAgo } from '../lib/dates';
 import { notificationSupport, requestNotifications, showSystemNotification } from '../lib/reminders';
 import { getSnapshot, isPersisted, listSnapshots, requestPersistence } from '../lib/db';
 import { readBackup, type ImportPreview } from '../lib/backup';
 import { initialState } from '../lib/defaults';
 import { exportUI } from '../ui/ops';
 import { toast } from '../ui/toast';
+import { L } from '../lib/i18n';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -45,8 +46,8 @@ export function Settings() {
     setPerm(r);
     if (r === 'granted') {
       A.updateSettings({ notifications: true });
-      toast('فُعّلت إشعارات المتصفح');
-    } else if (r === 'denied') toast('الإذن مرفوض من المتصفح. فعّله من إعدادات الموقع في المتصفح.');
+      toast(L('فُعّلت إشعارات المتصفح', "Browser notifications enabled"));
+    } else if (r === 'denied') toast(L('الإذن مرفوض من المتصفح. فعّله من إعدادات الموقع في المتصفح.', "The browser denied permission. Allow it in the browser's site settings."));
   };
 
   const onFile = async (f?: File) => {
@@ -64,69 +65,71 @@ export function Settings() {
 
   return (
     <div>
-      <PageTop title="أنت" sub="وقتك، تنبيهاتك، بياناتك — وما تعلمه «مسار» عنك" />
+      <PageTop title={L("أنت", "You")} sub={L("وقتك، تنبيهاتك، بياناتك — وما تعلمه «مسار» عنك", "Your time, reminders, data — and what Masar has learned about you")} />
 
       <div className="stack">
         <Group>
           <div className="r">
             <span className="ic"><Icon name="user" size={16} /></span>
-            <input className="input bare grow" style={{ padding: 0 }} value={st.name} onChange={(e) => A.updateSettings({ name: e.target.value })} placeholder="اسمك (اختياري)" aria-label="الاسم" />
+            <input className="input bare grow" style={{ padding: 0 }} value={st.name} onChange={(e) => A.updateSettings({ name: e.target.value })} placeholder={L("اسمك (اختياري)", "Your name (optional)")} aria-label={L("الاسم", "Name")} />
           </div>
-          <Row icon="insights" iconColor="var(--accent)" label="ما تعلمته عنك" sub="دقة تقديراتك، سرعة مذاكرتك، أنماط التأجيل" chevron onClick={() => go('me/insights')} />
+          <div className="r">
+            <span className="ic"><Icon name="globe" size={16} /></span>
+            <span className="grow">{L("اللغة", "Language")}</span>
+            <Seg value={st.lang} options={[{ v: 'ar', l: 'العربية' }, { v: 'en', l: 'English' }]} onChange={(v) => A.updateSettings({ lang: v })} />
+          </div>
+          <Row icon="insights" iconColor="var(--accent)" label={L("ما تعلمته عنك", "What I've learned about you")} sub={L("دقة تقديراتك، سرعة مذاكرتك، أنماط التأجيل", "Estimate accuracy, study speed, postponing patterns")} chevron onClick={() => go('me/insights')} />
         </Group>
       </div>
 
-      <Section title="وقتك المتاح" desc="الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».">
+      <Section title={L("وقتك المتاح", "Your available time")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
         <AvailabilityEditor />
       </Section>
 
-      <Section title="التذكيرات والتنبيهات">
+      <Section title={L("التذكيرات والتنبيهات", "Reminders & notifications")}>
         <div className="notice">
           <Icon name="info" size={18} />
           <div>
-            <b>بصراحة عن حدود التنبيهات:</b> الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك».
-            للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.
-            {isIOS && !standalone && ' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.'}
+            <b>{L("بصراحة عن حدود التنبيهات:", "Honestly, about notification limits:")}</b>{L(" الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك». للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.", " the site sends browser notifications only while it's open (in a tab, even in the background). If it's closed, missed reminders appear when you open it, under “Missed while you were away”. For a guaranteed alert with the phone locked, use “Add to calendar” inside a task or exam — it adds an event with an alert to your device calendar.")}{isIOS && !standalone && L(' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.', " On iPhone: notifications require adding the site to the Home Screen (Share → Add to Home Screen) and opening it from there.")}
           </div>
         </div>
         <div className="row between">
           <div>
-            <div style={{ fontWeight: 500 }}>إشعارات المتصفح</div>
+            <div style={{ fontWeight: 500 }}>{L("إشعارات المتصفح", "Browser notifications")}</div>
             <div className="faint tiny">
-              {perm === 'unsupported' ? 'غير مدعومة في هذا المتصفح — التذكيرات تظهر داخل الموقع' : perm === 'granted' ? 'الإذن ممنوح' : perm === 'denied' ? 'مرفوضة من المتصفح' : 'لم يُطلب الإذن بعد'}
+              {perm === 'unsupported' ? L('غير مدعومة في هذا المتصفح — التذكيرات تظهر داخل الموقع', "Not supported in this browser — reminders show inside the site") : perm === 'granted' ? L('الإذن ممنوح', "Permission granted") : perm === 'denied' ? L('مرفوضة من المتصفح', "Denied by the browser") : L('لم يُطلب الإذن بعد', "Not requested yet")}
             </div>
           </div>
           {perm === 'granted' ? (
-            <Switch on={st.notifications} onChange={(v) => A.updateSettings({ notifications: v })} label="إشعارات المتصفح" />
+            <Switch on={st.notifications} onChange={(v) => A.updateSettings({ notifications: v })} label={L("إشعارات المتصفح", "Browser notifications")} />
           ) : perm !== 'unsupported' ? (
-            <button className="btn sm" onClick={enableNotif}>تفعيل</button>
+            <button className="btn sm" onClick={enableNotif}>{L("تفعيل", "Enable")}</button>
           ) : null}
         </div>
         {perm === 'granted' && st.notifications && (
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-            const ok = await showSystemNotification('تجربة من مسار', 'هكذا ستصلك التذكيرات.', 'test');
-            if (!ok) toast('تعذر إظهار الإشعار');
+            const ok = await showSystemNotification(L('تجربة من مسار', "Test from Masar"), L('هكذا ستصلك التذكيرات.', "This is how reminders will reach you."), 'test');
+            if (!ok) toast(L('تعذر إظهار الإشعار', "Couldn't show the notification"));
           }}>
-            <Icon name="bell" size={15} /> إشعار تجريبي
-          </button>
+            <Icon name="bell" size={15} />{L(" إشعار تجريبي", " Test notification")}</button>
         )}
         <div className="row between">
           <div>
-            <div style={{ fontWeight: 500 }}>تذكيرات تلقائية</div>
-            <div className="faint tiny">قبل موعد المهمة بساعة، ليلة الاختبار، وملخص الصباح.</div>
+            <div style={{ fontWeight: 500 }}>{L("تذكيرات تلقائية", "Automatic reminders")}</div>
+            <div className="faint tiny">{L("قبل موعد المهمة بساعة، ليلة الاختبار، وملخص الصباح.", "An hour before a task's time, the night before an exam, and a morning summary.")}</div>
           </div>
-          <Switch on={st.nudges} onChange={(v) => A.updateSettings({ nudges: v })} label="تذكيرات تلقائية" />
+          <Switch on={st.nudges} onChange={(v) => A.updateSettings({ nudges: v })} label={L("تذكيرات تلقائية", "Automatic reminders")} />
         </div>
         <div className="field">
-          <label>ملخص الصباح</label>
+          <label>{L("ملخص الصباح", "Morning summary")}</label>
           <input type="time" className="input" style={{ width: 160 }} value={st.morningBrief} onChange={(e) => A.updateSettings({ morningBrief: e.target.value })} />
         </div>
       </Section>
 
-      <Section title="جهاز آخر" desc="انقل كل بياناتك لجوال أو كمبيوتر آخر بدون حساب: تُشفّر بكود، وترسل الرابط لنفسك، وتفتحه هناك.">
+      <Section title={L("جهاز آخر", "Another device")} desc={L("انقل كل بياناتك لجوال أو كمبيوتر آخر بدون حساب: تُشفّر بكود، وترسل الرابط لنفسك، وتفتحه هناك.", "Move all your data to another phone or computer without an account: it's encrypted with a code, you send yourself the link, and open it there.")}>
         <div className="row wrap" style={{ gap: 8 }}>
-          <button className="btn primary" onClick={() => openSheet({ type: 'transfer' })}><Icon name="share" size={16} /> انقل بياناتي لجهاز آخر</button>
-          <button className="btn" onClick={() => xferRef.current?.click()}><Icon name="download" size={16} /> استقبل من ملف</button>
+          <button className="btn primary" onClick={() => openSheet({ type: 'transfer' })}><Icon name="share" size={16} />{L(" انقل بياناتي لجهاز آخر", " Move my data to another device")}</button>
+          <button className="btn" onClick={() => xferRef.current?.click()}><Icon name="download" size={16} />{L(" استقبل من ملف", " Receive from file")}</button>
           <input
             ref={xferRef}
             type="file"
@@ -139,56 +142,53 @@ export function Settings() {
             }}
           />
         </div>
-        <div className="faint tiny">وصلك رابط؟ افتحه فقط على الجهاز الآخر وسيطلب الكود.</div>
+        <div className="faint tiny">{L("وصلك رابط؟ افتحه فقط على الجهاز الآخر وسيطلب الكود.", "Got a link? Just open it on the other device and it will ask for the code.")}</div>
       </Section>
 
-      <Section title="بياناتك والنسخ الاحتياطي">
+      <Section title={L("بياناتك والنسخ الاحتياطي", "Your data & backups")}>
         <div className="notice">
           <Icon name="shield" size={18} />
-          <div>
-            كل بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط — لا تُرسل لأي خادم. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.
-            {s.meta.lastExportAt ? ` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.` : ' لم تنزّل نسخة بعد.'}
+          <div>{L("كل بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط — لا تُرسل لأي خادم. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.", "All your data is stored in this browser on this device only — never sent to a server. Clearing browser data erases it, so download a backup regularly.")}{s.meta.lastExportAt ? L(` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.`, ` Last backup: ${timeAgo(s.meta.lastExportAt)}.`) : L(' لم تنزّل نسخة بعد.', " No backup downloaded yet.")}
           </div>
         </div>
         <div className="row wrap" style={{ gap: 8 }}>
-          <button className="btn primary" onClick={exportUI}><Icon name="download" size={16} /> نزّل نسخة احتياطية</button>
-          <button className="btn" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} /> استعادة من ملف</button>
+          <button className="btn primary" onClick={exportUI}><Icon name="download" size={16} />{L(" نزّل نسخة احتياطية", " Download backup")}</button>
+          <button className="btn" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} />{L(" استعادة من ملف", " Restore from file")}</button>
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
         </div>
         {preview && (
           <div className="notice amber" style={{ flexDirection: 'column' }}>
             <div>
-              <b>ستُستبدل بياناتك الحالية بمحتوى الملف</b>{preview.exportedAt ? ` (نسخة ${new Date(preview.exportedAt).toLocaleString('ar')})` : ''}:{' '}
-              {preview.counts.map((c) => `${c.n} ${c.label}`).join('، ')}. تبقى نسخة من الحالية في «لقطات يومية» ويمكنك التراجع فورًا.
-            </div>
+              <b>{L("ستُستبدل بياناتك الحالية بمحتوى الملف", "Your current data will be replaced with the file's contents")}</b>{preview.exportedAt ? L(` (نسخة ${new Date(preview.exportedAt).toLocaleString('ar')})`, ` (backup from ${new Date(preview.exportedAt).toLocaleString('en')})`) : ''}:{' '}
+              {preview.counts.map((c) => `${c.n} ${c.label}`).join(L('، ', ", "))}{L(". تبقى نسخة من الحالية في «لقطات يومية» ويمكنك التراجع فورًا.", ". A copy of the current data stays in “Daily snapshots” and you can undo right away.")}</div>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn sm primary" onClick={async () => {
-                await replaceState(preview.state, 'استعادة نسخة');
+                await replaceState(preview.state, L('استعادة نسخة', "Restore backup"));
                 setPreview(null);
-                toast('استُعيدت البيانات', { undoable: true });
-              }}>استبدل</button>
-              <button className="btn sm" onClick={() => setPreview(null)}>إلغاء</button>
+                toast(L('استُعيدت البيانات', "Data restored"), { undoable: true });
+              }}>{L("استبدل", "Replace")}</button>
+              <button className="btn sm" onClick={() => setPreview(null)}>{L("إلغاء", "Cancel")}</button>
             </div>
           </div>
         )}
         <div className="row between">
           <div>
-            <div style={{ fontWeight: 500 }}>تخزين دائم</div>
-            <div className="faint tiny">{persisted === true ? 'مفعل — المتصفح لن يحذف بياناتك تلقائيًا عند امتلاء المساحة' : persisted === false ? 'غير مفعل — قد يحذف المتصفح البيانات عند ضيق المساحة' : 'غير مدعوم في هذا المتصفح'}</div>
+            <div style={{ fontWeight: 500 }}>{L("تخزين دائم", "Persistent storage")}</div>
+            <div className="faint tiny">{persisted === true ? L('مفعل — المتصفح لن يحذف بياناتك تلقائيًا عند امتلاء المساحة', "On — the browser won't delete your data automatically when space runs low") : persisted === false ? L('غير مفعل — قد يحذف المتصفح البيانات عند ضيق المساحة', "Off — the browser may delete data when space runs low") : L('غير مدعوم في هذا المتصفح', "Not supported in this browser")}</div>
           </div>
-          {persisted === false && <button className="btn sm" onClick={async () => { const r = await requestPersistence(); setPersisted(r); toast(r ? 'فُعّل التخزين الدائم' : 'رفض المتصفح الطلب — ثبّت الموقع كتطبيق ليزيد احتمال القبول'); }}>طلب</button>}
+          {persisted === false && <button className="btn sm" onClick={async () => { const r = await requestPersistence(); setPersisted(r); toast(r ? L('فُعّل التخزين الدائم', "Persistent storage enabled") : L('رفض المتصفح الطلب — ثبّت الموقع كتطبيق ليزيد احتمال القبول', "The browser refused — installing the site as an app makes approval more likely")); }}>{L("طلب", "Request")}</button>}
         </div>
         {snaps.length > 0 && (
           <div className="field">
-            <label>لقطات يومية تلقائية (آخر 14 يومًا)</label>
+            <label>{L("لقطات يومية تلقائية (آخر 14 يومًا)", "Automatic daily snapshots (last 14 days)")}</label>
             <div className="row wrap" style={{ gap: 6 }}>
               {snaps.map((d) => (
                 <button key={d} className="chip btnish" onClick={async () => {
-                  if (!confirm(`استرجاع بياناتك كما كانت ${fmtDate(d)}؟ يمكنك التراجع بعدها.`)) return;
+                  if (!confirm(L(`استرجاع بياناتك كما كانت ${fmtDate(d)}؟ يمكنك التراجع بعدها.`, `Restore your data as it was on ${fmtDate(d)}? You can undo afterwards.`))) return;
                   const snap = await getSnapshot(d);
                   if (snap) {
-                    await replaceState(snap, 'استرجاع لقطة');
-                    toast('استُرجعت اللقطة', { undoable: true });
+                    await replaceState(snap, L('استرجاع لقطة', "Restore snapshot"));
+                    toast(L('استُرجعت اللقطة', "Snapshot restored"), { undoable: true });
                   }
                 }}>
                   {fmtDate(d, false)}
@@ -199,22 +199,21 @@ export function Settings() {
         )}
         <div className="divider" />
         <button className="btn sm danger" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-          if (!confirm('مسح كل البيانات والبدء من جديد؟')) return;
-          if (!confirm('متأكد؟ نزّل نسخة احتياطية أولًا إن احتجتها.')) return;
-          await replaceState({ ...initialState(), meta: { ...initialState().meta, onboarded: true }, settings: getState().settings }, 'مسح الكل');
-          toast('مُسحت البيانات', { undoable: true });
+          if (!confirm(L('مسح كل البيانات والبدء من جديد؟', "Erase all data and start over?"))) return;
+          if (!confirm(L('متأكد؟ نزّل نسخة احتياطية أولًا إن احتجتها.', "Are you sure? Download a backup first if you need it."))) return;
+          await replaceState({ ...initialState(), meta: { ...initialState().meta, onboarded: true }, settings: getState().settings }, L('مسح الكل', "Erase all"));
+          toast(L('مُسحت البيانات', "Data erased"), { undoable: true });
         }}>
-          <Icon name="trash" size={15} /> مسح كل البيانات
-        </button>
+          <Icon name="trash" size={15} />{L(" مسح كل البيانات", " Erase all data")}</button>
       </Section>
 
-      <Section title="كيف يعمل «مسار»؟">
+      <Section title={L("كيف يعمل «مسار»؟", "How does Masar work?")}>
         <div className="small muted col" style={{ gap: 8 }}>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>ترتيب اليوم:</b> لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>تقدير المذاكرة:</b> حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>التعلم منك:</b> أقارن تقديراتك بالوقت الفعلي (المؤقت أو إجابتك بعد الإنجاز) وأصحح التقديرات القادمة. المهام التي لم تُنجز في يومها تعود مؤجلة ويُحسب تأجيلها.</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>ما لا يفعله:</b> لا يرسل رسائل ولا ملفات لأحد، ولا يستخدم ذكاءً اصطناعيًا خارجيًا، ولا يعرف إلا ما أدخلته.</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>اختصارات:</b> <span className="kbd">N</span> إضافة سريعة · <span className="kbd">/</span> أو <span className="kbd">Ctrl K</span> بحث.</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("تقدير المذاكرة:", "Study estimates:")}</b>{L(" حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.", " chapter size × difficulty × your speed measured from your sessions + review time. Shown as a range (low–high) that narrows as you log more sessions. Then I simulate the days until the exam against your study time and split it between exams.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("التعلم منك:", "Learning from you:")}</b>{L(" أقارن تقديراتك بالوقت الفعلي (المؤقت أو إجابتك بعد الإنجاز) وأصحح التقديرات القادمة. المهام التي لم تُنجز في يومها تعود مؤجلة ويُحسب تأجيلها.", " I compare your estimates with the real time (timer or your answer after finishing) and correct future estimates. Tasks not done on their day come back as postponed, and the postponement is counted.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يستخدم ذكاءً اصطناعيًا خارجيًا، ولا يعرف إلا ما أدخلته.", " it never sends messages or files to anyone, uses no external AI, and knows only what you entered.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("اختصارات:", "Shortcuts:")}</b> <span className="kbd">N</span>{L(" إضافة سريعة · ", " quick add · ")}<span className="kbd">/</span>{L(" أو ", " or ")}<span className="kbd">Ctrl K</span>{L(" بحث.", " search.")}</p>
         </div>
       </Section>
     </div>
@@ -238,43 +237,43 @@ function AvailabilityEditor() {
     A.updateSettings({ [key]: arr } as never);
   };
   const avg = (key: 'available' | 'studyCap', days: number[]) => Math.round(days.reduce((a, d) => a + st[key][d], 0) / days.length / 15) * 15;
-  const fmt = (m: number) => (m ? fmtMinutes(m) : 'لا شيء');
+  const fmt = (m: number) => (m ? fmtMinutes(m) : L('لا شيء', "None"));
   return (
     <div className="col" style={{ gap: 14 }}>
       {[
-        { label: 'الأحد – الخميس', days: WEEKDAYS },
-        { label: 'الجمعة – السبت', days: WEEKEND },
+        { label: L('الأحد – الخميس', "Sunday – Thursday"), days: WEEKDAYS },
+        { label: L('الجمعة – السبت', "Friday – Saturday"), days: WEEKEND },
       ].map((g) => (
         <div key={g.label} className="col" style={{ gap: 8 }}>
           <div style={{ fontWeight: 600 }}>{g.label}</div>
           <div className="row between wrap" style={{ gap: 8 }}>
-            <span className="muted small">وقت حر</span>
+            <span className="muted small">{L("وقت حر", "Free time")}</span>
             <Stepper value={avg('available', g.days)} onChange={(v) => setGroup('available', g.days, v)} format={fmt} />
           </div>
           <div className="row between wrap" style={{ gap: 8 }}>
-            <span className="muted small">منه مذاكرة بحد أقصى</span>
+            <span className="muted small">{L("منه مذاكرة بحد أقصى", "Of which study, at most")}</span>
             <Stepper value={avg('studyCap', g.days)} onChange={(v) => setGroup('studyCap', g.days, v)} format={fmt} />
           </div>
         </div>
       ))}
-      <Collapse title="تخصيص كل يوم على حدة">
+      <Collapse title={L("تخصيص كل يوم على حدة", "Customise each day")}>
         <div className="col" style={{ gap: 10 }}>
-          {DAY_NAMES.map((d, i) => (
+          {dayNames().map((d, i) => (
             <div key={d} className="row between wrap" style={{ gap: 8 }}>
               <span style={{ width: 70 }}>{d}</span>
               <Stepper value={st.available[i]} onChange={(v) => setDay('available', i, v)} format={fmt} />
-              <Stepper value={st.studyCap[i]} onChange={(v) => setDay('studyCap', i, v)} format={(m) => `مذاكرة ${fmt(m)}`} />
+              <Stepper value={st.studyCap[i]} onChange={(v) => setDay('studyCap', i, v)} format={(m) => L(`مذاكرة ${fmt(m)}`, `Study ${fmt(m)}`)} />
             </div>
           ))}
         </div>
       </Collapse>
       <div className="fields two">
         <div className="field">
-          <label>ينتهي يومك عادةً</label>
+          <label>{L("ينتهي يومك عادةً", "Your day usually ends at")}</label>
           <input type="time" className="input" value={st.dayEnd} onChange={(e) => A.updateSettings({ dayEnd: e.target.value || '23:30' })} />
         </div>
         <div className="field">
-          <label>وقت المراجعة فوق المذاكرة</label>
+          <label>{L("وقت المراجعة فوق المذاكرة", "Review time on top of study")}</label>
           <select className="select" value={st.reviewFactor} onChange={(e) => A.updateSettings({ reviewFactor: +e.target.value })}>
             {[0, 0.1, 0.2, 0.3, 0.5].map((x) => <option key={x} value={x}>{Math.round(x * 100)}%</option>)}
           </select>

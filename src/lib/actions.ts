@@ -7,6 +7,7 @@ import { addDays, addMonths, todayKey } from './dates';
 import { taskTime } from './engine/learning';
 import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
+import { L } from './i18n';
 
 const now = () => Date.now();
 
@@ -76,7 +77,7 @@ export function completeTask(id: string) {
         updatedAt: now(),
       });
     }
-  }, 'إنجاز مهمة');
+  }, L('إنجاز مهمة', "Complete task"));
 }
 
 /** record how long a finished task really took (feeds the estimate calibration) */
@@ -99,13 +100,13 @@ export function dropTask(id: string) {
   mutate((s) => {
     const t = s.tasks.find((x) => x.id === id);
     if (t) Object.assign(t, { status: 'dropped', updatedAt: now(), completedAt: now() });
-  }, 'إلغاء مهمة');
+  }, L('إلغاء مهمة', "Cancel task"));
 }
 
 export function deleteTask(id: string) {
   mutate((s) => {
     s.tasks = s.tasks.filter((t) => t.id !== id);
-  }, 'حذف مهمة');
+  }, L('حذف مهمة', "Delete task"));
 }
 
 export function deferTask(id: string, day = addDays(todayKey(), 1)) {
@@ -115,7 +116,7 @@ export function deferTask(id: string, day = addDays(todayKey(), 1)) {
     t.plannedFor = day;
     t.deferrals += 1;
     t.updatedAt = now();
-  }, 'تأجيل');
+  }, L('تأجيل', "Postpone"));
 }
 
 export function deferMany(ids: string[], day = addDays(todayKey(), 1)) {
@@ -130,10 +131,10 @@ export function deferMany(ids: string[], day = addDays(todayKey(), 1)) {
       if (ids.includes(p.id) && p.priority < 3) {
         p.plannedFor = day;
         p.deferrals = (p.deferrals || 0) + 1;
-        p.log.push({ at: now(), text: 'رُحّل إلى الغد' });
+        p.log.push({ at: now(), text: L('رُحّل إلى الغد', "Moved to tomorrow") });
         p.updatedAt = now();
       }
-  }, 'نقل للغد');
+  }, L('نقل للغد', "Move to tomorrow"));
 }
 
 export function planToday(id: string) {
@@ -161,7 +162,7 @@ export function deleteGoal(id: string) {
   mutate((s) => {
     s.goals = s.goals.filter((g) => g.id !== id);
     for (const t of s.tasks) if (t.goalId === id) t.goalId = undefined;
-  }, 'حذف هدف');
+  }, L('حذف هدف', "Delete goal"));
 }
 
 // ---------------- Procedures ----------------
@@ -179,7 +180,7 @@ export function addProcedure(title: string, template?: Template, extra?: Partial
       fields: tpl ? structuredClone(tpl.fields) : [],
       steps: (tpl?.steps || []).map((st) => ({ ...st, id: uid(), done: false })),
       priority: 1,
-      log: [{ at: now(), text: tpl ? `أُنشئ من قالب «${tpl.name}»` : 'أُنشئ' }],
+      log: [{ at: now(), text: tpl ? L(`أُنشئ من قالب «${tpl.name}»`, `Created from template “${tpl.name}”`) : L('أُنشئ', "Created") }],
       archived: false,
       createdAt: now(),
       updatedAt: now(),
@@ -213,21 +214,21 @@ export function toggleStep(procId: string, stepId: string, note?: string) {
       if (note) st.note = note;
       const info = kindInfo(st.kind);
       if (st.done) {
-        const verb = st.kind === 'send' ? `أكدت الإرسال${st.target ? ` إلى ${st.target}` : ''}` : st.kind === 'reply' ? `وصل الرد${st.target ? ` من ${st.target}` : ''}` : `تم: ${st.title}`;
+        const verb = st.kind === 'send' ? L(`أكدت الإرسال${st.target ? ` إلى ${st.target}` : ''}`, `Confirmed sent${st.target ? ` to ${st.target}` : ''}`) : st.kind === 'reply' ? L(`وصل الرد${st.target ? ` من ${st.target}` : ''}`, `Reply received${st.target ? ` from ${st.target}` : ''}`) : L(`تم: ${st.title}`, `Done: ${st.title}`);
         p.log.push({ at: now(), text: verb + (note ? ` — ${note}` : '') });
         bumpDay(s, { minutes: st.kind === 'reply' ? 0 : 10 });
       } else {
-        p.log.push({ at: now(), text: `أُعيد فتح خطوة (${info.label}): ${st.title}` });
+        p.log.push({ at: now(), text: L(`أُعيد فتح خطوة (${info.label}): ${st.title}`, `Step reopened (${info.label}): ${st.title}`) });
       }
       if (isProcDone(p) && !p.completedAt) {
         p.completedAt = now();
-        p.log.push({ at: now(), text: 'اكتمل الإجراء' });
+        p.log.push({ at: now(), text: L('اكتمل الإجراء', "Procedure completed") });
         bumpDay(s, { done: 1 });
       } else if (!isProcDone(p) && p.completedAt) {
         p.completedAt = undefined;
       }
     },
-    'تغيير خطوة',
+    L('تغيير خطوة', "Step change"),
   );
 }
 
@@ -243,7 +244,7 @@ export function addSteps(procId: string, steps: { title: string; kind: StepKind;
   withProc(procId, (p) => {
     for (const st of steps) p.steps.push({ ...st, id: uid(), done: false });
     if (p.completedAt) p.completedAt = undefined;
-    p.log.push({ at: now(), text: `أُضيفت ${steps.length} خطوات` });
+    p.log.push({ at: now(), text: L(`أُضيفت ${steps.length} خطوات`, `Added ${steps.length} steps`) });
   });
 }
 
@@ -255,7 +256,7 @@ export function updateStep(procId: string, stepId: string, patch: Partial<Step>)
 }
 
 export function removeStep(procId: string, stepId: string) {
-  withProc(procId, (p) => (p.steps = p.steps.filter((x) => x.id !== stepId)), 'حذف خطوة');
+  withProc(procId, (p) => (p.steps = p.steps.filter((x) => x.id !== stepId)), L('حذف خطوة', "Delete step"));
 }
 
 export function moveStep(procId: string, stepId: string, dir: -1 | 1) {
@@ -274,14 +275,14 @@ export function addLog(procId: string, text: string) {
 export function archiveProcedure(id: string, archived = true) {
   withProc(id, (p) => {
     p.archived = archived;
-    p.log.push({ at: now(), text: archived ? 'نُقل للأرشيف' : 'أُعيد من الأرشيف' });
-  }, archived ? 'أرشفة' : undefined);
+    p.log.push({ at: now(), text: archived ? L('نُقل للأرشيف', "Moved to archive") : L('أُعيد من الأرشيف', "Restored from archive") });
+  }, archived ? L('أرشفة', "Archive") : undefined);
 }
 
 export function deleteProcedure(id: string) {
   mutate((s) => {
     s.procedures = s.procedures.filter((p) => p.id !== id);
-  }, 'حذف إجراء');
+  }, L('حذف إجراء', "Delete procedure"));
 }
 
 export function duplicateProcedure(id: string): string {
@@ -292,9 +293,9 @@ export function duplicateProcedure(id: string): string {
     s.procedures.unshift({
       ...structuredClone(src),
       id: nid,
-      title: src.title + ' (نسخة)',
+      title: src.title + L(' (نسخة)', " (copy)"),
       steps: src.steps.map((st) => ({ ...st, id: uid(), done: false, doneAt: undefined, note: undefined })),
-      log: [{ at: now(), text: `نُسخ من «${src.title}»` }],
+      log: [{ at: now(), text: L(`نُسخ من «${src.title}»`, `Copied from “${src.title}”`) }],
       archived: false,
       completedAt: undefined,
       reminder: undefined,
@@ -331,7 +332,7 @@ export function templateFromProcedure(procId: string, name: string): string {
 export function deleteTemplate(id: string) {
   mutate((s) => {
     s.templates = s.templates.filter((t) => t.id !== id);
-  }, 'حذف قالب');
+  }, L('حذف قالب', "Delete template"));
 }
 
 // ---------------- Study ----------------
@@ -370,7 +371,7 @@ export function deleteCourse(id: string) {
     s.exams = s.exams.filter((e) => e.courseId !== id);
     s.sessions = s.sessions.filter((x) => x.courseId !== id);
     for (const e of s.exams) e.unitIds = e.unitIds.filter((u) => !unitIds.has(u));
-  }, 'حذف مادة');
+  }, L('حذف مادة', "Delete course"));
 }
 
 export function addUnits(courseId: string, units: { title: string; size: number; difficulty?: number }[]): string[] {
@@ -397,7 +398,7 @@ export function deleteUnit(id: string) {
   mutate((s) => {
     s.units = s.units.filter((u) => u.id !== id);
     for (const e of s.exams) e.unitIds = e.unitIds.filter((u) => u !== id);
-  }, 'حذف فصل');
+  }, L('حذف فصل', "Delete chapter"));
 }
 
 export function moveUnit(id: string, dir: -1 | 1) {
@@ -425,7 +426,7 @@ export function saveExam(e: Omit<Exam, 'id' | 'createdAt'> & { id?: string }): s
 export function deleteExam(id: string) {
   mutate((s) => {
     s.exams = s.exams.filter((e) => e.id !== id);
-  }, 'حذف اختبار');
+  }, L('حذف اختبار', "Delete exam"));
 }
 
 /** log real study: feeds progress, pace learning and today's capacity */
@@ -438,7 +439,7 @@ export function logStudy(courseId: string, unitId: string | undefined, minutes: 
       if (amount > 0 && u.size > 0) u.progress = Math.min(1, u.progress + amount / u.size);
     }
     bumpDay(s, { minutes, study: minutes });
-  }, 'تسجيل مذاكرة');
+  }, L('تسجيل مذاكرة', "Log study"));
 }
 
 // ---------------- Timer ----------------
@@ -485,7 +486,7 @@ export function stopTimer(): { minutes: number; timer: NonNullable<AppState['tim
       bumpDay(s, { minutes });
     } else if (t.kind === 'procedure') {
       const p = s.procedures.find((x) => x.id === t.refId);
-      if (p) p.log.push({ at: now(), text: `جلسة عمل ${minutes} د` });
+      if (p) p.log.push({ at: now(), text: L(`جلسة عمل ${minutes} د`, `Work session ${minutes} min`) });
       bumpDay(s, { minutes });
     }
   });
@@ -507,7 +508,7 @@ export function addThought(text: string, during?: string) {
 export function removeThought(id: string) {
   mutate((s) => {
     s.thoughts = s.thoughts.filter((x) => x.id !== id);
-  }, 'حذف فكرة');
+  }, L('حذف فكرة', "Delete thought"));
 }
 
 export function cancelTimer() {
@@ -556,7 +557,7 @@ export interface CoursePack {
 
 export function readCoursePack(raw: any): CoursePack {
   if (!raw || raw.app !== 'masar-course' || !raw.course?.name || !Array.isArray(raw.units))
-    throw new Error('هذا الملف ليس ملف مادة من «مسار».');
+    throw new Error(L('هذا الملف ليس ملف مادة من «مسار».', "This file is not a Masar course file."));
   const units = raw.units
     .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
     .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty }));

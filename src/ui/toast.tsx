@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { undo } from '../lib/store';
+import { L } from '../lib/i18n';
 
 export interface ToastBtn {
   label: string;
@@ -21,7 +22,7 @@ const emit = () => ls.forEach((l) => l());
 export function toast(text: string, opts: { buttons?: ToastBtn[]; undoable?: boolean; ms?: number } = {}) {
   const id = ++seq;
   const buttons = [...(opts.buttons || [])];
-  if (opts.undoable) buttons.push({ label: 'تراجع', fn: () => undo() });
+  if (opts.undoable) buttons.push({ label: L('تراجع', "Undo"), fn: () => undo() });
   toasts = [{ id, text, buttons }];
   emit();
   setTimeout(() => dismiss(id), opts.ms ?? (buttons.length ? 6500 : 3200));

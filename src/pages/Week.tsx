@@ -6,6 +6,7 @@ import { fmtDate, fmtMinutes, relDay, todayKey } from '../lib/dates';
 import { weekLoad } from '../lib/engine/planner';
 import { planStudy } from '../lib/engine/study';
 import * as A from '../lib/actions';
+import { L, turn } from '../lib/i18n';
 
 /** seven days at a glance: load vs. free time, so heavy days are visible before they arrive */
 export function WeekView() {
@@ -20,9 +21,8 @@ export function WeekView() {
   return (
     <div className="stack">
       <p className="muted small" style={{ margin: 0 }}>
-        {heavy ? `${heavy === 1 ? 'يوم واحد' : `${heavy} أيام`} أحمل من وقتك المتاح — انقل منها لأيام أخف من الآن.` : 'لا يوجد يوم محمّل فوق طاقتك هذا الأسبوع.'}
-        {' '}يشمل المذاكرة المحسوبة لاختباراتك والمهام ذات المواعيد.
-      </p>
+        {heavy ? L(`${heavy === 1 ? 'يوم واحد' : `${heavy} أيام`} أحمل من وقتك المتاح — انقل منها لأيام أخف من الآن.`, `${heavy === 1 ? 'One day is' : `${heavy} days are`} heavier than your available time — move things to lighter days now.`) : L('لا يوجد يوم محمّل فوق طاقتك هذا الأسبوع.', "No day this week is loaded beyond your capacity.")}
+        {' '}{L("يشمل المذاكرة المحسوبة لاختباراتك والمهام ذات المواعيد.", "Includes the study worked out for your exams and tasks with dates.")}</p>
       <div className="rows week-list">
         {days.map((d) => {
           const load = d.study + d.tasks;
@@ -32,19 +32,19 @@ export function WeekView() {
             <div key={d.day} className="r tap" onClick={() => setOpen(isOpen ? null : d.day)} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
               <div className="row" style={{ gap: 12 }}>
                 <div style={{ width: 74, flexShrink: 0 }}>
-                  <div style={{ fontWeight: 650, color: d.day === today ? 'var(--accent)' : undefined }}>{relDay(d.day, today) === 'اليوم' ? 'اليوم' : fmtDate(d.day).split(' ')[0]}</div>
+                  <div style={{ fontWeight: 650, color: d.day === today ? 'var(--accent)' : undefined }}>{relDay(d.day, today) === L('اليوم', "Today") ? L('اليوم', "Today") : fmtDate(d.day).split(' ')[0]}</div>
                   <div className="faint tiny">{fmtDate(d.day, false)}</div>
                 </div>
                 <div className="grow">
                   <Bar value={Math.min(1, ratio)} color={d.overloaded ? 'var(--red)' : ratio > 0.85 ? 'var(--amber)' : 'var(--green)'} />
                   <div className="row between tiny" style={{ marginTop: 6 }}>
                     <span className={d.overloaded ? '' : 'faint'} style={d.overloaded ? { color: 'var(--red)' } : undefined}>
-                      {fmtMinutes(load)} من {fmtMinutes(d.capacity)}
+                      {fmtMinutes(load)}{L(" من ", " of ")}{fmtMinutes(d.capacity)}
                     </span>
-                    {d.exams.length > 0 && <span style={{ color: 'var(--red)' }}><Icon name="flag" size={11} /> اختبار</span>}
+                    {d.exams.length > 0 && <span style={{ color: 'var(--red)' }}><Icon name="flag" size={11} />{L(" اختبار", " Exam")}</span>}
                   </div>
                 </div>
-                <Icon name="chevron" size={15} className="chev-end" style={{ transform: isOpen ? 'rotate(-90deg)' : undefined, transition: 'transform .2s' }} />
+                <Icon name="chevron" size={15} className="chev-end" style={{ transform: isOpen ? turn(-90) : undefined, transition: 'transform .2s' }} />
               </div>
               {isOpen && (
                 <div className="day-items" onClick={(e) => e.stopPropagation()}>
@@ -59,16 +59,16 @@ export function WeekView() {
                       <span className="faint num">{fmtMinutes(it.minutes)}</span>
                     </div>
                   ))}
-                  {!d.items.length && !d.exams.length && <div className="faint tiny">لا شيء مجدول</div>}
+                  {!d.items.length && !d.exams.length && <div className="faint tiny">{L("لا شيء مجدول", "Nothing scheduled")}</div>}
                   <div className="row wrap" style={{ gap: 4, marginTop: 4 }}>
-                    <span className="faint tiny">وقتك هذا اليوم:</span>
+                    <span className="faint tiny">{L("وقتك هذا اليوم:", "Your time this day:")}</span>
                     {[0, 120, 240, 360, 480].map((m) => (
                       <button key={m} className={`chip btnish ${s.dayOverrides[d.day] === m ? 'on' : ''}`} style={{ height: 26, padding: '0 8px', fontSize: 11 }} onClick={() => A.setDayOverride(d.day, m)}>
-                        {m ? fmtMinutes(m) : 'مشغول'}
+                        {m ? fmtMinutes(m) : L('مشغول', "Busy")}
                       </button>
                     ))}
                     {s.dayOverrides[d.day] != null && (
-                      <button className="chip btnish" style={{ height: 26, padding: '0 8px', fontSize: 11 }} onClick={() => A.setDayOverride(d.day, null)}>كالمعتاد</button>
+                      <button className="chip btnish" style={{ height: 26, padding: '0 8px', fontSize: 11 }} onClick={() => A.setDayOverride(d.day, null)}>{L("كالمعتاد", "As usual")}</button>
                     )}
                   </div>
                 </div>

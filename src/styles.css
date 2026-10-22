@@ -1455,6 +1455,10 @@ details[open] .chev {
   transform: rotate(-90deg);
 }
 
+[dir='ltr'] details[open] .chev {
+  transform: rotate(90deg);
+}
+
 .chev {
   transition: transform 0.25s var(--ease);
 }

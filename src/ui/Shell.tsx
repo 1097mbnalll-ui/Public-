@@ -16,6 +16,7 @@ import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
 import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
+import { L } from '../lib/i18n';
 
 export function SheetHost() {
   const sh = useSheet();
@@ -64,7 +65,7 @@ export function finishTimerUI() {
   const r = A.stopTimer();
   if (!r) return;
   if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
-  else toast(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`);
+  else toast(L(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`, `Logged ${fmtMinutes(r.minutes)} on “${r.timer.label}”`));
 }
 
 /** compact bar while a session runs outside focus mode; tap it to go back into focus */
@@ -81,18 +82,18 @@ export function TimerBar() {
   const elapsed = A.timerElapsed(timer);
   return (
     <div className="timerbar" role="status">
-      <button className="row" style={{ gap: 8, minWidth: 0 }} onClick={() => A.setFocus(true)} title="افتح وضع التركيز">
+      <button className="row" style={{ gap: 8, minWidth: 0 }} onClick={() => A.setFocus(true)} title={L("افتح وضع التركيز", "Open focus mode")}>
         {timer.running ? <span className="pulse" /> : <Icon name="pause" size={14} className="faint" />}
         <span className="ellipsis small" style={{ maxWidth: 150 }}>{timer.label}</span>
         <span className="clock">{clock(elapsed)}</span>
       </button>
       {timer.running ? (
-        <button className="icon-btn sm" onClick={A.pauseTimer} aria-label="إيقاف مؤقت"><Icon name="pause" size={16} /></button>
+        <button className="icon-btn sm" onClick={A.pauseTimer} aria-label={L("إيقاف مؤقت", "Pause")}><Icon name="pause" size={16} /></button>
       ) : (
-        <button className="icon-btn sm" onClick={A.resumeTimer} aria-label="استئناف"><Icon name="play" size={14} /></button>
+        <button className="icon-btn sm" onClick={A.resumeTimer} aria-label={L("استئناف", "Resume")}><Icon name="play" size={14} /></button>
       )}
-      <button className="icon-btn sm" onClick={finishTimerUI} aria-label="إنهاء وحفظ" style={{ color: 'var(--accent)' }}><Icon name="stop" size={15} /></button>
-      <button className="icon-btn sm" onClick={() => { if (confirm('إلغاء المؤقت بدون حفظ الوقت؟')) A.cancelTimer(); }} aria-label="إلغاء"><Icon name="x" size={15} /></button>
+      <button className="icon-btn sm" onClick={finishTimerUI} aria-label={L("إنهاء وحفظ", "Finish & save")} style={{ color: 'var(--accent)' }}><Icon name="stop" size={15} /></button>
+      <button className="icon-btn sm" onClick={() => { if (confirm(L('إلغاء المؤقت بدون حفظ الوقت؟', "Cancel the timer without saving the time?"))) A.cancelTimer(); }} aria-label={L("إلغاء", "Cancel")}><Icon name="x" size={15} /></button>
     </div>
   );
 }
@@ -111,7 +112,7 @@ export function useHeartbeat() {
       for (const r of live)
         toast(`🔔 ${r.title} — ${r.body}`, {
           ms: 12000,
-          buttons: r.ref ? [{ label: 'افتح', fn: () => openRef(r.ref!) }] : [],
+          buttons: r.ref ? [{ label: L('افتح', "Open"), fn: () => openRef(r.ref!) }] : [],
         });
     };
     const first = setTimeout(run, 1500);
@@ -173,43 +174,39 @@ function Onboarding() {
     A.setMeta({ onboarded: true });
     requestPersistence();
     closeSheet();
-    toast('جاهز. ابدأ بإضافة أول مهمة أو مادة.', { buttons: [{ label: 'أضف', fn: () => openSheet({ type: 'quick' }), primary: true }] });
+    toast(L('جاهز. ابدأ بإضافة أول مهمة أو مادة.', "Ready. Start by adding your first task or course."), { buttons: [{ label: L('أضف', "Add"), fn: () => openSheet({ type: 'quick' }), primary: true }] });
   };
 
   const hours = [60, 120, 180, 240, 300, 360, 480];
   return (
-    <Sheet title={['أهلًا بك في «مسار»', 'كم وقتك المتاح؟', 'قبل أن نبدأ'][step]} onClose={() => { A.setMeta({ onboarded: true }); closeSheet(); }}
+    <Sheet title={[L('أهلًا بك في «مسار»', "Welcome to Masar"), L('كم وقتك المتاح؟', "How much time do you have?"), L('قبل أن نبدأ', "Before we start")][step]} onClose={() => { A.setMeta({ onboarded: true }); closeSheet(); }}
       footer={
         <>
-          {step > 0 && <button className="btn" onClick={() => setStep(step - 1)}>رجوع</button>}
+          {step > 0 && <button className="btn" onClick={() => setStep(step - 1)}>{L("رجوع", "Back")}</button>}
           <span className="grow" />
-          {step < 2 ? <button className="btn primary" onClick={() => setStep(step + 1)}>التالي</button> : <button className="btn primary" onClick={finish}>ابدأ</button>}
+          {step < 2 ? <button className="btn primary" onClick={() => setStep(step + 1)}>{L("التالي", "Next")}</button> : <button className="btn primary" onClick={finish}>{L("ابدأ", "Start")}</button>}
         </>
       }>
       {step === 0 && (
         <div className="col" style={{ gap: 14 }}>
-          <p className="muted" style={{ margin: 0 }}>
-            مساعد شخصي يرتب يومك بين الجامعة والعمل والحياة: يحسب ما يتسع له وقتك فعلًا، ينبهك مبكرًا إذا كان اختبار أو موعد في خطر، ويتابع خطوات إجراءات العمل حتى لا تضيع خطوة.
-          </p>
+          <p className="muted" style={{ margin: 0 }}>{L("مساعد شخصي يرتب يومك بين الجامعة والعمل والحياة: يحسب ما يتسع له وقتك فعلًا، ينبهك مبكرًا إذا كان اختبار أو موعد في خطر، ويتابع خطوات إجراءات العمل حتى لا تضيع خطوة.", "A personal assistant that arranges your day across university, work and life: it calculates what your time can really hold, warns you early when an exam or deadline is at risk, and tracks the steps of work procedures so none get lost.")}</p>
           <div className="field">
-            <label>ماذا أناديك؟ (اختياري)</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="اسمك" />
+            <label>{L("ماذا أناديك؟ (اختياري)", "What should I call you? (optional)")}</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={L("اسمك", "Your name")} />
           </div>
         </div>
       )}
       {step === 1 && (
         <div className="col" style={{ gap: 16 }}>
-          <p className="muted small" style={{ margin: 0 }}>
-            الوقت الحر للمذاكرة والمهام <b>خارج</b> الدوام والمحاضرات. تقدير تقريبي يكفي، وتقدر تعدّله لكل يوم لاحقًا.
-          </p>
+          <p className="muted small" style={{ margin: 0 }}>{L("الوقت الحر للمذاكرة والمهام ", "Free time for study and tasks ")}<b>{L("خارج", "outside")}</b>{L(" الدوام والمحاضرات. تقدير تقريبي يكفي، وتقدر تعدّله لكل يوم لاحقًا.", " work and lectures. A rough estimate is enough; you can adjust each day later.")}</p>
           <div className="field">
-            <label>أيام الأسبوع (الأحد – الخميس)</label>
+            <label>{L("أيام الأسبوع (الأحد – الخميس)", "Weekdays (Sunday – Thursday)")}</label>
             <div className="row wrap" style={{ gap: 6 }}>
               {hours.map((m) => <button key={m} className={`chip btnish ${weekday === m ? 'on' : ''}`} onClick={() => setWeekday(m)}>{fmtMinutes(m)}</button>)}
             </div>
           </div>
           <div className="field">
-            <label>نهاية الأسبوع (الجمعة – السبت)</label>
+            <label>{L("نهاية الأسبوع (الجمعة – السبت)", "Weekend (Friday – Saturday)")}</label>
             <div className="row wrap" style={{ gap: 6 }}>
               {hours.map((m) => <button key={m} className={`chip btnish ${weekend === m ? 'on' : ''}`} onClick={() => setWeekend(m)}>{fmtMinutes(m)}</button>)}
             </div>
@@ -218,16 +215,15 @@ function Onboarding() {
       )}
       {step === 2 && (
         <div className="col" style={{ gap: 12 }}>
-          <div className="notice"><Icon name="shield" size={18} /><div><b>بياناتك على جهازك فقط.</b> لا حسابات ولا خوادم. نزّل نسخة احتياطية من الإعدادات بين فترة وأخرى.</div></div>
-          <div className="notice"><Icon name="bell" size={18} /><div><b>التنبيهات تعمل والموقع مفتوح.</b> ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».</div></div>
-          <div className="notice"><Icon name="info" size={18} /><div><b>كل الحسابات من بياناتك.</b> لا يوجد ذكاء اصطناعي خارجي؛ التقديرات تتحسن كلما سجلت وقتك الفعلي.</div></div>
+          <div className="notice"><Icon name="shield" size={18} /><div><b>{L("بياناتك على جهازك فقط.", "Your data stays on your device.")}</b>{L(" لا حسابات ولا خوادم. نزّل نسخة احتياطية من الإعدادات بين فترة وأخرى.", " No accounts, no servers. Download a backup from settings every now and then.")}</div></div>
+          <div className="notice"><Icon name="bell" size={18} /><div><b>{L("التنبيهات تعمل والموقع مفتوح.", "Reminders work while the site is open.")}</b>{L(" ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».", " Anything missed while it's closed shows up when you open it. For guaranteed alerts use the “Add to calendar” button.")}</div></div>
+          <div className="notice"><Icon name="info" size={18} /><div><b>{L("كل الحسابات من بياناتك.", "All calculations come from your data.")}</b>{L(" لا يوجد ذكاء اصطناعي خارجي؛ التقديرات تتحسن كلما سجلت وقتك الفعلي.", " No external AI; estimates improve as you log your real time.")}</div></div>
           <button className="btn" onClick={async () => {
             const r = await requestNotifications();
-            if (r === 'granted') { A.updateSettings({ notifications: true }); toast('فُعّلت إشعارات المتصفح'); }
-            else toast(r === 'unsupported' ? 'هذا المتصفح لا يدعم الإشعارات — ستظهر التذكيرات داخل الموقع' : 'لم يُمنح الإذن — ستظهر التذكيرات داخل الموقع');
+            if (r === 'granted') { A.updateSettings({ notifications: true }); toast(L('فُعّلت إشعارات المتصفح', "Browser notifications enabled")); }
+            else toast(r === 'unsupported' ? L('هذا المتصفح لا يدعم الإشعارات — ستظهر التذكيرات داخل الموقع', "This browser doesn't support notifications — reminders will show inside the site") : L('لم يُمنح الإذن — ستظهر التذكيرات داخل الموقع', "Permission not granted — reminders will show inside the site"));
           }}>
-            <Icon name="bell" size={16} /> فعّل إشعارات المتصفح
-          </button>
+            <Icon name="bell" size={16} />{L(" فعّل إشعارات المتصفح", " Enable browser notifications")}</button>
         </div>
       )}
     </Sheet>

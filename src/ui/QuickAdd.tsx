@@ -10,6 +10,7 @@ import type { Area, Priority, Template } from '../lib/types';
 import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { go } from './router';
+import { L, turn } from '../lib/i18n';
 
 /**
  * One field. Type naturally; what was understood shows as chips you can tap to change.
@@ -44,8 +45,8 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
       if (openAfter || !tpl) go(`work/${id}`);
       else
         toast(
-          fPrio === 3 ? `🔴 «${title}» عاجل — في قائمة اليوم ولا يتأجل` : fPrio === 2 ? `«${title}» مهم — خلّصه اليوم أو بكرة` : `أُضيف الإجراء «${title}» بـ ${tpl.steps.length} خطوات`,
-          { buttons: [{ label: 'افتح', fn: () => go(`work/${id}`) }], ms: fPrio >= 2 ? 7000 : undefined },
+          fPrio === 3 ? L(`🔴 «${title}» عاجل — في قائمة اليوم ولا يتأجل`, `🔴 “${title}” is urgent — in today's list and never postponed`) : fPrio === 2 ? L(`«${title}» مهم — خلّصه اليوم أو بكرة`, `“${title}” is important — finish it today or tomorrow`) : L(`أُضيف الإجراء «${title}» بـ ${tpl.steps.length} خطوات`, `Added procedure “${title}” with ${tpl.steps.length} steps`),
+          { buttons: [{ label: L('افتح', "Open"), fn: () => go(`work/${id}`) }], ms: fPrio >= 2 ? 7000 : undefined },
         );
     } else {
       const id = addTask({ title, area: fArea, priority: fPrio, due: fDue, dueTime: p.dueTime, estimate: p.estimate, hard: !!p.hard });
@@ -53,28 +54,28 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
       if (openAfter) openSheet({ type: 'task', id });
       else
         toast(
-          fPrio === 3 ? `🔴 «${title}» عاجلة — أُضيفت لمهام اليوم وسأنبهك بها` : fPrio === 2 ? `«${title}» مهمة — خلّصها اليوم أو بكرة` : `أُضيفت «${title}»`,
-          { buttons: [{ label: 'تفاصيل', fn: () => openSheet({ type: 'task', id }) }], undoable: true, ms: fPrio >= 2 ? 7000 : undefined },
+          fPrio === 3 ? L(`🔴 «${title}» عاجلة — أُضيفت لمهام اليوم وسأنبهك بها`, `🔴 “${title}” is urgent — added to today and I'll remind you`) : fPrio === 2 ? L(`«${title}» مهمة — خلّصها اليوم أو بكرة`, `“${title}” is important — finish it today or tomorrow`) : L(`أُضيفت «${title}»`, `Added “${title}”`),
+          { buttons: [{ label: L('تفاصيل', "Details"), fn: () => openSheet({ type: 'task', id }) }], undoable: true, ms: fPrio >= 2 ? 7000 : undefined },
         );
     }
   };
 
   const dayChips = [
-    { k: today, l: 'اليوم' },
-    { k: addDays(today, 1), l: 'غدًا' },
-    { k: addDays(today, 7), l: 'بعد أسبوع' },
+    { k: today, l: L('اليوم', "Today") },
+    { k: addDays(today, 1), l: L('غدًا', "Tomorrow") },
+    { k: addDays(today, 7), l: L('بعد أسبوع', "In a week") },
   ];
 
   return (
     <Sheet
-      title="جديد"
+      title={L("جديد", "New")}
       onClose={closeSheet}
       footer={
         <>
           <button className="btn primary grow" onClick={() => save()} disabled={!title && !tpl}>
-            {asProc ? 'أنشئ الإجراء' : 'أضف'}
+            {asProc ? L('أنشئ الإجراء', "Create procedure") : L('أضف', "Add")}
           </button>
-          <button className="btn" onClick={() => save(true)} disabled={!title && !tpl}>إضافة وتفاصيل</button>
+          <button className="btn" onClick={() => save(true)} disabled={!title && !tpl}>{L("إضافة وتفاصيل", "Add & details")}</button>
         </>
       }
     >
@@ -82,26 +83,26 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
         <input
           className="input big"
           autoFocus
-          placeholder={asProc ? 'اسم الإجراء، مثل: معاملة مؤسسة الأمل' : 'ماذا تريد أن تنجز؟'}
+          placeholder={asProc ? L('اسم الإجراء، مثل: معاملة مؤسسة الأمل', "Procedure name, e.g. Transaction Al-Amal Co.") : L('ماذا تريد أن تنجز؟', "What do you want to get done?")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && save()}
-          aria-label="نص المهمة"
+          aria-label={L("نص المهمة", "Task text")}
         />
 
         {/* what the app understood — tap to change */}
         <div className="parse-chips">
           {fDue ? (
-            <button className="chip blue" onClick={() => setDay(null)} title="إزالة الموعد"><Icon name="week" size={13} /> {relDay(fDue)} <Icon name="x" size={11} /></button>
+            <button className="chip blue" onClick={() => setDay(null)} title={L("إزالة الموعد", "Remove date")}><Icon name="week" size={13} /> {relDay(fDue)} <Icon name="x" size={11} /></button>
           ) : null}
           {p.dueTime && <span className="chip blue"><Icon name="clock" size={13} /> {fmtClock(p.dueTime)}</span>}
           {p.estimate && !asProc && <span className="chip"><Icon name="hourglass" size={13} /> {fmtMinutes(p.estimate)}</span>}
-          {fPrio >= 2 && <button className={`chip ${fPrio === 3 ? 'red' : 'amber'}`} onClick={() => setPrio(1)}>{fPrio === 3 ? 'عاجلة' : 'مهمة'} <Icon name="x" size={11} /></button>}
-          {p.hard && <span className="chip red">لا يتأجل</span>}
+          {fPrio >= 2 && <button className={`chip ${fPrio === 3 ? 'red' : 'amber'}`} onClick={() => setPrio(1)}>{fPrio === 3 ? L('عاجلة', "Urgent") : L('مهمة', "Important")} <Icon name="x" size={11} /></button>}
+          {p.hard && <span className="chip red">{L("لا يتأجل", "Can't be postponed")}</span>}
           {asProc ? (
-            <span className="chip work"><Icon name="work" size={13} /> إجراء عمل{tpl ? ` · ${tpl.steps.length} خطوات` : ''}</span>
+            <span className="chip work"><Icon name="work" size={13} />{L(" إجراء عمل", " Work procedure")}{tpl ? L(` · ${tpl.steps.length} خطوات`, ` · ${tpl.steps.length} steps`) : ''}</span>
           ) : (
-            title && <span className={`chip ${fArea}`}>{AREA_LABEL[fArea]}{p.areaGuessed && !area ? '؟' : ''}</span>
+            title && <span className={`chip ${fArea}`}>{AREA_LABEL[fArea]}{p.areaGuessed && !area ? L('؟', "?") : ''}</span>
           )}
         </div>
 
@@ -109,15 +110,15 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
           <div className="notice">
             <Icon name="layers" size={18} />
             <div className="grow small">
-              {useTpl ? <>من قالب «{p.template.name}»: {p.template.steps.map((x) => x.title).join(' ← ')}</> : 'ستُضاف كمهمة عادية بلا خطوات.'}
+              {useTpl ? <>{L("من قالب «", "From template “")}{p.template.name}»: {p.template.steps.map((x) => x.title).join(' ← ')}</> : L('ستُضاف كمهمة عادية بلا خطوات.', "Will be added as a plain task without steps.")}
             </div>
-            <button className="btn sm" onClick={() => setUseTpl(!useTpl)}>{useTpl ? 'مهمة عادية' : 'القالب'}</button>
+            <button className="btn sm" onClick={() => setUseTpl(!useTpl)}>{useTpl ? L('مهمة عادية', "Plain task") : L('القالب', "Template")}</button>
           </div>
         )}
 
         {!text && s.templates.length > 0 && (
           <div>
-            <div className="label" style={{ marginBottom: 6 }}>أو ابدأ إجراء عمل متكرر</div>
+            <div className="label" style={{ marginBottom: 6 }}>{L("أو ابدأ إجراء عمل متكرر", "Or start a recurring work procedure")}</div>
             <div className="hscroll">
               {s.templates.slice().sort((a, b) => b.uses - a.uses).map((t) => (
                 <button key={t.id} className="chip btnish" onClick={() => setText(t.name + ' ')}>
@@ -133,18 +134,17 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
           {dayChips.map((d) => (
             <button key={d.l} className={`chip btnish ${fDue === d.k ? 'on' : ''}`} onClick={() => setDay(fDue === d.k ? null : d.k)}>{d.l}</button>
           ))}
-          <button className={`chip btnish ${fPrio === 2 ? 'on' : ''}`} onClick={() => setPrio(fPrio === 2 ? 1 : 2)}>مهمة</button>
-          <button className={`chip btnish ${fPrio === 3 ? 'on' : ''}`} onClick={() => setPrio(fPrio === 3 ? 1 : 3)}>عاجلة</button>
+          <button className={`chip btnish ${fPrio === 2 ? 'on' : ''}`} onClick={() => setPrio(fPrio === 2 ? 1 : 2)}>{L("مهمة", "Important")}</button>
+          <button className={`chip btnish ${fPrio === 3 ? 'on' : ''}`} onClick={() => setPrio(fPrio === 3 ? 1 : 3)}>{L("عاجلة", "Urgent")}</button>
           {!p.template && (
             <button className={`chip btnish ${asProcManual ? 'on' : ''}`} onClick={() => setAsProcManual(!asProcManual)}>
-              <Icon name="work" size={13} /> إجراء بخطوات
-            </button>
+              <Icon name="work" size={13} />{L(" إجراء بخطوات", " Procedure with steps")}</button>
           )}
         </div>
 
         {!asProc && (
           <button className="btn sm ghost" style={{ alignSelf: 'flex-start', paddingInline: 4 }} onClick={() => setMore(!more)}>
-            {more ? 'إخفاء' : 'المجال والتاريخ بالتحديد'} <Icon name="chevron" size={14} style={{ transform: more ? 'rotate(90deg)' : 'rotate(-90deg)' }} />
+            {more ? L('إخفاء', "Hide") : L('المجال والتاريخ بالتحديد', "Exact area and date")} <Icon name="chevron" size={14} style={{ transform: more ? turn(90) : turn(-90) }} />
           </button>
         )}
         {more && !asProc && (
@@ -154,13 +154,11 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
                 <button key={a} className={`chip btnish ${fArea === a ? 'on' : ''}`} onClick={() => setArea(a)}>{AREA_LABEL[a]}</button>
               ))}
             </div>
-            <input type="date" className="input" value={fDue || ''} onChange={(e) => setDay(e.target.value || null)} aria-label="تاريخ" />
+            <input type="date" className="input" value={fDue || ''} onChange={(e) => setDay(e.target.value || null)} aria-label={L("تاريخ", "Date")} />
           </div>
         )}
 
-        <p className="faint tiny" style={{ margin: 0 }}>
-          اكتب بطبيعتك: «بكرة 5م»، «الخميس»، «بعد 3 أيام»، «30د»، «ساعتين»، «مهم»، «عاجل»، «#عمل».
-        </p>
+        <p className="faint tiny" style={{ margin: 0 }}>{L("اكتب بطبيعتك: «بكرة 5م»، «الخميس»، «بعد 3 أيام»، «30د»، «ساعتين»، «مهم»، «عاجل»، «#عمل».", "Write naturally (Arabic keywords): «بكرة 5م», «الخميس», «بعد 3 أيام», «30د», «ساعتين», «مهم», «عاجل», «#عمل».")}</p>
       </div>
     </Sheet>
   );

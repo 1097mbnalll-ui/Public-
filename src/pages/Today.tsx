@@ -15,19 +15,20 @@ import { autoReplanUI, completeTaskUI, deferTaskUI, runAction, toggleStepUI } fr
 import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
+import { L, startEdge } from '../lib/i18n';
 
 function greeting(h: number) {
-  if (h < 5) return 'ليلة هادئة';
-  if (h < 12) return 'صباح الخير';
-  if (h < 17) return 'مساء النور';
-  return 'مساء الخير';
+  if (h < 5) return L('ليلة هادئة', "Quiet night");
+  if (h < 12) return L('صباح الخير', "Good morning");
+  if (h < 17) return L('مساء النور', "Good afternoon");
+  return L('مساء الخير', "Good evening");
 }
 
 export function SaveDot() {
   const st = useSaveStatus();
-  const label = st === 'error' ? 'تعذر الحفظ' : st === 'saving' ? 'يحفظ…' : 'محفوظ';
+  const label = st === 'error' ? L('تعذر الحفظ', "Couldn't save") : st === 'saving' ? L('يحفظ…', "Saving…") : L('محفوظ', "Saved");
   return (
-    <span className={`save-dot ${st}`} title={st === 'error' ? 'تعذر الحفظ على هذا الجهاز' : 'بياناتك محفوظة على هذا الجهاز'}>
+    <span className={`save-dot ${st}`} title={st === 'error' ? L('تعذر الحفظ على هذا الجهاز', "Couldn't save on this device") : L('بياناتك محفوظة على هذا الجهاز', "Your data is saved on this device")}>
       <i /> <span className="hide-mobile">{label}</span>
     </span>
   );
@@ -52,7 +53,7 @@ export function AlertRow({ i }: { i: Insight }) {
           </div>
         )}
       </div>
-      <button className="icon-btn sm" onClick={() => A.snooze(i.id, 20 * 3600_000)} aria-label="إخفاء لليوم" title="إخفاء لليوم">
+      <button className="icon-btn sm" onClick={() => A.snooze(i.id, 20 * 3600_000)} aria-label={L("إخفاء لليوم", "Hide for today")} title={L("إخفاء لليوم", "Hide for today")}>
         <Icon name="x" size={14} />
       </button>
     </div>
@@ -94,7 +95,8 @@ function metaLine(it: PlanItem) {
   if (it.dueTime) parts.push(fmtClock(it.dueTime));
   parts.push(`${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}`);
   // the priority level already shows as a badge/prefix — don't repeat it here
-  const reason = it.reasons.find((r) => !/^(عاجلة|مهمة)/.test(r));
+  const levels = [L('عاجلة', 'Urgent'), L('مهمة', 'Important')];
+  const reason = it.reasons.find((r) => !levels.includes(r));
   if (it.sub) parts.push(it.sub);
   else if (reason) parts.push(reason);
   return parts.join(' · ');
@@ -107,13 +109,13 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
   return (
     <div className="next">
       <div className="row between">
-        <span className="k">{running ? 'تعمل عليه الآن' : 'ابدأ بهذا'}</span>
+        <span className="k">{running ? L('تعمل عليه الآن', "Working on it now") : L('ابدأ بهذا', "Start with this")}</span>
         {it.level === 'urgent' ? (
-          <span className="chip red"><Icon name="alert" size={12} /> عاجلة — ضرورية جدًا</span>
+          <span className="chip red"><Icon name="alert" size={12} />{L(" عاجلة — ضرورية جدًا", " Urgent — very important")}</span>
         ) : it.level === 'important' ? (
-          <span className="chip amber">مهمة</span>
+          <span className="chip amber">{L("مهمة", "Important")}</span>
         ) : it.must ? (
-          <span className="chip red">لا يتأجل</span>
+          <span className="chip red">{L("لا يتأجل", "Can't be postponed")}</span>
         ) : null}
       </div>
       <div className="t" onClick={() => act.open(it)} style={{ cursor: 'pointer' }}>
@@ -126,14 +128,13 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
       <div className="row" style={{ marginTop: 14, gap: 8 }}>
         {!running && (
           <button className="btn primary" onClick={() => act.start(it)}>
-            <Icon name="play" size={14} /> ابدأ
-          </button>
+            <Icon name="play" size={14} />{L(" ابدأ", " Start")}</button>
         )}
         <button className="btn" onClick={() => act.check(it)}>
-          <Icon name="check" size={16} /> {it.kind === 'study' ? 'سجّل ما ذاكرته' : it.kind === 'procedure' ? 'تمت الخطوة' : 'أنجزتها'}
+          <Icon name="check" size={16} /> {it.kind === 'study' ? L('سجّل ما ذاكرته', "Log what I studied") : it.kind === 'procedure' ? L('تمت الخطوة', "Step done") : L('أنجزتها', "Done it")}
         </button>
         {(it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent' && (
-          <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast('نُقل إلى الغد', { undoable: true })))}>غدًا</button>
+          <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast(L('نُقل إلى الغد', "Moved to tomorrow"), { undoable: true })))}>{L("غدًا", "Tomorrow")}</button>
         )}
       </div>
     </div>
@@ -143,8 +144,8 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
 function PlanRow({ it, start, study }: { it: PlanItem; start?: number; study: StudyPlan }) {
   const act = usePlanActions(study);
   return (
-    <div className="r tap" onClick={() => act.open(it)} style={it.level === 'urgent' ? { boxShadow: 'inset -3px 0 0 var(--red)' } : undefined}>
-      <Check on={false} onClick={() => act.check(it)} label={it.kind === 'study' ? 'سجّل المذاكرة' : 'إنجاز'} />
+    <div className="r tap" onClick={() => act.open(it)} style={it.level === 'urgent' ? { boxShadow: startEdge('var(--red)') } : undefined}>
+      <Check on={false} onClick={() => act.check(it)} label={it.kind === 'study' ? L('سجّل المذاكرة', "Log study") : L('إنجاز', "Complete")} />
       <div className="main-t">
         <div className="lbl">
           {it.courseColor && <span className="dot" style={{ background: it.courseColor, marginInlineEnd: 6 }} />}
@@ -152,14 +153,14 @@ function PlanRow({ it, start, study }: { it: PlanItem; start?: number; study: St
           {it.title}
         </div>
         <div className="sub">
-          {it.level === 'urgent' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>عاجلة · </span>}
-          {it.level === 'important' && <span style={{ color: 'var(--amber)' }}>{it.must ? 'مهمة · لا تؤجلها أكثر · ' : 'مهمة · اليوم أو بكرة · '}</span>}
+          {it.level === 'urgent' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجلة · ", "Urgent · ")}</span>}
+          {it.level === 'important' && <span style={{ color: 'var(--amber)' }}>{it.must ? L('مهمة · لا تؤجلها أكثر · ', "Important · don't postpone again · ") : L('مهمة · اليوم أو بكرة · ', "Important · today or tomorrow · ")}</span>}
           {metaLine(it)}
-          {it.must && !it.level && <span style={{ color: 'var(--red)' }}> · لا يتأجل</span>}
+          {it.must && !it.level && <span style={{ color: 'var(--red)' }}>{L(" · لا يتأجل", " · can't be postponed")}</span>}
         </div>
       </div>
       {start != null && <span className="faint tiny num hide-mobile">~{fmtTime(start)}</span>}
-      <button className="icon-btn sm" onClick={(e) => { e.stopPropagation(); act.start(it); }} aria-label="ابدأ مؤقت"><Icon name="play" size={13} /></button>
+      <button className="icon-btn sm" onClick={(e) => { e.stopPropagation(); act.start(it); }} aria-label={L("ابدأ مؤقت", "Start timer")}><Icon name="play" size={13} /></button>
     </div>
   );
 }
@@ -172,39 +173,38 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   return (
     <div className="summary">
       <div className="row between" style={{ alignItems: 'baseline' }}>
-        <div className="big num">{fmtMinutes(plan.load)} <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>من عمل مخطط</span></div>
+        <div className="big num">{fmtMinutes(plan.load)} <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>{L("من عمل مخطط", "of planned work")}</span></div>
         <button className="btn sm ghost" onClick={() => setEdit(!edit)} style={{ paddingInline: 6 }}>
-          {override != null ? `متاح ${fmtMinutes(override)}` : 'وقتي اليوم'} <Icon name="edit" size={13} />
+          {override != null ? L(`متاح ${fmtMinutes(override)}`, `${fmtMinutes(override)} available`) : L('وقتي اليوم', "My time today")} <Icon name="edit" size={13} />
         </button>
       </div>
       <Bar value={plan.remaining ? plan.load / plan.remaining : plan.load ? 1 : 0} color={plan.overloaded ? 'var(--red)' : plan.load / Math.max(1, plan.remaining) > 0.85 ? 'var(--amber)' : 'var(--green)'} />
       <div className="row between small">
         <span className="muted">
           {plan.overloaded ? (
-            <span style={{ color: 'var(--red)' }}>أكثر من وقتك المتبقي بـ {fmtMinutes(plan.overBy)}</span>
+            <span style={{ color: 'var(--red)' }}>{L("أكثر من وقتك المتبقي بـ ", "Over your remaining time by ")}{fmtMinutes(plan.overBy)}</span>
           ) : plan.load ? (
-            <>يتبقى لك {fmtMinutes(free)} فراغ · تنتهي ~{fmtTime(Date.now() + plan.load * 60000)}</>
+            <>{L("يتبقى لك ", "You have ")}{fmtMinutes(free)}{L(" فراغ · تنتهي ~", " free · done by ~")}{fmtTime(Date.now() + plan.load * 60000)}</>
           ) : (
-            <>وقتك المتاح {fmtMinutes(plan.remaining)}</>
+            <>{L("وقتك المتاح ", "Your available time ")}{fmtMinutes(plan.remaining)}</>
           )}
         </span>
-        {plan.doneMinutes > 0 && <span className="faint">أنجزت {fmtMinutes(plan.doneMinutes)}</span>}
+        {plan.doneMinutes > 0 && <span className="faint">{L("أنجزت ", "Done ")}{fmtMinutes(plan.doneMinutes)}</span>}
       </div>
       {plan.overloaded && (
         <button className="btn sm" style={{ justifySelf: 'start' }} onClick={autoReplanUI}>
-          <Icon name="layers" size={14} /> أعد الجدولة تلقائيًا
-        </button>
+          <Icon name="layers" size={14} />{L(" أعد الجدولة تلقائيًا", " Reschedule automatically")}</button>
       )}
       {edit && (
         <div className="col" style={{ gap: 8, paddingTop: 4 }}>
-          <div className="small muted">كم وقتًا حرًا عندك اليوم للمذاكرة والمهام؟</div>
+          <div className="small muted">{L("كم وقتًا حرًا عندك اليوم للمذاكرة والمهام؟", "How much free time do you have today for study and tasks?")}</div>
           <div className="row wrap" style={{ gap: 6 }}>
             {[0, 60, 120, 180, 240, 300, 360, 480].map((m) => (
               <button key={m} className={`chip btnish ${override === m ? 'on' : ''}`} onClick={() => { A.setDayOverride(plan.today, m); setEdit(false); }}>
-                {m === 0 ? 'مشغول' : fmtMinutes(m)}
+                {m === 0 ? L('مشغول', "Busy") : fmtMinutes(m)}
               </button>
             ))}
-            {override != null && <button className="chip btnish" onClick={() => { A.setDayOverride(plan.today, null); setEdit(false); }}>كالمعتاد</button>}
+            {override != null && <button className="chip btnish" onClick={() => { A.setDayOverride(plan.today, null); setEdit(false); }}>{L("كالمعتاد", "As usual")}</button>}
           </div>
         </div>
       )}
@@ -222,25 +222,25 @@ function Upcoming({ study }: { study: StudyPlan }) {
     if (ep.exam.date > today && ep.exam.date <= addDays(today, 21))
       items.push({
         day: ep.exam.date,
-        title: `اختبار ${ep.course.name} — ${ep.exam.title}`,
-        sub: ep.status === 'behind' ? 'الوقت لا يكفي — افتح الخطة' : ep.status === 'tight' ? 'الخطة ضيقة' : ep.status === 'unknown' ? 'حدد الدروس المطلوبة' : `جاهزيتك ${Math.round(ep.progress * 100)}%`,
+        title: L(`اختبار ${ep.course.name} — ${ep.exam.title}`, `${ep.course.name} exam — ${ep.exam.title}`),
+        sub: ep.status === 'behind' ? L('الوقت لا يكفي — افتح الخطة', "Not enough time — open the plan") : ep.status === 'tight' ? L('الخطة ضيقة', "Tight plan") : ep.status === 'unknown' ? L('حدد الدروس المطلوبة', "Set the required lessons") : L(`جاهزيتك ${Math.round(ep.progress * 100)}%`, `Readiness ${Math.round(ep.progress * 100)}%`),
         icon: 'flag',
         color: ep.status === 'behind' ? 'var(--red)' : ep.status === 'tight' ? 'var(--amber)' : ep.course.color,
         open: () => openSheet({ type: 'exam', id: ep.exam.id }),
       });
   for (const t of s.tasks)
     if (t.status === 'open' && t.due && t.due > today && t.due <= end)
-      items.push({ day: t.due, title: t.title, sub: t.dueTime ? fmtClock(t.dueTime) : 'موعد نهائي', icon: 'tasks', open: () => openSheet({ type: 'task', id: t.id }) });
+      items.push({ day: t.due, title: t.title, sub: t.dueTime ? fmtClock(t.dueTime) : L('موعد نهائي', "Deadline"), icon: 'tasks', open: () => openSheet({ type: 'task', id: t.id }) });
   for (const p of s.procedures)
     if (!p.archived && !p.completedAt && p.due && p.due > today && p.due <= end)
-      items.push({ day: p.due, title: p.title, sub: 'إجراء عمل', icon: 'work', open: () => go(`work/${p.id}`) });
+      items.push({ day: p.due, title: p.title, sub: L('إجراء عمل', "Work procedure"), icon: 'work', open: () => go(`work/${p.id}`) });
   items.sort((a, b) => a.day.localeCompare(b.day));
   if (!items.length) return null;
   return (
     <section>
       <div className="group-title">
-        <span>القادم</span>
-        <button onClick={() => go('week')}>الأسبوع كاملًا</button>
+        <span>{L("القادم", "Coming up")}</span>
+        <button onClick={() => go('week')}>{L("الأسبوع كاملًا", "Whole week")}</button>
       </div>
       <div className="rows">
         {items.slice(0, 6).map((i, n) => (
@@ -264,17 +264,17 @@ function Thoughts() {
   if (!s.thoughts.length) return null;
   return (
     <section>
-      <div className="group-title"><span>أفكار من جلسات التركيز ({s.thoughts.length})</span></div>
+      <div className="group-title"><span>{L("أفكار من جلسات التركيز (", "Thoughts from focus sessions (")}{s.thoughts.length})</span></div>
       <div className="rows">
         {[...s.thoughts].reverse().map((t) => (
           <div key={t.id} className="r">
             <span className="ic"><Icon name="note" size={15} /></span>
             <span className="main-t">
               <div className="lbl">{t.text}</div>
-              <div className="sub">{t.during ? `أثناء «${t.during}» · ` : ''}{timeAgo(t.at)}</div>
+              <div className="sub">{t.during ? L(`أثناء «${t.during}» · `, `During “${t.during}” · `) : ''}{timeAgo(t.at)}</div>
             </span>
-            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast('صارت مهمة', { buttons: [{ label: 'تفاصيل', fn: () => openSheet({ type: 'task', id }) }] }); }}>مهمة</button>
-            <button className="icon-btn sm" onClick={() => { A.removeThought(t.id); toast('حُذفت', { undoable: true }); }} aria-label="حذف"><Icon name="x" size={14} /></button>
+            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast(L('صارت مهمة', "Turned into a task"), { buttons: [{ label: L('تفاصيل', "Details"), fn: () => openSheet({ type: 'task', id }) }] }); }}>{L("مهمة", "Important")}</button>
+            <button className="icon-btn sm" onClick={() => { A.removeThought(t.id); toast(L('حُذفت', "Deleted"), { undoable: true }); }} aria-label={L("حذف", "Delete")}><Icon name="x" size={14} /></button>
           </div>
         ))}
       </div>
@@ -289,8 +289,8 @@ function Alerts({ list }: { list: Insight[] }) {
   return (
     <section>
       <div className="group-title">
-        <span>يحتاج قرارك</span>
-        {list.length > 3 && <button onClick={() => setAll(!all)}>{all ? 'أقل' : `الكل (${list.length})`}</button>}
+        <span>{L("يحتاج قرارك", "Needs your decision")}</span>
+        {list.length > 3 && <button onClick={() => setAll(!all)}>{all ? L('أقل', "Less") : L(`الكل (${list.length})`, `All (${list.length})`)}</button>}
       </div>
       <div className="rows">{shown.map((i) => <AlertRow key={i.id} i={i} />)}</div>
     </section>
@@ -320,7 +320,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   return (
     <div>
       <PageTop
-        title={view === 'week' ? 'الأسبوع' : `${greeting(h)}${s.settings.name ? `، ${s.settings.name}` : ''}`}
+        title={view === 'week' ? L('الأسبوع', "Week") : L(`${greeting(h)}${s.settings.name ? `، ${s.settings.name}` : ''}`, `${greeting(h)}${s.settings.name ? `, ${s.settings.name}` : ''}`)}
         sub={
           <span className="row" style={{ gap: 10 }}>
             {fmtDate(today)} <SaveDot />
@@ -328,19 +328,17 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         }
       />
       <div style={{ marginBottom: 18 }}>
-        <Seg value={view} onChange={(v) => go(v === 'week' ? 'week' : 'today')} options={[{ v: 'day', l: 'اليوم' }, { v: 'week', l: 'الأيام السبعة' }]} />
+        <Seg value={view} onChange={(v) => go(v === 'week' ? 'week' : 'today')} options={[{ v: 'day', l: L('اليوم', "Today") }, { v: 'week', l: L('الأيام السبعة', "Next 7 days") }]} />
       </div>
 
       {view === 'week' ? (
         <WeekView />
       ) : empty ? (
         <div className="card">
-          <Empty icon="today" title="ابدأ بإضافة ما يشغلك">
-            أضف مهمة، أو إجراء عمل بخطواته، أو مادة واختبارها — وسأرتب لك يومك حسب وقتك المتاح.
-            <div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn primary sm" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} /> مهمة</button>
-              <button className="btn sm" onClick={() => openSheet({ type: 'quick', text: '' , mode: 'proc' })}>إجراء عمل</button>
-              <button className="btn sm" onClick={() => openSheet({ type: 'course' })}>مادة دراسية</button>
+          <Empty icon="today" title={L("ابدأ بإضافة ما يشغلك", "Start by adding what's on your mind")}>{L("أضف مهمة، أو إجراء عمل بخطواته، أو مادة واختبارها — وسأرتب لك يومك حسب وقتك المتاح.", "Add a task, a work procedure with its steps, or a course and its exam — and I'll arrange your day around your available time.")}<div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn primary sm" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>
+              <button className="btn sm" onClick={() => openSheet({ type: 'quick', text: '' , mode: 'proc' })}>{L("إجراء عمل", "Work procedure")}</button>
+              <button className="btn sm" onClick={() => openSheet({ type: 'course' })}>{L("مادة دراسية", "Course")}</button>
             </div>
           </Empty>
         </div>
@@ -348,22 +346,22 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         <div className="two-col">
           <div className="stack" style={{ minWidth: 0 }}>
             {first ? <NextUp it={first} study={study} /> : (
-              <div className="card"><Empty icon="check" title="لا شيء ملح اليوم">تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.</Empty></div>
+              <div className="card"><Empty icon="check" title={L("لا شيء ملح اليوم", "Nothing pressing today")}>{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</Empty></div>
             )}
             <DaySummary plan={plan} />
             {rest.length > 0 && (
               <section>
-                <div className="group-title"><span>بعده</span><span className="faint" style={{ fontWeight: 500 }}>{rest.length}</span></div>
+                <div className="group-title"><span>{L("بعده", "After that")}</span><span className="faint" style={{ fontWeight: 500 }}>{rest.length}</span></div>
                 <div className="rows">{rest.map((it, n) => <PlanRow key={it.kind + it.id} it={it} start={starts[n]} study={study} />)}</div>
               </section>
             )}
             {plan.later.length > 0 && (
-              <Collapse title="لو بقي وقت" count={plan.later.length}>
+              <Collapse title={L("لو بقي وقت", "If there's time")} count={plan.later.length}>
                 <div className="rows">{plan.later.slice(0, 12).map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} />)}</div>
               </Collapse>
             )}
             {doneToday.length > 0 && (
-              <Collapse title="أنجزت اليوم" count={doneToday.length}>
+              <Collapse title={L("أنجزت اليوم", "Done today")} count={doneToday.length}>
                 <div className="rows">
                   {doneToday.map((t) => (
                     <div key={t.id} className="r done tap" onClick={() => openSheet({ type: 'task', id: t.id })}>
@@ -381,8 +379,8 @@ export function Today({ view }: { view: 'day' | 'week' }) {
             {s.missed.length > 0 && (
               <section>
                 <div className="group-title">
-                  <span>تذكيرات فاتتك</span>
-                  <button onClick={A.clearMissed}>مسح</button>
+                  <span>{L("تذكيرات فاتتك", "Missed reminders")}</span>
+                  <button onClick={A.clearMissed}>{L("مسح", "Clear")}</button>
                 </div>
                 <div className="rows">
                   {s.missed.slice(-4).reverse().map((m) => (
@@ -404,9 +402,9 @@ export function Today({ view }: { view: 'day' | 'week' }) {
                   <button className="r" onClick={() => go('work')}>
                     <span className="ic" style={{ color: 'var(--work)' }}><Icon name="work" size={16} /></span>
                     <span className="main-t">
-                      <div className="lbl">إجراءات العمل</div>
+                      <div className="lbl">{L("إجراءات العمل", "Work procedures")}</div>
                       <div className="sub">
-                        {s.procedures.filter((p) => !p.archived && !p.completedAt).length} مفتوحة{waiting ? ` · ${waiting} بانتظار رد` : ''}
+                        {s.procedures.filter((p) => !p.archived && !p.completedAt).length}{L(" مفتوحة", " open")}{waiting ? L(` · ${waiting} بانتظار رد`, ` · ${waiting} waiting for a reply`) : ''}
                       </div>
                     </span>
                     <Icon name="chevron" size={16} className="chev-end" />

@@ -6,6 +6,8 @@ import type { AppState } from './types';
 import { initialState, migrate } from './defaults';
 import { loadState, saveSnapshot, saveState } from './db';
 import { todayKey } from './dates';
+import { setLang } from './i18n';
+import { L } from './i18n';
 
 let state: AppState = initialState();
 let ready = false;
@@ -20,6 +22,7 @@ const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('
 const tabId = Math.random().toString(36).slice(2);
 
 function emit() {
+  setLang(state.settings?.lang);
   for (const l of listeners) l();
 }
 
@@ -96,7 +99,7 @@ export function undo(): string | null {
 }
 
 /** replace everything (import / restore). Old state is kept in undo. */
-export function replaceState(raw: unknown, label = 'استعادة') {
+export function replaceState(raw: unknown, label = L('استعادة', "Restore")) {
   undoStack.push({ label, state });
   state = migrate(raw);
   emit();

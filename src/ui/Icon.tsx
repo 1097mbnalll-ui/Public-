@@ -1,3 +1,7 @@
+import { lang } from '../lib/i18n';
+
+/** icons that point along the reading direction and must mirror in LTR */
+const DIRECTIONAL = new Set(['chevron', 'back', 'arrow']);
 // Minimal line icon set (24px grid, stroke-based).
 
 const P: Record<string, string> = {
@@ -45,6 +49,7 @@ const P: Record<string, string> = {
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01',
   question: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01',
   arrow: 'M19 12H5M11 6l-6 6 6 6',
+  globe: 'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18',
   forward: 'M5 12h14M13 6l6 6-6 6',
   layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
   moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z',
@@ -72,7 +77,7 @@ export function Icon({ name, size = 20, stroke = 1.8, className, style }: { name
       style={style}
       aria-hidden="true"
     >
-      <path d={P[name] || P.info} />
+      <path d={P[name] || P.info} transform={lang() === 'en' && DIRECTIONAL.has(name) ? 'matrix(-1 0 0 1 24 0)' : undefined} />
     </svg>
   );
 }

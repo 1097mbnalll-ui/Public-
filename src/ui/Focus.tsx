@@ -8,6 +8,7 @@ import { pomodoro } from '../lib/engine/focus';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
+import { L } from '../lib/i18n';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const mmss = (ms: number) => {
@@ -80,8 +81,8 @@ export function FocusScreen() {
   useEffect(() => {
     if (lastPhase.current && lastPhase.current !== phaseKey && t.running) {
       chime();
-      const msg = p.phase === 'break' ? `أحسنت — استراحة ${b} د` : 'انتهت الاستراحة — نرجع للتركيز';
-      if (document.visibilityState === 'hidden' && s.settings.notifications) showSystemNotification('جلسة التركيز', msg, 'focus-phase', '#/today');
+      const msg = p.phase === 'break' ? L(`أحسنت — استراحة ${b} د`, `Well done — ${b} min break`) : L('انتهت الاستراحة — نرجع للتركيز', "Break's over — back to focus");
+      if (document.visibilityState === 'hidden' && s.settings.notifications) showSystemNotification(L('جلسة التركيز', "Focus session"), msg, 'focus-phase', '#/today');
     }
     lastPhase.current = phaseKey;
   }, [phaseKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,11 +103,11 @@ export function FocusScreen() {
   if (t.kind === 'task') {
     const task = s.tasks.find((x) => x.id === t.refId);
     const next = task?.checklist.find((c) => !c.done);
-    if (next) sub = `الخطوة الحالية: ${next.title}`;
+    if (next) sub = L(`الخطوة الحالية: ${next.title}`, `Current step: ${next.title}`);
   } else if (t.kind === 'procedure') {
     const pr = s.procedures.find((x) => x.id === t.refId);
     const n = pr && nextStep(pr);
-    if (n) sub = `الخطوة التالية: ${n.title}`;
+    if (n) sub = L(`الخطوة التالية: ${n.title}`, `Next step: ${n.title}`);
   } else if (t.unitId) {
     sub = s.units.find((u) => u.id === t.unitId)?.title || '';
   }
@@ -126,12 +127,11 @@ export function FocusScreen() {
   };
 
   return createPortal(
-    <div className={`focus-screen ${isBreak ? 'is-break' : ''}`} role="dialog" aria-label="وضع التركيز">
+    <div className={`focus-screen ${isBreak ? 'is-break' : ''}`} role="dialog" aria-label={L("وضع التركيز", "Focus mode")}>
       <div className="focus-top">
         <button className="btn sm ghost" onClick={() => A.setFocus(false)}>
-          <Icon name="down" size={15} /> تصغير
-        </button>
-        <span className="faint small">{isBreak ? 'استراحة قصيرة' : `تركيز · الجولة ${p.done + 1}`}</span>
+          <Icon name="down" size={15} />{L(" تصغير", " Minimise")}</button>
+        <span className="faint small">{isBreak ? L('استراحة قصيرة', "Short break") : L(`تركيز · الجولة ${p.done + 1}`, `Focus · round ${p.done + 1}`)}</span>
       </div>
 
       <div className="focus-center">
@@ -153,25 +153,24 @@ export function FocusScreen() {
           </svg>
           <div className="focus-clock">
             <div className="num">{mmss(p.left)}</div>
-            <div className="faint small">{t.running ? (isBreak ? 'تنفّس، تحرّك، اشرب ماء' : 'ركّز على شيء واحد') : 'متوقف مؤقتًا'}</div>
+            <div className="faint small">{t.running ? (isBreak ? L('تنفّس، تحرّك، اشرب ماء', "Breathe, move, drink water") : L('ركّز على شيء واحد', "Focus on one thing")) : L('متوقف مؤقتًا', "Paused")}</div>
           </div>
         </div>
 
         <div className="focus-task">
           <div className="focus-title">{t.label}</div>
           {sub && <div className="muted">{sub}</div>}
-          <div className="faint small">
-            عملت {fmtMinutes(p.workMs / 60000)}{p.done ? ` · ${p.done} ${p.done === 1 ? 'جولة مكتملة' : 'جولات مكتملة'}` : ''}
+          <div className="faint small">{L("عملت ", "Worked ")}{fmtMinutes(p.workMs / 60000)}{p.done ? L(` · ${p.done} ${p.done === 1 ? 'جولة مكتملة' : 'جولات مكتملة'}`, ` · ${p.done} ${p.done === 1 ? 'round done' : 'rounds done'}`) : ''}
           </div>
         </div>
 
         <div className="row" style={{ gap: 12, justifyContent: 'center' }}>
           {t.running ? (
-            <button className="focus-btn" onClick={A.pauseTimer} aria-label="إيقاف مؤقت"><Icon name="pause" size={24} /></button>
+            <button className="focus-btn" onClick={A.pauseTimer} aria-label={L("إيقاف مؤقت", "Pause")}><Icon name="pause" size={24} /></button>
           ) : (
-            <button className="focus-btn" onClick={A.resumeTimer} aria-label="استئناف"><Icon name="play" size={22} /></button>
+            <button className="focus-btn" onClick={A.resumeTimer} aria-label={L("استئناف", "Resume")}><Icon name="play" size={22} /></button>
           )}
-          <button className="focus-btn primary" onClick={finishTimerUI} aria-label="إنهاء الجلسة"><Icon name="check" size={26} stroke={2.4} /></button>
+          <button className="focus-btn primary" onClick={finishTimerUI} aria-label={L("إنهاء الجلسة", "End session")}><Icon name="check" size={26} stroke={2.4} /></button>
         </div>
       </div>
 
@@ -182,15 +181,13 @@ export function FocusScreen() {
             value={thought}
             onChange={(e) => setThought(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && addThought()}
-            placeholder="فكرة أو شيء تذكرته؟ اكتبه هنا وارجع لعملك"
-            aria-label="تفريغ الأفكار"
+            placeholder={L("فكرة أو شيء تذكرته؟ اكتبه هنا وارجع لعملك", "A thought or something you remembered? Write it here and get back to work")}
+            aria-label={L("تفريغ الأفكار", "Brain dump")}
           />
-          <button className="btn" onClick={addThought} disabled={!thought.trim()}>حفظ</button>
+          <button className="btn" onClick={addThought} disabled={!thought.trim()}>{L("حفظ", "Save")}</button>
         </div>
         {sessionThoughts.length > 0 && (
-          <div className="faint tiny" style={{ marginTop: 6 }}>
-            حفظت {sessionThoughts.length} {sessionThoughts.length === 1 ? 'فكرة' : 'أفكار'} — تجدها في صفحة «اليوم» بعد الجلسة.
-          </div>
+          <div className="faint tiny" style={{ marginTop: 6 }}>{L("حفظت ", "Saved ")}{sessionThoughts.length} {sessionThoughts.length === 1 ? L('فكرة', "thought") : L('أفكار', "thoughts")}{L(" — تجدها في صفحة «اليوم» بعد الجلسة.", " — you'll find them on the “Today” page after the session.")}</div>
         )}
         <div className="row" style={{ gap: 6, marginTop: 10, justifyContent: 'center' }}>
           {[

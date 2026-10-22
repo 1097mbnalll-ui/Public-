@@ -11,6 +11,7 @@ import { toast } from './toast';
 import { go } from './router';
 import { completeTaskUI, exportUI } from './ops';
 import type { Area } from '../lib/types';
+import { L } from '../lib/i18n';
 
 export function ReplanSheet() {
   const s = useApp();
@@ -23,7 +24,7 @@ export function ReplanSheet() {
 
   return (
     <Sheet
-      title="إعادة ترتيب اليوم"
+      title={L("إعادة ترتيب اليوم", "Rearrange today")}
       onClose={closeSheet}
       footer={
         <>
@@ -33,37 +34,33 @@ export function ReplanSheet() {
             onClick={() => {
               A.deferMany(sel);
               closeSheet();
-              toast(`نُقلت ${sel.length} إلى الغد`, { undoable: true });
+              toast(L(`نُقلت ${sel.length} إلى الغد`, `Moved ${sel.length} to tomorrow`), { undoable: true });
             }}
-          >
-            انقل المحدد إلى الغد
-          </button>
+          >{L("انقل المحدد إلى الغد", "Move selected to tomorrow")}</button>
         </>
       }
     >
       <div className="col" style={{ gap: 14 }}>
         <div className="glass">
           <div className="row between small">
-            <span className="muted">المتبقي من وقتك اليوم</span>
+            <span className="muted">{L("المتبقي من وقتك اليوم", "Time left today")}</span>
             <b className="num">{fmtMinutes(plan.remaining)}</b>
           </div>
           <div className="row between small" style={{ marginTop: 4 }}>
-            <span className="muted">الخطة بعد النقل</span>
+            <span className="muted">{L("الخطة بعد النقل", "Plan after moving")}</span>
             <b className="num" style={{ color: after > plan.remaining ? 'var(--red)' : 'var(--green)' }}>{fmtMinutes(after)}</b>
           </div>
           <div style={{ marginTop: 10 }}>
             <Bar value={plan.remaining ? after / plan.remaining : 1} color={after > plan.remaining ? 'var(--red)' : 'var(--green)'} />
           </div>
         </div>
-        <p className="muted small" style={{ margin: 0 }}>
-          اخترت لك الأقل أهمية أولًا. العاجل لا يظهر هنا أبدًا، ولا أقترح ما لا يحتمل التأجيل. المذاكرة المقترحة تبقى لأنها محسوبة على موعد اختبارك.
-        </p>
+        <p className="muted small" style={{ margin: 0 }}>{L("اخترت لك الأقل أهمية أولًا. العاجل لا يظهر هنا أبدًا، ولا أقترح ما لا يحتمل التأجيل. المذاكرة المقترحة تبقى لأنها محسوبة على موعد اختبارك.", "Least important first. Urgent items never appear here, and I don't suggest anything that can't be postponed. Suggested study stays because it's tied to your exam date.")}</p>
         <div className="list">
           {movable.map((i) => {
             const on = sel.includes(i.id);
             return (
               <div key={i.id} className="item tap" onClick={() => setSel(on ? sel.filter((x) => x !== i.id) : [...sel, i.id])}>
-                <Check square on={on} onClick={() => setSel(on ? sel.filter((x) => x !== i.id) : [...sel, i.id])} label="اختيار" />
+                <Check square on={on} onClick={() => setSel(on ? sel.filter((x) => x !== i.id) : [...sel, i.id])} label={L("اختيار", "Select")} />
                 <div className="grow">
                   <div className="title">{i.title}</div>
                   <div className="meta">
@@ -74,7 +71,7 @@ export function ReplanSheet() {
               </div>
             );
           })}
-          {!movable.length && <div className="item muted">لا توجد مهام يمكن نقلها.</div>}
+          {!movable.length && <div className="item muted">{L("لا توجد مهام يمكن نقلها.", "No tasks can be moved.")}</div>}
         </div>
       </div>
     </Sheet>
@@ -97,34 +94,34 @@ export function Palette() {
 
   const items = useMemo<PItem[]>(() => {
     const cmds: PItem[] = [
-      { key: 'c-add', icon: 'plus', title: 'إضافة مهمة', run: () => openSheet({ type: 'quick' }) },
-      { key: 'c-proc', icon: 'work', title: 'إجراء عمل جديد', run: () => openSheet({ type: 'quick', mode: 'proc' }) },
-      { key: 'c-study', icon: 'study', title: 'تسجيل مذاكرة', run: () => openSheet({ type: 'study-log' }) },
-      { key: 'c-exam', icon: 'flag', title: 'إضافة اختبار', run: () => openSheet({ type: 'exam' }) },
-      { key: 'c-today', icon: 'today', title: 'اليوم', run: () => go('today') },
-      { key: 'c-week', icon: 'week', title: 'الأسبوع', run: () => go('week') },
-      { key: 'c-ins', icon: 'insights', title: 'ما تعلمته عنك', run: () => go('insights') },
-      { key: 'c-set', icon: 'settings', title: 'الإعدادات', run: () => go('settings') },
-      { key: 'c-exp', icon: 'download', title: 'تنزيل نسخة احتياطية', run: exportUI },
+      { key: 'c-add', icon: 'plus', title: L('إضافة مهمة', "Add task"), run: () => openSheet({ type: 'quick' }) },
+      { key: 'c-proc', icon: 'work', title: L('إجراء عمل جديد', "New work procedure"), run: () => openSheet({ type: 'quick', mode: 'proc' }) },
+      { key: 'c-study', icon: 'study', title: L('تسجيل مذاكرة', "Log study"), run: () => openSheet({ type: 'study-log' }) },
+      { key: 'c-exam', icon: 'flag', title: L('إضافة اختبار', "Add exam"), run: () => openSheet({ type: 'exam' }) },
+      { key: 'c-today', icon: 'today', title: L('اليوم', "Today"), run: () => go('today') },
+      { key: 'c-week', icon: 'week', title: L('الأسبوع', "Week"), run: () => go('week') },
+      { key: 'c-ins', icon: 'insights', title: L('ما تعلمته عنك', "What I've learned about you"), run: () => go('insights') },
+      { key: 'c-set', icon: 'settings', title: L('الإعدادات', "Settings"), run: () => go('settings') },
+      { key: 'c-exp', icon: 'download', title: L('تنزيل نسخة احتياطية', "Download backup"), run: exportUI },
     ];
     if (!q.trim()) return cmds;
     const out: PItem[] = [];
     for (const t of s.tasks) {
       if (matches(`${t.title} ${t.notes} ${t.checklist.map((c) => c.title).join(' ')} ${t.waitingOn || ''}`, q))
-        out.push({ key: t.id, icon: t.status === 'open' ? 'tasks' : 'check', title: t.title, sub: `${AREA_LABEL[t.area]}${t.due ? ' · ' + relDay(t.due) : ''}${t.status !== 'open' ? ' · منجزة' : ''}`, run: () => openSheet({ type: 'task', id: t.id }) });
+        out.push({ key: t.id, icon: t.status === 'open' ? 'tasks' : 'check', title: t.title, sub: L(`${AREA_LABEL[t.area]}${t.due ? ' · ' + relDay(t.due) : ''}${t.status !== 'open' ? ' · منجزة' : ''}`, `${AREA_LABEL[t.area]}${t.due ? ' · ' + relDay(t.due) : ''}${t.status !== 'open' ? ' · done' : ''}`), run: () => openSheet({ type: 'task', id: t.id }) });
     }
     for (const p of s.procedures) {
       const hay = `${p.title} ${p.notes} ${p.fields.map((f) => f.key + ' ' + f.value).join(' ')} ${p.steps.map((x) => x.title + ' ' + (x.target || '') + ' ' + (x.note || '')).join(' ')} ${p.log.map((l) => l.text).join(' ')}`;
-      if (matches(hay, q)) out.push({ key: p.id, icon: 'work', title: p.title, sub: `إجراء${p.completedAt ? ' مكتمل' : ''}${p.archived ? ' · أرشيف' : ''} · ${fmtDate(new Date(p.createdAt).toISOString().slice(0, 10), false)}`, run: () => go(`work/${p.id}`) });
+      if (matches(hay, q)) out.push({ key: p.id, icon: 'work', title: p.title, sub: L(`إجراء${p.completedAt ? ' مكتمل' : ''}${p.archived ? ' · أرشيف' : ''} · ${fmtDate(new Date(p.createdAt).toISOString().slice(0, 10), false)}`, `Procedure${p.completedAt ? ' completed' : ''}${p.archived ? ' · archived' : ''} · ${fmtDate(new Date(p.createdAt).toISOString().slice(0, 10), false)}`), run: () => go(`work/${p.id}`) });
     }
-    for (const c of s.courses) if (matches(c.name, q)) out.push({ key: c.id, icon: 'study', title: c.name, sub: 'مادة', run: () => go(`study/${c.id}`) });
+    for (const c of s.courses) if (matches(c.name, q)) out.push({ key: c.id, icon: 'study', title: c.name, sub: L('مادة', "Course"), run: () => go(`study/${c.id}`) });
     for (const u of s.units) {
       if (!matches(u.title, q)) continue;
       const c = s.courses.find((x) => x.id === u.courseId);
       out.push({ key: u.id, icon: 'study', title: u.title, sub: c?.name, run: () => go(`study/${u.courseId}`) });
     }
-    for (const t of s.templates) if (matches(t.name, q)) out.push({ key: t.id, icon: 'layers', title: t.name, sub: 'قالب', run: () => openSheet({ type: 'quick', text: t.name + ' ', mode: 'task' }) });
-    for (const g of s.goals) if (matches(g.title, q)) out.push({ key: g.id, icon: 'target', title: g.title, sub: 'هدف', run: () => openSheet({ type: 'goal', id: g.id }) });
+    for (const t of s.templates) if (matches(t.name, q)) out.push({ key: t.id, icon: 'layers', title: t.name, sub: L('قالب', "Template"), run: () => openSheet({ type: 'quick', text: t.name + ' ', mode: 'task' }) });
+    for (const g of s.goals) if (matches(g.title, q)) out.push({ key: g.id, icon: 'target', title: g.title, sub: L('هدف', "Goal"), run: () => openSheet({ type: 'goal', id: g.id }) });
     return [...out.slice(0, 40), ...cmds.filter((c) => matches(c.title, q))];
   }, [q, s]);
 
@@ -139,11 +136,11 @@ export function Palette() {
   };
 
   return (
-    <Sheet title="بحث" onClose={closeSheet}>
+    <Sheet title={L("بحث", "Search")} onClose={closeSheet}>
       <input
         className="input big"
         autoFocus
-        placeholder="ابحث في المهام، الإجراءات، الشركات، الأسماء، المواد…"
+        placeholder={L("ابحث في المهام، الإجراءات، الشركات، الأسماء، المواد…", "Search tasks, procedures, companies, names, courses…")}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
@@ -162,7 +159,7 @@ export function Palette() {
             </div>
           </div>
         ))}
-        {q && !items.length && <div className="empty small">لا نتائج لـ «{q}»</div>}
+        {q && !items.length && <div className="empty small">{L("لا نتائج لـ «", "No results for “")}{q}»</div>}
       </div>
     </Sheet>
   );
@@ -179,20 +176,20 @@ export function GoalSheet({ id }: { id: string }) {
     const ls = lines.split('\n').map((l) => l.trim()).filter(Boolean);
     for (const l of ls) A.addTask({ title: l, area: g.area, goalId: id });
     setLines('');
-    if (ls.length) toast(`أُضيفت ${ls.length} خطوات — ستظهر في خطتك حسب أولويتها`);
+    if (ls.length) toast(L(`أُضيفت ${ls.length} خطوات — ستظهر في خطتك حسب أولويتها`, `Added ${ls.length} steps — they'll enter your plan by priority`));
   };
   return (
     <Sheet
       wide
-      title="هدف"
+      title={L("هدف", "Goal")}
       onClose={closeSheet}
       footer={
         <>
           <button className="btn" onClick={() => { A.updateGoal(id, { doneAt: g.doneAt ? undefined : Date.now() }); }}>
-            {g.doneAt ? 'إعادة فتح' : 'تحقق الهدف'}
+            {g.doneAt ? L('إعادة فتح', "Reopen") : L('تحقق الهدف', "Goal achieved")}
           </button>
           <span className="grow" />
-          <button className="icon-btn" onClick={() => { A.deleteGoal(id); closeSheet(); toast('حُذف الهدف', { undoable: true }); }} aria-label="حذف">
+          <button className="icon-btn" onClick={() => { A.deleteGoal(id); closeSheet(); toast(L('حُذف الهدف', "Goal deleted"), { undoable: true }); }} aria-label={L("حذف", "Delete")}>
             <Icon name="trash" size={18} />
           </button>
         </>
@@ -202,23 +199,23 @@ export function GoalSheet({ id }: { id: string }) {
         <input className="input bare" style={{ fontSize: 21, fontWeight: 650 }} value={g.title} onChange={(e) => A.updateGoal(id, { title: e.target.value })} />
         <div className="fields two">
           <div className="field">
-            <label>المجال</label>
+            <label>{L("المجال", "Area")}</label>
             <select className="select" value={g.area} onChange={(e) => A.updateGoal(id, { area: e.target.value as Area })}>
               {(['study', 'work', 'life'] as Area[]).map((a) => <option key={a} value={a}>{AREA_LABEL[a]}</option>)}
             </select>
           </div>
           <div className="field">
-            <label>الموعد المستهدف</label>
+            <label>{L("الموعد المستهدف", "Target date")}</label>
             <input type="date" className="input" value={g.target || ''} onChange={(e) => A.updateGoal(id, { target: e.target.value || undefined })} />
           </div>
         </div>
         <div className="field">
-          <label>لماذا هذا الهدف مهم؟</label>
-          <input className="input" value={g.why} onChange={(e) => A.updateGoal(id, { why: e.target.value })} placeholder="يذكرك عندما يقل الحماس" />
+          <label>{L("لماذا هذا الهدف مهم؟", "Why does this goal matter?")}</label>
+          <input className="input" value={g.why} onChange={(e) => A.updateGoal(id, { why: e.target.value })} placeholder={L("يذكرك عندما يقل الحماس", "Reminds you when motivation drops")} />
         </div>
         <div>
           <div className="row between" style={{ marginBottom: 8 }}>
-            <span className="label">الخطوات ({done}/{tasks.length})</span>
+            <span className="label">{L("الخطوات (", "Steps (")}{done}/{tasks.length})</span>
           </div>
           <Bar value={tasks.length ? done / tasks.length : 0} />
           <div className="list" style={{ marginTop: 10 }}>
@@ -232,12 +229,11 @@ export function GoalSheet({ id }: { id: string }) {
           </div>
         </div>
         <div className="field">
-          <label>قسّم الهدف لخطوات صغيرة (خطوة في كل سطر)</label>
-          <textarea className="textarea" value={lines} onChange={(e) => setLines(e.target.value)} placeholder={'مثال:\nأحدد موضوع البحث\nأجمع 5 مراجع\nأكتب المقدمة'} />
+          <label>{L("قسّم الهدف لخطوات صغيرة (خطوة في كل سطر)", "Split the goal into small steps (one per line)")}</label>
+          <textarea className="textarea" value={lines} onChange={(e) => setLines(e.target.value)} placeholder={L('مثال:\nأحدد موضوع البحث\nأجمع 5 مراجع\nأكتب المقدمة', "Example:\nPick the research topic\nCollect 5 references\nWrite the introduction")} />
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={addSteps} disabled={!lines.trim()}>
-            <Icon name="plus" size={15} /> أضف الخطوات
-          </button>
-          <div className="faint tiny">نصيحة: اجعل كل خطوة شيئًا تستطيع إنهاءه في جلسة واحدة (أقل من ساعتين).</div>
+            <Icon name="plus" size={15} />{L(" أضف الخطوات", " Add steps")}</button>
+          <div className="faint tiny">{L("نصيحة: اجعل كل خطوة شيئًا تستطيع إنهاءه في جلسة واحدة (أقل من ساعتين).", "Tip: make each step something you can finish in one session (under two hours).")}</div>
         </div>
       </div>
     </Sheet>

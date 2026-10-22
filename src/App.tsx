@@ -15,14 +15,15 @@ import { Settings } from './pages/Settings';
 import { Import } from './pages/Import';
 import { Receive } from './pages/Receive';
 import { todayKey } from './lib/dates';
+import { L } from './lib/i18n';
 
 // Four places, each answering one question:
 // اليوم: what do I do now? · المهام: what's on my list? · العمل: where is each procedure? · الدراسة: am I ready?
 const NAV = [
-  { id: 'today', label: 'اليوم', icon: 'today' },
-  { id: 'tasks', label: 'المهام', icon: 'tasks' },
-  { id: 'work', label: 'العمل', icon: 'work' },
-  { id: 'study', label: 'الدراسة', icon: 'study' },
+  { id: 'today', get label() { return L('اليوم', "Today"); }, icon: 'today' },
+  { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
+  { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
+  { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
 ];
 
 /** old links keep working */
@@ -40,6 +41,13 @@ export function App() {
   useHeartbeat();
   useQuotaLog();
   useShortcuts();
+
+  const lng = s.settings.lang;
+  useEffect(() => {
+    document.documentElement.lang = lng === 'en' ? 'en' : 'ar';
+    document.documentElement.dir = lng === 'en' ? 'ltr' : 'rtl';
+    document.title = lng === 'en' ? 'Masar' : 'مسار';
+  }, [lng]);
 
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
@@ -96,11 +104,9 @@ export function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>
-          مسار
-        </div>
+          <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
         <button className="btn primary block side-add" onClick={() => openSheet({ type: 'quick' })}>
-          <Icon name="plus" size={17} /> جديد <span className="kbd" style={{ borderColor: 'rgba(0,0,0,.2)', color: 'rgba(0,0,0,.55)' }}>N</span>
+          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(0,0,0,.2)', color: 'rgba(0,0,0,.55)' }}>N</span>
         </button>
         {NAV.map((n) => (
           <button key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
@@ -110,11 +116,10 @@ export function App() {
         ))}
         <div className="spacer" />
         <button className="nav-item" onClick={() => openSheet({ type: 'palette' })}>
-          <Icon name="search" /> بحث <span className="count kbd">/</span>
+          <Icon name="search" />{L(" بحث ", " Search ")}<span className="count kbd">/</span>
         </button>
         <button className={`nav-item ${page === 'me' ? 'active' : ''}`} onClick={() => go('me')}>
-          <Icon name="user" /> أنت والإعدادات
-        </button>
+          <Icon name="user" />{L(" أنت والإعدادات", " You & settings")}</button>
       </aside>
 
       <main className={`main ${wide ? 'wide' : ''}`} key={page + (id || '')}>
@@ -127,7 +132,7 @@ export function App() {
             <Icon name={n.icon} size={22} /> {n.label}
           </button>
         ))}
-        <button className="tab-add" onClick={() => openSheet({ type: 'quick' })} aria-label="إضافة">
+        <button className="tab-add" onClick={() => openSheet({ type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
         {NAV.slice(2).map((n) => (

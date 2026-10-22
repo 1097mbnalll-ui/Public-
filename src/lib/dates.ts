@@ -1,4 +1,5 @@
 // Date helpers built on local "YYYY-MM-DD" keys to avoid timezone drift.
+import { L, lang } from './i18n';
 
 export const DAY_MS = 86_400_000;
 
@@ -42,21 +43,27 @@ export function addMonths(k: string, n: number): string {
   return dateKey(d);
 }
 
-export const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-export const MONTHS = [
+const DAY_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const DAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS_AR = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
 ];
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export const dayNames = () => (lang() === 'en' ? DAY_EN : DAY_AR);
+export const monthNames = () => (lang() === 'en' ? MONTHS_EN : MONTHS_AR);
 
 export function fmtDate(k: string, withDay = true): string {
   const d = parseKey(k);
-  const base = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  return withDay ? `${DAY_NAMES[d.getDay()]} ${base}` : base;
+  const base = lang() === 'en' ? `${monthNames()[d.getMonth()]} ${d.getDate()}` : `${d.getDate()} ${MONTHS_AR[d.getMonth()]}`;
+  return withDay ? `${dayNames()[d.getDay()]} ${base}` : base;
 }
 
-/** Arabic count of days with correct dual / plural forms */
+/** count of days — Arabic gets correct dual / plural forms */
 export function daysWord(n: number): string {
   const a = Math.abs(n);
+  if (lang() === 'en') return a === 1 ? '1 day' : `${a} days`;
   if (a === 0) return '0 يوم';
   if (a === 1) return 'يوم';
   if (a === 2) return 'يومين';
@@ -66,21 +73,22 @@ export function daysWord(n: number): string {
 
 export function relDay(k: string, today = todayKey()): string {
   const n = diffDays(today, k);
-  if (n === 0) return 'اليوم';
-  if (n === 1) return 'غدًا';
-  if (n === 2) return 'بعد غد';
-  if (n === -1) return 'أمس';
-  if (n > 0 && n < 7) return DAY_NAMES[weekday(k)];
-  if (n > 0) return `بعد ${daysWord(n)}`;
-  return `قبل ${daysWord(n)}`;
+  if (n === 0) return L('اليوم', 'Today');
+  if (n === 1) return L('غدًا', 'Tomorrow');
+  if (n === 2) return L('بعد غد', 'In 2 days');
+  if (n === -1) return L('أمس', 'Yesterday');
+  if (n > 0 && n < 7) return dayNames()[weekday(k)];
+  if (n > 0) return L(`بعد ${daysWord(n)}`, `in ${daysWord(n)}`);
+  return L(`قبل ${daysWord(n)}`, `${daysWord(n)} ago`);
 }
 
 export function fmtMinutes(m: number): string {
   m = Math.max(0, Math.round(m));
-  if (m < 60) return `${m} د`;
+  const [H, M] = lang() === 'en' ? ['h', 'm'] : [' س', ' د'];
+  if (m < 60) return `${m}${M}`;
   const h = Math.floor(m / 60);
   const r = m % 60;
-  return r ? `${h} س ${r} د` : `${h} س`;
+  return r ? `${h}${H} ${r}${M}` : `${h}${H}`;
 }
 
 export function fmtTime(ms: number): string {
@@ -91,7 +99,7 @@ export function fmtTime(ms: number): string {
 /** "17:30" → "5:30 م" */
 export function fmtClock(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
-  const suffix = h < 12 ? 'ص' : 'م';
+  const suffix = h < 12 ? L('ص', 'am') : L('م', 'pm');
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${pad(m)} ${suffix}`;
 }
@@ -114,14 +122,14 @@ export function minutesUntil(hhmm: string, now = Date.now()): number {
 
 export function timeAgo(ms: number, now = Date.now()): string {
   const min = Math.round((now - ms) / 60000);
-  if (min < 1) return 'الآن';
-  if (min < 60) return `قبل ${min} د`;
+  if (min < 1) return L('الآن', 'just now');
+  if (min < 60) return L(`قبل ${min} د`, `${min}m ago`);
   const h = Math.round(min / 60);
-  if (h < 24) return `قبل ${h} س`;
-  return `قبل ${daysWord(Math.round(h / 24))}`;
+  if (h < 24) return L(`قبل ${h} س`, `${h}h ago`);
+  return L(`قبل ${daysWord(Math.round(h / 24))}`, `${daysWord(Math.round(h / 24))} ago`);
 }
 
 /** short form for tight spaces: "27 س" for long durations */
 export function fmtMinutesShort(m: number): string {
-  return m >= 600 ? `${Math.round(m / 60)} س` : fmtMinutes(m);
+  return m >= 600 ? L(`${Math.round(m / 60)} س`, `${Math.round(m / 60)}h`) : fmtMinutes(m);
 }

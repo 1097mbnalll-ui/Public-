@@ -5,6 +5,7 @@ import type { AppState, Course, Exam, Unit } from '../types';
 import { addDays, diffDays, fmtMinutes, todayKey } from '../dates';
 import { coursePace, diffFactor, type Pace } from './learning';
 import { availableFor, studyCapFor, studyCapToday } from './capacity';
+import { L, sz } from '../i18n';
 
 export type ExamStatus = 'unknown' | 'done' | 'ok' | 'tight' | 'behind' | 'past';
 
@@ -214,7 +215,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
 
   for (const p of plans) {
     if (p.status === 'unknown') {
-      p.suggestions.push('أضف الفصول أو الموضوعات المطلوبة لهذا الاختبار حتى أستطيع حساب الوقت.');
+      p.suggestions.push(L('أضف الفصول أو الموضوعات المطلوبة لهذا الاختبار حتى أستطيع حساب الوقت.', "Add the chapters or topics for this exam so I can work out the time."));
       continue;
     }
     p.alloc = midSim.alloc.get(p.exam.id) || {};
@@ -270,16 +271,16 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
       for (let d = today; d <= p.lastStudyDay; d = addDays(d, 1))
         headroom += Math.max(0, availableFor(state, d) - studyCapFor(state, d));
       if (headroom >= p.shortfall)
-        p.suggestions.push(`زد مذاكرة ${p.course.name} بحوالي ${extra} دقيقة يوميًا من وقتك المخصص للمهام، حتى ${p.lastStudyDay === today ? 'نهاية اليوم' : 'موعد المراجعة'}.`);
+        p.suggestions.push(L(`زد مذاكرة ${p.course.name} بحوالي ${extra} دقيقة يوميًا من وقتك المخصص للمهام، حتى ${p.lastStudyDay === today ? 'نهاية اليوم' : 'موعد المراجعة'}.`, `Add about ${extra} minutes of ${p.course.name} a day from your task time, until ${p.lastStudyDay === today ? 'the end of today' : 'the review days'}.`));
       else
-        p.suggestions.push(`حتى لو خصصت كل وقتك المتاح للمذاكرة لن يكفي (ينقص ~${fmtMinutes(p.shortfall - headroom)}). الحل: اختصار بعض الفصول أو زيادة وقتك المتاح فعليًا في هذه الأيام.`);
+        p.suggestions.push(L(`حتى لو خصصت كل وقتك المتاح للمذاكرة لن يكفي (ينقص ~${fmtMinutes(p.shortfall - headroom)}). الحل: اختصار بعض الفصول أو زيادة وقتك المتاح فعليًا في هذه الأيام.`, `Even all of your free time won't be enough (about ${fmtMinutes(p.shortfall - headroom)} short). Cut some chapters or genuinely free up more time on these days.`));
       if ((p.exam.reviewDays || 0) > 0 && !p.reviewCompressed)
-        p.suggestions.push(`استخدم ${p.exam.reviewDays === 1 ? 'يوم المراجعة' : 'أيام المراجعة'} للمذاكرة بدل المراجعة فقط.`);
+        p.suggestions.push(L(`استخدم ${p.exam.reviewDays === 1 ? 'يوم المراجعة' : 'أيام المراجعة'} للمذاكرة بدل المراجعة فقط.`, `Use ${p.exam.reviewDays === 1 ? 'the review day' : 'the review days'} to study, not only to review.`));
       if (p.unreachable.length)
-        p.suggestions.push(`بالوتيرة الحالية لن تصل إلى: ${p.unreachable.map((u) => u.title).join('، ')}. قرر أيها الأهم أو اختصر مذاكرتها.`);
-      p.suggestions.push('خفّف المهام غير العاجلة في الأيام القادمة، أو زد وقتك المتاح من الإعدادات.');
+        p.suggestions.push(L(`بالوتيرة الحالية لن تصل إلى: ${p.unreachable.map((u) => u.title).join('، ')}. قرر أيها الأهم أو اختصر مذاكرتها.`, `At this pace you won't reach: ${p.unreachable.map((u) => u.title).join(', ')}. Decide which matter most or study them more briefly.`));
+      p.suggestions.push(L('خفّف المهام غير العاجلة في الأيام القادمة، أو زد وقتك المتاح من الإعدادات.', "Lighten non-urgent tasks over the next days, or raise your available time in settings."));
     } else if (p.status === 'tight') {
-      p.suggestions.push('الخطة ممكنة لكن بلا هامش أمان؛ ابدأ اليوم ولا تؤجل.');
+      p.suggestions.push(L('الخطة ممكنة لكن بلا هامش أمان؛ ابدأ اليوم ولا تؤجل.', "The plan works but has no safety margin; start today and don't postpone."));
     }
   }
 
@@ -296,17 +297,17 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
 }
 
 export const EXAM_STATUS_LABEL: Record<ExamStatus, string> = {
-  unknown: 'ينقصه معلومات',
-  done: 'أنهيت المنهج',
-  ok: 'على المسار',
-  tight: 'ضيّق',
-  behind: 'متأخر',
-  past: 'اليوم',
+  get unknown() { return L('ينقصه معلومات', "Needs info"); },
+  get done() { return L('أنهيت المنهج', "Syllabus done"); },
+  get ok() { return L('على المسار', "On track"); },
+  get tight() { return L('ضيّق', "Tight"); },
+  get behind() { return L('متأخر', "Behind"); },
+  get past() { return L('اليوم', "Today"); },
 };
 
 /** "ش1 · الدرس 3 (كامل)" or "ش1 · الدرس 4: 12 من 34 دقيقة فيديو" */
 export function portionText(x: Portion, sizeLabel: string): string {
-  if (x.review) return `${x.unit.title} (مراجعة)`;
-  if (x.whole) return x.unit.progress > 0 ? `${x.unit.title} (الباقي)` : `${x.unit.title} (كامل)`;
-  return `${x.unit.title}: ${x.amount} ${sizeLabel}`;
+  if (x.review) return L(`${x.unit.title} (مراجعة)`, `${x.unit.title} (review)`);
+  if (x.whole) return x.unit.progress > 0 ? L(`${x.unit.title} (الباقي)`, `${x.unit.title} (the rest)`) : L(`${x.unit.title} (كامل)`, `${x.unit.title} (whole)`);
+  return `${x.unit.title}: ${x.amount} ${sz(sizeLabel)}`;
 }

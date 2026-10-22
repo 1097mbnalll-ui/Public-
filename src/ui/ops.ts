@@ -9,6 +9,7 @@ import type { Action } from '../lib/engine/insights';
 import { toast } from './toast';
 import { openSheet } from './sheets';
 import { go } from './router';
+import { L } from '../lib/i18n';
 
 export function completeTaskUI(id: string) {
   const t = getState().tasks.find((x) => x.id === id);
@@ -18,18 +19,18 @@ export function completeTaskUI(id: string) {
   // ask how long it really took — one tap, optional; it's how estimates get better
   if (est && t.spent === 0) {
     const opts = [Math.round(est * 0.6), est, Math.round(est * 1.5), est * 2].map((m) => Math.max(5, Math.round(m / 5) * 5));
-    toast(`أُنجزت «${t.title}». كم أخذت فعلًا؟`, {
+    toast(L(`أُنجزت «${t.title}». كم أخذت فعلًا؟`, `Completed “${t.title}”. How long did it really take?`), {
       undoable: true,
       ms: 9000,
       buttons: [...new Set(opts)].map((m) => ({ label: fmtMinutes(m), fn: () => A.setActual(id, m) })),
     });
-  } else toast(`أُنجزت «${t.title}»`, { undoable: true });
-  if (t.recurrence) setTimeout(() => toast('أُضيف الموعد القادم لهذه المهمة المتكررة'), 400);
+  } else toast(L(`أُنجزت «${t.title}»`, `Completed “${t.title}”`), { undoable: true });
+  if (t.recurrence) setTimeout(() => toast(L('أُضيف الموعد القادم لهذه المهمة المتكررة', "The next occurrence of this recurring task was added")), 400);
 }
 
 export function deferTaskUI(id: string) {
   A.deferTask(id);
-  toast('نُقلت إلى الغد', { undoable: true });
+  toast(L('نُقلت إلى الغد', "Moved to tomorrow"), { undoable: true });
 }
 
 export function toggleStepUI(procId: string, stepId: string) {
@@ -40,14 +41,14 @@ export function toggleStepUI(procId: string, stepId: string) {
   if (!st.done && st.kind === 'send') return openSheet({ type: 'step-confirm', procId, stepId });
   A.toggleStep(procId, stepId);
   const after = getState().procedures.find((x) => x.id === procId);
-  if (after?.completedAt && !p.completedAt) toast(`اكتمل «${p.title}» بكل خطواته`, { undoable: true });
-  else toast(st.done ? 'أُعيد فتح الخطوة' : `تم: ${st.title}`, { undoable: true });
+  if (after?.completedAt && !p.completedAt) toast(L(`اكتمل «${p.title}» بكل خطواته`, `“${p.title}” completed — all steps done`), { undoable: true });
+  else toast(st.done ? L('أُعيد فتح الخطوة', "Step reopened") : L(`تم: ${st.title}`, `Done: ${st.title}`), { undoable: true });
 }
 
 export function exportUI() {
   exportBackup(getState());
   A.setMeta({ lastExportAt: Date.now() });
-  toast('نزلت النسخة الاحتياطية. احفظها في مكان آمن (iCloud / Drive).');
+  toast(L('نزلت النسخة الاحتياطية. احفظها في مكان آمن (iCloud / Drive).', "Backup downloaded. Keep it somewhere safe (iCloud / Drive)."));
 }
 
 export function runAction(a: Action) {
@@ -75,21 +76,21 @@ export function runAction(a: Action) {
       return exportUI();
     case 'set-estimate':
       A.updateTask(a.arg!, { estimate: a.value });
-      return toast('حُفظ التقدير');
+      return toast(L('حُفظ التقدير', "Estimate saved"));
     case 'set-pace':
       A.updateCourse(a.arg!, { paceGuess: a.value });
-      return toast('حُفظ — سيتحسن التقدير مع كل جلسة مذاكرة تسجلها');
+      return toast(L('حُفظ — سيتحسن التقدير مع كل جلسة مذاكرة تسجلها', "Saved — the estimate improves with every study session you log"));
     case 'step-done': {
       const [pid, sid] = a.arg!.split(':');
       return toggleStepUI(pid, sid);
     }
     case 'proc-followup': {
-      A.addLog(a.arg!, 'تمت متابعة الطلب (بانتظار الرد)');
-      return toast('سُجلت المتابعة');
+      A.addLog(a.arg!, L('تمت متابعة الطلب (بانتظار الرد)', "Followed up on the request (awaiting reply)"));
+      return toast(L('سُجلت المتابعة', "Follow-up logged"));
     }
     case 'drop-task':
       A.dropTask(a.arg!);
-      return toast('أُلغيت المهمة', { undoable: true });
+      return toast(L('أُلغيت المهمة', "Task cancelled"), { undoable: true });
   }
 }
 
@@ -99,16 +100,16 @@ export function autoReplanUI() {
   const plan = planDay(s);
   const moves = suggestDeferrals(plan, s);
   if (!moves.length) {
-    toast('لا توجد مهام يمكن ترحيلها — كل ما في خطتك عاجل أو لا يتأجل');
+    toast(L('لا توجد مهام يمكن ترحيلها — كل ما في خطتك عاجل أو لا يتأجل', "Nothing can be moved — everything in your plan is urgent or can't be postponed"));
     return;
   }
   A.deferMany(moves.map((m) => m.id));
   const after = planDay(getState());
-  const list = moves.map((m) => `«${m.title}»`).join('، ');
+  const list = moves.map((m) => `«${m.title}»`).join(L('، ', ", "));
   toast(
     after.overloaded
-      ? `رحّلت ${list} إلى الغد. ما زال اليوم أكبر بـ ${fmtMinutes(after.overBy)} (عاجل أو لا يتأجل).`
-      : `رحّلت ${list} إلى الغد — يومك الآن يتسع لخطتك ✓`,
+      ? L(`رحّلت ${list} إلى الغد. ما زال اليوم أكبر بـ ${fmtMinutes(after.overBy)} (عاجل أو لا يتأجل).`, `Moved ${list} to tomorrow. Today is still ${fmtMinutes(after.overBy)} over (urgent or can't be postponed).`)
+      : L(`رحّلت ${list} إلى الغد — يومك الآن يتسع لخطتك ✓`, `Moved ${list} to tomorrow — your day now fits your plan ✓`),
     { undoable: true, ms: 9000 },
   );
 }

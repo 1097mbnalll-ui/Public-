@@ -49,15 +49,15 @@ export function parseQuick(input: string, templates: Template[] = [], now = Date
   };
 
   // area tags
-  take(new RegExp(`${B}#(عمل|دراسة|دراسه|جامعة|جامعه|شخصي|حياة|حياه|بيت)${E}`), (m) => {
-    const t = m[1];
-    out.area = /عمل/.test(t) ? 'work' : /دراس|جامع/.test(t) ? 'study' : 'life';
+  take(new RegExp(`${B}#(عمل|دراسة|دراسه|جامعة|جامعه|شخصي|حياة|حياه|بيت|work|study|uni|life|home|personal)${E}`, 'i'), (m) => {
+    const t = m[1].toLowerCase();
+    out.area = /عمل|work/.test(t) ? 'work' : /دراس|جامع|study|uni/.test(t) ? 'study' : 'life';
   });
 
   // priority: «عاجل» anywhere. «مهم/مهمة» is also a noun ("task"), so it only counts with "!" or as the
   // last word (checked below, after dates and durations are taken out)
-  take(new RegExp(`${B}(!!+|!?عاجل(?:ة|ه)?|ضروري(?:ة|ه)?)${E}`), () => (out.priority = 3)) ||
-    take(new RegExp(`${B}(!|!مهم(?:ة|ه)?)${E}`), () => (out.priority = 2));
+  take(new RegExp(`${B}(!!+|!?عاجل(?:ة|ه)?|ضروري(?:ة|ه)?|!?urgent|asap)${E}`, 'i'), () => (out.priority = 3)) ||
+    take(new RegExp(`${B}(!|!مهم(?:ة|ه)?|!?important)${E}`, 'i'), () => (out.priority = 2));
   take(new RegExp(`${B}(لازم|موعد نهائي|ما يتأجل|مايتأجل|لا يتأجل)${E}`), () => (out.hard = true));
 
   // durations (before times so "ساعتين" isn't a clock)
@@ -71,8 +71,8 @@ export function parseQuick(input: string, templates: Template[] = [], now = Date
   // dates
   const dateHit =
     take(new RegExp(`${B}(بعد بكرة|بعد بكره|بعد غد|بعد الغد)${E}`), () => (out.due = addDays(today, 2))) ||
-    take(new RegExp(`${B}(بكرة|بكره|غدا|غدًا|غداً|الغد)${E}`), () => (out.due = addDays(today, 1))) ||
-    take(new RegExp(`${B}(اليوم|الليلة|الليله|الحين)${E}`), () => (out.due = today)) ||
+    take(new RegExp(`${B}(بكرة|بكره|غدا|غدًا|غداً|الغد|tomorrow)${E}`, 'i'), () => (out.due = addDays(today, 1))) ||
+    take(new RegExp(`${B}(اليوم|الليلة|الليله|الحين|today|tonight)${E}`, 'i'), () => (out.due = today)) ||
     take(new RegExp(`${B}بعد\\s+(\\d+)\\s*(يوم|ايام|أيام)${E}`), (m) => (out.due = addDays(today, +m[1]))) ||
     take(new RegExp(`${B}بعد\\s+(يومين)${E}`), () => (out.due = addDays(today, 2))) ||
     take(new RegExp(`${B}بعد\\s+(اسبوع|أسبوع)${E}`), () => (out.due = addDays(today, 7))) ||

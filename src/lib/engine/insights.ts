@@ -5,6 +5,7 @@ import { daysWord, diffDays, fmtDate, fmtMinutes, todayKey } from '../dates';
 import { type DayPlan, deadlineRisks, openTasks, suggestDeferrals, weekLoad } from './planner';
 import type { StudyPlan } from './study';
 import { kindInfo, lastActivity, nextStep, procStage } from './procedures';
+import { L, sz } from '../i18n';
 
 export type Level = 'critical' | 'warn' | 'info' | 'ask';
 
@@ -35,11 +36,11 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `urgent:${t.id}:${today}`,
       level: 'critical',
-      title: `عاجلة: ${t.title}`,
-      detail: 'ضرورية جدًا — خلّصها اليوم قبل أي شيء آخر.',
+      title: L(`عاجلة: ${t.title}`, `Urgent: ${t.title}`),
+      detail: L('ضرورية جدًا — خلّصها اليوم قبل أي شيء آخر.', "Very important — finish it today before anything else."),
       actions: [
-        { label: 'ابدأ الآن', act: 'start-task', arg: t.id },
-        { label: 'أنجزتها', act: 'done-task', arg: t.id },
+        { label: L('ابدأ الآن', "Start now"), act: 'start-task', arg: t.id },
+        { label: L('أنجزتها', "Done it"), act: 'done-task', arg: t.id },
       ],
     });
 
@@ -52,11 +53,11 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `urgent-proc:${p.id}:${today}`,
       level: 'critical',
-      title: `إجراء عاجل: ${p.title}`,
-      detail: waiting ? `بانتظار ${next.target || 'الرد'} — تابعه اليوم.` : `الخطوة التالية: ${next.title}${next.target ? ` (${next.target})` : ''}. ضروري اليوم.`,
+      title: L(`إجراء عاجل: ${p.title}`, `Urgent procedure: ${p.title}`),
+      detail: waiting ? L(`بانتظار ${next.target || 'الرد'} — تابعه اليوم.`, `Waiting for ${next.target || 'the reply'} — follow up today.`) : L(`الخطوة التالية: ${next.title}${next.target ? ` (${next.target})` : ''}. ضروري اليوم.`, `Next step: ${next.title}${next.target ? ` (${next.target})` : ''}. Needed today.`),
       actions: [
-        { label: 'افتح', act: 'open-proc', arg: p.id },
-        ...(waiting ? [] : [{ label: 'تمت الخطوة', act: 'step-done', arg: `${p.id}:${next.id}` }]),
+        { label: L('افتح', "Open"), act: 'open-proc', arg: p.id },
+        ...(waiting ? [] : [{ label: L('تمت الخطوة', "Step done"), act: 'step-done', arg: `${p.id}:${next.id}` }]),
       ],
     });
   }
@@ -68,42 +69,42 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       out.push({
         id: `exam-units:${ep.exam.id}`,
         level: 'ask',
-        title: `ما الفصول المطلوبة في ${name}؟`,
-        detail: 'بدونها لا أستطيع تقدير وقت المذاكرة أو تنبيهك إن كنت متأخرًا.',
-        actions: [{ label: 'حدد الفصول', act: 'open-exam', arg: ep.exam.id }],
+        title: L(`ما الفصول المطلوبة في ${name}؟`, `Which chapters are in ${name}?`),
+        detail: L('بدونها لا أستطيع تقدير وقت المذاكرة أو تنبيهك إن كنت متأخرًا.', "Without them I can't estimate study time or warn you if you're behind."),
+        actions: [{ label: L('حدد الفصول', "Set chapters"), act: 'open-exam', arg: ep.exam.id }],
       });
     } else if (ep.status === 'behind') {
       out.push({
         id: `exam-behind:${ep.exam.id}`,
         level: 'critical',
-        title: `${name}: الوقت المتاح لا يكفي`,
-        detail: `ينقصك حوالي ${fmtMinutes(ep.shortfall)} من المذاكرة قبل ${fmtDate(ep.lastStudyDay)}. ${ep.suggestions[0] || ''}`,
-        actions: [{ label: 'افتح الخطة', act: 'open-exam', arg: ep.exam.id }],
+        title: L(`${name}: الوقت المتاح لا يكفي`, `${name}: not enough time`),
+        detail: L(`ينقصك حوالي ${fmtMinutes(ep.shortfall)} من المذاكرة قبل ${fmtDate(ep.lastStudyDay)}. ${ep.suggestions[0] || ''}`, `You're about ${fmtMinutes(ep.shortfall)} of study short before ${fmtDate(ep.lastStudyDay)}. ${ep.suggestions[0] || ''}`),
+        actions: [{ label: L('افتح الخطة', "Open plan"), act: 'open-exam', arg: ep.exam.id }],
       });
     } else if (ep.status === 'tight') {
       out.push({
         id: `exam-tight:${ep.exam.id}`,
         level: 'warn',
-        title: `${name}: الخطة ضيقة`,
-        detail: `تكفي إذا التزمت بحوالي ${fmtMinutes(ep.requiredDaily)} يوميًا، لكن لا يوجد هامش لأي تأخير.`,
-        actions: [{ label: 'افتح الخطة', act: 'open-exam', arg: ep.exam.id }],
+        title: L(`${name}: الخطة ضيقة`, `${name}: tight plan`),
+        detail: L(`تكفي إذا التزمت بحوالي ${fmtMinutes(ep.requiredDaily)} يوميًا، لكن لا يوجد هامش لأي تأخير.`, `Enough if you keep about ${fmtMinutes(ep.requiredDaily)} a day, but there's no margin for any delay.`),
+        actions: [{ label: L('افتح الخطة', "Open plan"), act: 'open-exam', arg: ep.exam.id }],
       });
     } else if (ep.status === 'ok' && ep.startBy && ep.startBy <= today && ep.progress < 0.05) {
       out.push({
         id: `exam-start:${ep.exam.id}`,
         level: 'warn',
-        title: `ابدأ مذاكرة ${ep.course.name} اليوم`,
-        detail: `اليوم هو آخر يوم مريح للبدء حتى تنهي المنهج قبل ${ep.exam.title}.`,
-        actions: [{ label: 'افتح الخطة', act: 'open-exam', arg: ep.exam.id }],
+        title: L(`ابدأ مذاكرة ${ep.course.name} اليوم`, `Start studying ${ep.course.name} today`),
+        detail: L(`اليوم هو آخر يوم مريح للبدء حتى تنهي المنهج قبل ${ep.exam.title}.`, `Today is the last comfortable day to start and finish before ${ep.exam.title}.`),
+        actions: [{ label: L('افتح الخطة', "Open plan"), act: 'open-exam', arg: ep.exam.id }],
       });
     }
     if (ep.status !== 'unknown' && ep.pace.source === 'default' && ep.pace.n === 0) {
       out.push({
         id: `pace:${ep.course.id}`,
         level: 'ask',
-        title: `كم تحتاج تقريبًا لكل ${ep.course.sizeLabel} في ${ep.course.name}؟`,
-        detail: 'إجابة تقريبية تحسّن التقدير حتى تتجمع بيانات من جلساتك الفعلية.',
-        actions: [2, 4, 7, 12].map((v) => ({ label: `${v} د`, act: 'set-pace', arg: ep.course.id, value: v })),
+        title: L(`كم تحتاج تقريبًا لكل ${ep.course.sizeLabel} في ${ep.course.name}؟`, `Roughly how long do you need per ${sz(ep.course.sizeLabel)} in ${ep.course.name}?`),
+        detail: L('إجابة تقريبية تحسّن التقدير حتى تتجمع بيانات من جلساتك الفعلية.', "A rough answer improves the estimate until real session data builds up."),
+        actions: [2, 4, 7, 12].map((v) => ({ label: L(`${v} د`, `${v} min`), act: 'set-pace', arg: ep.course.id, value: v })),
       });
     }
   }
@@ -112,17 +113,17 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
   if (plan.overloaded) {
     const moves = suggestDeferrals(plan, state);
     const freed = moves.reduce((a, i) => a + i.minutes, 0);
-    const names = moves.slice(0, 3).map((i) => `«${i.title}»`).join('، ') + (moves.length > 3 ? ` و${moves.length - 3} غيرها` : '');
+    const names = moves.slice(0, 3).map((i) => `«${i.title}»`).join(L('، ', ", ")) + (moves.length > 3 ? L(` و${moves.length - 3} غيرها`, ` and ${moves.length - 3} more`) : '');
     out.push({
       id: `overload:${today}:${plan.items.length}`,
       level: 'warn',
-      title: `وقتك اليوم لا يكفي — الخطة أكبر بـ ${fmtMinutes(plan.overBy)}`,
+      title: L(`وقتك اليوم لا يكفي — الخطة أكبر بـ ${fmtMinutes(plan.overBy)}`, `Not enough time today — the plan is ${fmtMinutes(plan.overBy)} over`),
       detail: moves.length
-        ? `أقدر أرحّل ${moves.length === 1 ? 'عنصرًا غير عاجل' : moves.length === 2 ? 'عنصرين غير عاجلين' : `${moves.length} عناصر غير عاجلة`} إلى الغد (${names}) فيتوفر ${fmtMinutes(freed)}.${freed < plan.overBy ? ' الباقي عاجل أو لا يتأجل.' : ''}`
-        : 'كل ما في خطتك عاجل أو لا يتأجل. قلّل مذاكرة اليوم أو حدّث وقتك المتاح.',
+        ? L(`أقدر أرحّل ${moves.length === 1 ? 'عنصرًا غير عاجل' : moves.length === 2 ? 'عنصرين غير عاجلين' : `${moves.length} عناصر غير عاجلة`} إلى الغد (${names}) فيتوفر ${fmtMinutes(freed)}.${freed < plan.overBy ? ' الباقي عاجل أو لا يتأجل.' : ''}`, `I can move ${moves.length === 1 ? 'one non-urgent item' : `${moves.length} non-urgent items`} to tomorrow (${names}), freeing ${fmtMinutes(freed)}.${freed < plan.overBy ? ' The rest is urgent or can’t be postponed.' : ''}`)
+        : L('كل ما في خطتك عاجل أو لا يتأجل. قلّل مذاكرة اليوم أو حدّث وقتك المتاح.', "Everything in your plan is urgent or can't be postponed. Study less today or update your available time."),
       actions: moves.length
-        ? [{ label: 'أعد الجدولة تلقائيًا', act: 'auto-replan' }, { label: 'أختار بنفسي', act: 'replan' }]
-        : [{ label: 'راجع الخطة', act: 'replan' }],
+        ? [{ label: L('أعد الجدولة تلقائيًا', "Reschedule automatically"), act: 'auto-replan' }, { label: L('أختار بنفسي', "I'll choose"), act: 'replan' }]
+        : [{ label: L('راجع الخطة', "Review plan"), act: 'replan' }],
     });
   }
 
@@ -132,9 +133,9 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `overdue:${today}:${overdue.length}`,
       level: overdue.some((t) => t.hard || t.priority >= 2) ? 'critical' : 'warn',
-      title: overdue.length === 1 ? `مهمة متأخرة: ${overdue[0].title}` : `${overdue.length} مهام فات موعدها`,
-      detail: 'أنجزها، أو حدد موعدًا جديدًا واقعيًا، أو احذفها إن لم تعد مهمة.',
-      actions: overdue.length === 1 ? [{ label: 'افتح', act: 'open-task', arg: overdue[0].id }] : [{ label: 'اعرضها', act: 'go', arg: 'tasks?f=overdue' }],
+      title: overdue.length === 1 ? L(`مهمة متأخرة: ${overdue[0].title}`, `Overdue task: ${overdue[0].title}`) : L(`${overdue.length} مهام فات موعدها`, `${overdue.length} tasks past due`),
+      detail: L('أنجزها، أو حدد موعدًا جديدًا واقعيًا، أو احذفها إن لم تعد مهمة.', "Do it, set a realistic new date, or delete it if it no longer matters."),
+      actions: overdue.length === 1 ? [{ label: L('افتح', "Open"), act: 'open-task', arg: overdue[0].id }] : [{ label: L('اعرضها', "Show them"), act: 'go', arg: 'tasks?f=overdue' }],
     });
   }
 
@@ -143,9 +144,9 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `risk:${r.task.id}:${r.task.due}`,
       level: 'warn',
-      title: `${r.task.title}: قد لا يكفي الوقت قبل ${fmtDate(r.task.due as string, false)}`,
-      detail: `تحتاج ${fmtMinutes(r.need)} من العمل حتى ذلك اليوم ومتاح لك ${fmtMinutes(r.have)} بعد المذاكرة.`,
-      actions: [{ label: 'افتح', act: 'open-task', arg: r.task.id }],
+      title: L(`${r.task.title}: قد لا يكفي الوقت قبل ${fmtDate(r.task.due as string, false)}`, `${r.task.title}: time may run out before ${fmtDate(r.task.due as string, false)}`),
+      detail: L(`تحتاج ${fmtMinutes(r.need)} من العمل حتى ذلك اليوم ومتاح لك ${fmtMinutes(r.have)} بعد المذاكرة.`, `You need ${fmtMinutes(r.need)} of work by then and have ${fmtMinutes(r.have)} after studying.`),
+      actions: [{ label: L('افتح', "Open"), act: 'open-task', arg: r.task.id }],
     });
   }
 
@@ -156,9 +157,9 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `week-heavy:${heavy.map((d) => d.day).join(',')}`,
       level: 'info',
-      title: `أيام مزدحمة قادمة: ${heavy.map((d) => fmtDate(d.day)).join('، ')}`,
-      detail: 'انقل بعض المهام لأيام أخف من الآن حتى لا تتفاجأ.',
-      actions: [{ label: 'عرض الأسبوع', act: 'go', arg: 'week' }],
+      title: L(`أيام مزدحمة قادمة: ${heavy.map((d) => fmtDate(d.day)).join('، ')}`, `Busy days ahead: ${heavy.map((d) => fmtDate(d.day)).join(', ')}`),
+      detail: L('انقل بعض المهام لأيام أخف من الآن حتى لا تتفاجأ.', "Move some tasks to lighter days now so it doesn't catch you off guard."),
+      actions: [{ label: L('عرض الأسبوع', "View week"), act: 'go', arg: 'week' }],
     });
   }
 
@@ -173,31 +174,31 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       out.push({
         id: `proc-partial:${p.id}:${next.id}`,
         level: idle >= 3 ? 'warn' : 'info',
-        title: `${p.title}: باقي «${next.title}»`,
-        detail: `${kindInfo(next.kind).waiting}${next.target ? ` — ${next.target}` : ''}. آخر حركة ${idle < 2 ? 'أمس' : `قبل ${daysWord(Math.floor(idle))}`}.`,
+        title: L(`${p.title}: باقي «${next.title}»`, `${p.title}: “${next.title}” remains`),
+        detail: L(`${kindInfo(next.kind).waiting}${next.target ? ` — ${next.target}` : ''}. آخر حركة ${idle < 2 ? 'أمس' : `قبل ${daysWord(Math.floor(idle))}`}.`, `${kindInfo(next.kind).waiting}${next.target ? ` — ${next.target}` : ''}. Last activity ${idle < 2 ? 'yesterday' : `${daysWord(Math.floor(idle))} ago`}.`),
         actions: [
-          { label: 'افتح', act: 'open-proc', arg: p.id },
-          { label: 'تم', act: 'step-done', arg: `${p.id}:${next.id}` },
+          { label: L('افتح', "Open"), act: 'open-proc', arg: p.id },
+          { label: L('تم', "Done"), act: 'step-done', arg: `${p.id}:${next.id}` },
         ],
       });
     } else if (stage === 'waiting' && idle >= 2) {
       out.push({
         id: `proc-wait:${p.id}:${next.id}:${Math.floor(idle / 2)}`,
         level: 'info',
-        title: `تابع الرد: ${p.title}`,
-        detail: `${next.target ? `من ${next.target} ` : ''}منذ ${daysWord(Math.floor(idle))}. هل وصل الرد؟`,
+        title: L(`تابع الرد: ${p.title}`, `Follow up: ${p.title}`),
+        detail: L(`${next.target ? `من ${next.target} ` : ''}منذ ${daysWord(Math.floor(idle))}. هل وصل الرد؟`, `${next.target ? `From ${next.target}, ` : ''}waiting ${daysWord(Math.floor(idle))}. Has the reply arrived?`),
         actions: [
-          { label: 'وصل الرد', act: 'step-done', arg: `${p.id}:${next.id}` },
-          { label: 'سجّل متابعة', act: 'proc-followup', arg: p.id },
+          { label: L('وصل الرد', "Reply received"), act: 'step-done', arg: `${p.id}:${next.id}` },
+          { label: L('سجّل متابعة', "Log follow-up"), act: 'proc-followup', arg: p.id },
         ],
       });
     } else if (p.due && p.due < today) {
       out.push({
         id: `proc-overdue:${p.id}`,
         level: 'warn',
-        title: `إجراء متأخر: ${p.title}`,
-        detail: `كان موعده ${fmtDate(p.due)}. الخطوة التالية: ${next.title}.`,
-        actions: [{ label: 'افتح', act: 'open-proc', arg: p.id }],
+        title: L(`إجراء متأخر: ${p.title}`, `Overdue procedure: ${p.title}`),
+        detail: L(`كان موعده ${fmtDate(p.due)}. الخطوة التالية: ${next.title}.`, `It was due ${fmtDate(p.due)}. Next step: ${next.title}.`),
+        actions: [{ label: L('افتح', "Open"), act: 'open-proc', arg: p.id }],
       });
     }
   }
@@ -210,9 +211,9 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       out.push({
         id: `task-wait:${t.id}:${Math.floor(idle / 3)}`,
         level: 'info',
-        title: `تنتظر «${t.waitingOn}» منذ ${daysWord(Math.floor(idle))}`,
+        title: L(`تنتظر «${t.waitingOn}» منذ ${daysWord(Math.floor(idle))}`, `Waiting on “${t.waitingOn}” for ${daysWord(Math.floor(idle))}`),
         detail: t.title,
-        actions: [{ label: 'افتح', act: 'open-task', arg: t.id }],
+        actions: [{ label: L('افتح', "Open"), act: 'open-task', arg: t.id }],
       });
   }
 
@@ -222,11 +223,11 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       out.push({
         id: `deferred:${t.id}:${t.deferrals}`,
         level: 'info',
-        title: `«${t.title}» تأجلت ${t.deferrals} مرات`,
-        detail: 'غالبًا تحتاج تقسيمها لخطوة أصغر، أو تحديد يوم ثابت لها، أو حذفها بصراحة.',
+        title: L(`«${t.title}» تأجلت ${t.deferrals} مرات`, `“${t.title}” postponed ${t.deferrals} times`),
+        detail: L('غالبًا تحتاج تقسيمها لخطوة أصغر، أو تحديد يوم ثابت لها، أو حذفها بصراحة.', "It probably needs a smaller first step, a fixed day, or an honest delete."),
         actions: [
-          { label: 'قسّمها', act: 'open-task', arg: t.id },
-          { label: 'احذفها', act: 'drop-task', arg: t.id },
+          { label: L('قسّمها', "Split it"), act: 'open-task', arg: t.id },
+          { label: L('احذفها', "Delete it"), act: 'drop-task', arg: t.id },
         ],
       });
   }
@@ -237,7 +238,7 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `est:${i.id}`,
       level: 'ask',
-      title: `كم تأخذ «${i.title}» تقريبًا؟`,
+      title: L(`كم تأخذ «${i.title}» تقريبًا؟`, `How long does “${i.title}” take, roughly?`),
       actions: [15, 30, 60, 120].map((v) => ({ label: fmtMinutes(v), act: 'set-estimate', arg: i.id, value: v })),
     });
 
@@ -248,9 +249,9 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     out.push({
       id: `backup:${today}`,
       level: 'info',
-      title: lastExport ? `آخر نسخة احتياطية قبل ${daysWord(diffDays(todayKey(lastExport), today))}` : 'لم تحفظ نسخة احتياطية بعد',
-      detail: 'بياناتك محفوظة في هذا المتصفح فقط. نزّل نسخة واحفظها في مكان آمن.',
-      actions: [{ label: 'نزّل نسخة', act: 'export' }],
+      title: lastExport ? L(`آخر نسخة احتياطية قبل ${daysWord(diffDays(todayKey(lastExport), today))}`, `Last backup ${daysWord(diffDays(todayKey(lastExport), today))} ago`) : L('لم تحفظ نسخة احتياطية بعد', "You haven't saved a backup yet"),
+      detail: L('بياناتك محفوظة في هذا المتصفح فقط. نزّل نسخة واحفظها في مكان آمن.', "Your data lives only in this browser. Download a copy and keep it somewhere safe."),
+      actions: [{ label: L('نزّل نسخة', "Download backup"), act: 'export' }],
     });
   }
 

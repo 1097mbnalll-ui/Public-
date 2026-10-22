@@ -5,6 +5,7 @@
 
 import type { AppState } from './types';
 import { migrate } from './defaults';
+import { L } from './i18n';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L
 const CODE_LEN = 12; // ≈ 59 bits
@@ -77,14 +78,14 @@ export async function seal(state: AppState, code: string): Promise<Uint8Array> {
 export class WrongCode extends Error {}
 
 export async function open(packed: Uint8Array, code: string): Promise<{ state: AppState; exportedAt?: string }> {
-  if (packed.length < 31 || packed[0] !== VERSION) throw new Error('هذا الرابط أو الملف ليس نقلًا من «مسار» أو أنه ناقص.');
+  if (packed.length < 31 || packed[0] !== VERSION) throw new Error(L('هذا الرابط أو الملف ليس نقلًا من «مسار» أو أنه ناقص.', "This link or file isn't a Masar transfer, or it's incomplete."));
   const salt = packed.subarray(2, 18);
   const iv = packed.subarray(18, 30);
   let body: Uint8Array;
   try {
     body = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, await key(code, salt), packed.subarray(30) as BufferSource));
   } catch {
-    throw new WrongCode('الكود غير صحيح.');
+    throw new WrongCode(L('الكود غير صحيح.', "Wrong code."));
   }
   if (packed[1] & 1) body = await pipe(body, new DecompressionStream('gzip'));
   const raw = JSON.parse(dec.decode(body));

@@ -6,6 +6,7 @@ import type { AppState } from './types';
 import { addDays, atTime, fmtClock, todayKey } from './dates';
 import { mutate } from './store';
 import { planDay } from './engine/planner';
+import { L } from './i18n';
 
 export interface DueReminder {
   id: string;
@@ -22,12 +23,12 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
   const out: DueReminder[] = [];
   for (const t of state.tasks) {
     if (t.status !== 'open' || !t.reminder || t.reminder.fired || t.reminder.at > now) continue;
-    out.push({ id: `task:${t.id}`, title: t.title, body: t.reminder.note || 'تذكير بمهمة', at: t.reminder.at, ref: `task/${t.id}`, kind: 'manual', task: t.id });
+    out.push({ id: `task:${t.id}`, title: t.title, body: t.reminder.note || L('تذكير بمهمة', "Task reminder"), at: t.reminder.at, ref: `task/${t.id}`, kind: 'manual', task: t.id });
   }
   for (const p of state.procedures) {
     if (p.archived || p.completedAt || !p.reminder || p.reminder.fired || p.reminder.at > now) continue;
     const next = p.steps.find((s) => !s.done);
-    out.push({ id: `proc:${p.id}`, title: p.title, body: p.reminder.note || (next ? `الخطوة التالية: ${next.title}` : 'تذكير بإجراء'), at: p.reminder.at, ref: `work/${p.id}`, kind: 'manual', proc: p.id });
+    out.push({ id: `proc:${p.id}`, title: p.title, body: p.reminder.note || (next ? L(`الخطوة التالية: ${next.title}`, `Next step: ${next.title}`) : L('تذكير بإجراء', "Procedure reminder")), at: p.reminder.at, ref: `work/${p.id}`, kind: 'manual', proc: p.id });
   }
   if (!state.settings.nudges) return out;
 
@@ -37,7 +38,7 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     const at = atTime(t.due, t.dueTime) - 60 * 60000;
     const id = `due:${t.id}:${t.due}`;
     if (at <= now && !state.fired[id])
-      out.push({ id, title: `بعد ساعة: ${t.title}`, body: `موعدها ${fmtClock(t.dueTime)}`, at, ref: `task/${t.id}`, kind: 'auto' });
+      out.push({ id, title: L(`بعد ساعة: ${t.title}`, `In an hour: ${t.title}`), body: L(`موعدها ${fmtClock(t.dueTime)}`, `Due at ${fmtClock(t.dueTime)}`), at, ref: `task/${t.id}`, kind: 'auto' });
   }
   // عاجلة: one nudge a day until it's done
   for (const t of state.tasks) {
@@ -45,7 +46,7 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     const id = `urgent:${t.id}:${today}`;
     const at = Math.max(t.createdAt + 60_000, atTime(today, state.settings.morningBrief || '08:00'));
     if (at <= now && !state.fired[id])
-      out.push({ id, title: `عاجلة: ${t.title}`, body: 'ضرورية جدًا — خلّصها اليوم.', at, ref: `task/${t.id}`, kind: 'auto' });
+      out.push({ id, title: L(`عاجلة: ${t.title}`, `Urgent: ${t.title}`), body: L('ضرورية جدًا — خلّصها اليوم.', "Very important — finish it today."), at, ref: `task/${t.id}`, kind: 'auto' });
   }
   for (const p of state.procedures) {
     if (p.archived || p.completedAt || p.priority !== 3) continue;
@@ -53,7 +54,7 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     const at = Math.max(p.createdAt + 60_000, atTime(today, state.settings.morningBrief || '08:00'));
     const next = p.steps.find((x) => !x.done);
     if (at <= now && !state.fired[id])
-      out.push({ id, title: `عاجل: ${p.title}`, body: next ? `الخطوة التالية: ${next.title}` : 'ضروري اليوم.', at, ref: `work/${p.id}`, kind: 'auto' });
+      out.push({ id, title: L(`عاجل: ${p.title}`, `Urgent: ${p.title}`), body: next ? L(`الخطوة التالية: ${next.title}`, `Next step: ${next.title}`) : L('ضروري اليوم.', "Needed today."), at, ref: `work/${p.id}`, kind: 'auto' });
   }
   for (const e of state.exams) {
     if (e.score != null) continue;
@@ -61,7 +62,7 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     const id = `exam:${e.id}`;
     const course = state.courses.find((c) => c.id === e.courseId);
     if (at <= now && now < atTime(e.date, '23:59') && !state.fired[id])
-      out.push({ id, title: `اختبار ${course?.name || ''} غدًا`, body: `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, at, ref: 'study', kind: 'auto' });
+      out.push({ id, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well and get your things ready.`), at, ref: 'study', kind: 'auto' });
   }
   if (state.settings.morningBrief) {
     const at = atTime(today, state.settings.morningBrief);
@@ -72,8 +73,8 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
       const must = plan.items.filter((i) => i.must).length;
       out.push({
         id,
-        title: 'خطة يومك جاهزة',
-        body: n ? `${n} عناصر${must ? `، منها ${must} لا تحتمل التأجيل` : ''}.${plan.overloaded ? ' اليوم محمّل أكثر من وقتك.' : ''}` : 'لا شيء ملح اليوم.',
+        title: L('خطة يومك جاهزة', "Your day plan is ready"),
+        body: n ? L(`${n} عناصر${must ? `، منها ${must} لا تحتمل التأجيل` : ''}.${plan.overloaded ? ' اليوم محمّل أكثر من وقتك.' : ''}`, `${n} items${must ? `, ${must} of them can't be postponed` : ''}.${plan.overloaded ? ' Today holds more than your time.' : ''}`) : L('لا شيء ملح اليوم.', "Nothing pressing today."),
         at,
         ref: 'today',
         kind: 'auto',

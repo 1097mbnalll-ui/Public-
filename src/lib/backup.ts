@@ -1,6 +1,7 @@
 import type { AppState } from './types';
 import { migrate } from './defaults';
 import { todayKey } from './dates';
+import { L } from './i18n';
 
 export function download(filename: string, content: string, type = 'application/json') {
   const blob = new Blob([content], { type: `${type};charset=utf-8` });
@@ -32,22 +33,22 @@ export function readBackup(text: string): ImportPreview {
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error('الملف ليس بصيغة JSON صحيحة.');
+    throw new Error(L('الملف ليس بصيغة JSON صحيحة.', "The file is not valid JSON."));
   }
   const data = raw && raw.app === 'masar' ? raw.data : raw;
   if (!data || typeof data !== 'object' || !Array.isArray(data.tasks) || !Array.isArray(data.procedures))
-    throw new Error('هذا الملف لا يبدو نسخة احتياطية من «مسار».');
+    throw new Error(L('هذا الملف لا يبدو نسخة احتياطية من «مسار».', "This file doesn't look like a Masar backup."));
   const state = migrate(data);
   return {
     state,
     exportedAt: raw.exportedAt,
     counts: [
-      { label: 'مهام', n: state.tasks.length },
-      { label: 'إجراءات عمل', n: state.procedures.length },
-      { label: 'قوالب', n: state.templates.length },
-      { label: 'مواد', n: state.courses.length },
-      { label: 'اختبارات', n: state.exams.length },
-      { label: 'جلسات مذاكرة', n: state.sessions.length },
+      { label: L('مهام', "tasks"), n: state.tasks.length },
+      { label: L('إجراءات عمل', "work procedures"), n: state.procedures.length },
+      { label: L('قوالب', "templates"), n: state.templates.length },
+      { label: L('مواد', "courses"), n: state.courses.length },
+      { label: L('اختبارات', "exams"), n: state.exams.length },
+      { label: L('جلسات مذاكرة', "study sessions"), n: state.sessions.length },
     ],
   };
 }

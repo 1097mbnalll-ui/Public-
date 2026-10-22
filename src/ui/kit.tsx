@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { L } from '../lib/i18n';
 
 export function Sheet({
   title,
@@ -42,7 +43,7 @@ export function Sheet({
         <div className="sheet-head">
           <h2 className="grow">{title}</h2>
           {headExtra}
-          <button className="icon-btn" onClick={onClose} aria-label="إغلاق">
+          <button className="icon-btn" onClick={onClose} aria-label={L("إغلاق", "Close")}>
             <Icon name="x" />
           </button>
         </div>
@@ -78,7 +79,7 @@ export function Check({ on, onClick, square, label }: { on: boolean; onClick: ()
         e.stopPropagation();
         onClick();
       }}
-      aria-label={label || (on ? 'إلغاء الإنجاز' : 'إنجاز')}
+      aria-label={label || (on ? L('إلغاء الإنجاز', "Mark not done") : L('إنجاز', "Complete"))}
       aria-pressed={on}
     >
       <Icon name="check" size={14} stroke={3} />
@@ -252,9 +253,9 @@ export function Row({
 export function Stepper({ value, onChange, step = 30, min = 0, max = 960, format }: { value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; format: (v: number) => string }) {
   return (
     <div className="stepper">
-      <button onClick={() => onChange(Math.max(min, value - step))} aria-label="إنقاص"><Icon name="minus" size={16} /></button>
+      <button onClick={() => onChange(Math.max(min, value - step))} aria-label={L("إنقاص", "Decrease")}><Icon name="minus" size={16} /></button>
       <span>{format(value)}</span>
-      <button onClick={() => onChange(Math.min(max, value + step))} aria-label="زيادة"><Icon name="plus" size={16} /></button>
+      <button onClick={() => onChange(Math.min(max, value + step))} aria-label={L("زيادة", "Increase")}><Icon name="plus" size={16} /></button>
     </div>
   );
 }

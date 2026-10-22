@@ -17,6 +17,7 @@ import { ReminderField } from '../ui/ReminderField';
 import { shareText, StepKindSelect } from '../ui/WorkSheets';
 import { PageTop } from '../ui/PageTop';
 import { TaskRow } from './Tasks';
+import { L, startEdge } from '../lib/i18n';
 
 export function Work() {
   const r = useRoute();
@@ -52,7 +53,7 @@ function ProcRow({ p }: { p: Procedure }) {
     <div
       className="r tap"
       onClick={() => go(`work/${p.id}`)}
-      style={{ alignItems: 'flex-start', boxShadow: p.completedAt ? undefined : p.priority === 3 ? 'inset -3px 0 0 var(--red)' : p.priority === 2 ? 'inset -3px 0 0 var(--amber)' : undefined }}
+      style={{ alignItems: 'flex-start', boxShadow: p.completedAt ? undefined : p.priority === 3 ? startEdge('var(--red)') : p.priority === 2 ? startEdge('var(--amber)') : undefined }}
     >
       <div className="main-t">
         <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
@@ -60,17 +61,16 @@ function ProcRow({ p }: { p: Procedure }) {
           <StepsDots p={p} />
         </div>
         <div className="sub">
-          {!p.completedAt && p.priority === 3 && <span style={{ color: 'var(--red)', fontWeight: 600 }}>عاجل · </span>}
-          {!p.completedAt && p.priority === 2 && <span style={{ color: 'var(--amber)' }}>مهم · </span>}
-          {!p.completedAt && p.priority === 0 && <span>منخفض · </span>}
+          {!p.completedAt && p.priority === 3 && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجل · ", "Urgent · ")}</span>}
+          {!p.completedAt && p.priority === 2 && <span style={{ color: 'var(--amber)' }}>{L("مهم · ", "Important · ")}</span>}
+          {!p.completedAt && p.priority === 0 && <span>{L("منخفض · ", "Low · ")}</span>}
           {next ? (
-            <span style={{ color: next.kind === 'reply' ? 'var(--violet)' : 'var(--amber)' }}>
-              التالي: {next.title}
+            <span style={{ color: next.kind === 'reply' ? 'var(--violet)' : 'var(--amber)' }}>{L("التالي: ", "Next: ")}{next.title}
             </span>
           ) : p.completedAt ? (
-            <span style={{ color: 'var(--green)' }}>مكتمل {timeAgo(p.completedAt)}</span>
+            <span style={{ color: 'var(--green)' }}>{L("مكتمل ", "Done ")}{timeAgo(p.completedAt)}</span>
           ) : (
-            'بلا خطوات بعد'
+            L('بلا خطوات بعد', "No steps yet")
           )}
           {lead && ` · ${lead.value}`}
           {!p.completedAt && p.steps.length > 0 && ` · ${p.steps.filter((x) => x.done).length}/${p.steps.length}`}
@@ -79,9 +79,8 @@ function ProcRow({ p }: { p: Procedure }) {
         </div>
       </div>
       {next && !p.archived && (
-        <button className="btn sm" style={{ alignSelf: 'center' }} onClick={(e) => { e.stopPropagation(); toggleStepUI(p.id, next.id); }} title={`تم: ${next.title}`}>
-          <Icon name="check" size={14} /> تم
-        </button>
+        <button className="btn sm" style={{ alignSelf: 'center' }} onClick={(e) => { e.stopPropagation(); toggleStepUI(p.id, next.id); }} title={L(`تم: ${next.title}`, `Done: ${next.title}`)}>
+          <Icon name="check" size={14} />{L(" تم", " Done")}</button>
       )}
     </div>
   );
@@ -120,9 +119,9 @@ function WorkList() {
   return (
     <div>
       <PageTop
-        title="العمل"
-        sub={open.length ? `${open.length} إجراءات مفتوحة` : 'تابع كل إجراء خطوة بخطوة حتى لا تضيع خطوة'}
-        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick', mode: 'proc' })}><Icon name="plus" size={15} /> إجراء</button>}
+        title={L("العمل", "Work")}
+        sub={open.length ? L(`${open.length} إجراءات مفتوحة`, `${open.length} open procedures`) : L('تابع كل إجراء خطوة بخطوة حتى لا تضيع خطوة', "Follow each procedure step by step so nothing gets lost")}
+        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick', mode: 'proc' })}><Icon name="plus" size={15} />{L(" إجراء", " Procedure")}</button>}
       />
 
       <div className="col" style={{ gap: 12, marginBottom: 18 }}>
@@ -130,32 +129,32 @@ function WorkList() {
           value={view}
           onChange={setView}
           options={[
-            { v: 'open', l: 'الحالية' },
-            { v: 'waiting', l: `بانتظار رد${waiting.length ? ` ${waiting.length}` : ''}` },
-            { v: 'people', l: 'الجهات' },
-            { v: 'done', l: 'المنتهية' },
-            { v: 'templates', l: 'القوالب' },
+            { v: 'open', l: L('الحالية', "Current") },
+            { v: 'waiting', l: L(`بانتظار رد${waiting.length ? ` ${waiting.length}` : ''}`, `Awaiting reply${waiting.length ? ` ${waiting.length}` : ''}`) },
+            { v: 'people', l: L('الجهات', "People") },
+            { v: 'done', l: L('المنتهية', "Finished") },
+            { v: 'templates', l: L('القوالب', "Templates") },
           ]}
         />
-        {view !== 'templates' && view !== 'people' && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث: شركة، شخص، رقم فاتورة، ملاحظة…" />}
+        {view !== 'templates' && view !== 'people' && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث: شركة، شخص، رقم فاتورة، ملاحظة…", "Search: company, person, invoice no., note…")} />}
       </div>
 
       {view === 'open' && (
         <div className="stack">
           {open.length > 0 && !q && (
             <div className="kpis">
-              <div className="kpi"><div className="v" style={{ color: urgent.length ? 'var(--red)' : undefined }}>{urgent.length}</div><div className="k">عاجلة — لليوم</div></div>
-              <div className="kpi"><div className="v" style={{ color: waiting.length ? 'var(--violet)' : undefined }}>{waiting.length}</div><div className="k">بانتظار رد</div></div>
-              <div className="kpi"><div className="v" style={{ color: stale ? 'var(--amber)' : undefined }}>{stale}</div><div className="k">راكدة 3 أيام+</div></div>
+              <div className="kpi"><div className="v" style={{ color: urgent.length ? 'var(--red)' : undefined }}>{urgent.length}</div><div className="k">{L("عاجلة — لليوم", "Urgent — for today")}</div></div>
+              <div className="kpi"><div className="v" style={{ color: waiting.length ? 'var(--violet)' : undefined }}>{waiting.length}</div><div className="k">{L("بانتظار رد", "Awaiting reply")}</div></div>
+              <div className="kpi"><div className="v" style={{ color: stale ? 'var(--amber)' : undefined }}>{stale}</div><div className="k">{L("راكدة 3 أيام+", "Idle 3+ days")}</div></div>
             </div>
           )}
           {urgent.length > 0 && (
-            <Group title={<span style={{ color: 'var(--red)' }}>عاجلة — تنفّذ اليوم ولا تتأجل ({urgent.length})</span>}>
+            <Group title={<span style={{ color: 'var(--red)' }}>{L("عاجلة — تنفّذ اليوم ولا تتأجل (", "Urgent — do today, never postponed (")}{urgent.length})</span>}>
               {urgent.map((p) => <ProcRow key={p.id} p={p} />)}
             </Group>
           )}
           {important.length > 0 && (
-            <Group title={<span style={{ color: 'var(--amber)' }}>مهمة — اليوم أو بكرة ({important.length})</span>}>
+            <Group title={<span style={{ color: 'var(--amber)' }}>{L("مهمة — اليوم أو بكرة (", "Important — today or tomorrow (")}{important.length})</span>}>
               {important.map((p) => <ProcRow key={p.id} p={p} />)}
             </Group>
           )}
@@ -164,17 +163,17 @@ function WorkList() {
               {items.map((p) => <ProcRow key={p.id} p={p} />)}
             </Group>
           ))}
-          {noSteps.length > 0 && <Group title="بلا خطوات">{noSteps.map((p) => <ProcRow key={p.id} p={p} />)}</Group>}
+          {noSteps.length > 0 && <Group title={L("بلا خطوات", "No steps")}>{noSteps.map((p) => <ProcRow key={p.id} p={p} />)}</Group>}
           {!active.length && (
             <div className="card">
-              <Empty icon="work" title={q ? 'لا نتائج' : 'لا إجراءات قيد العمل'}>
-                {!q && 'أضف إجراءً بخطواته (طباعة، حفظ، تصديق، إرسال…) وسيظهر هنا مرتبًا حسب الأولوية وما ينتظره.'}
+              <Empty icon="work" title={q ? L('لا نتائج', "No results") : L('لا إجراءات قيد العمل', "No procedures in progress")}>
+                {!q && L('أضف إجراءً بخطواته (طباعة، حفظ، تصديق، إرسال…) وسيظهر هنا مرتبًا حسب الأولوية وما ينتظره.', "Add a procedure with its steps (print, file, certify, send…) and it shows here, ordered by priority and what it's waiting on.")}
               </Empty>
             </div>
           )}
           {s.templates.length > 0 && !q && (
             <div>
-              <div className="group-title"><span>ابدأ سريعًا</span></div>
+              <div className="group-title"><span>{L("ابدأ سريعًا", "Quick start")}</span></div>
               <div className="hscroll">
                 {s.templates.slice().sort((a, b) => b.uses - a.uses).map((t) => (
                   <button key={t.id} className="chip btnish" onClick={() => openSheet({ type: 'quick', text: t.name + ' ' })}>
@@ -185,7 +184,7 @@ function WorkList() {
             </div>
           )}
           {workTasks.length > 0 && !q && (
-            <Group title={`مهام عمل بلا خطوات (${workTasks.length})`}>
+            <Group title={L(`مهام عمل بلا خطوات (${workTasks.length})`, `Work tasks without steps (${workTasks.length})`)}>
               {workTasks.slice(0, 8).map((t) => <TaskRow key={t.id} t={t} />)}
             </Group>
           )}
@@ -196,14 +195,14 @@ function WorkList() {
         (waiting.length ? (
           <Group>{waiting.map((p) => <ProcRow key={p.id} p={p} />)}</Group>
         ) : (
-          <div className="card"><Empty icon="hourglass" title="لا شيء بانتظار رد">عندما تصل لخطوة «انتظار رد» ينتقل الإجراء هنا، وأذكّرك بالمتابعة إن تأخر.</Empty></div>
+          <div className="card"><Empty icon="hourglass" title={L("لا شيء بانتظار رد", "Nothing awaiting a reply")}>{L("عندما تصل لخطوة «انتظار رد» ينتقل الإجراء هنا، وأذكّرك بالمتابعة إن تأخر.", "When a procedure reaches an “Await reply” step it moves here, and I remind you to follow up if it's late.")}</Empty></div>
         ))}
 
       {view === 'done' &&
         (finished.length ? (
           <Group>{finished.map((p) => <ProcRow key={p.id} p={p} />)}</Group>
         ) : (
-          <div className="card"><Empty icon="check" title="لا إجراءات منتهية بعد" /></div>
+          <div className="card"><Empty icon="check" title={L("لا إجراءات منتهية بعد", "No finished procedures yet")} /></div>
         ))}
 
       {view === 'people' && <People procs={open} />}
@@ -231,26 +230,24 @@ function People({ procs }: { procs: Procedure[] }) {
   const copy = async (name: string, items: Item[]) => {
     const text = `${name}:\n` + items.map((x) => `- ${x.p.title}${x.p.fields.find((f) => f.value.trim()) ? ` (${x.p.fields.find((f) => f.value.trim())!.value})` : ''} — ${x.st.title}`).join('\n');
     const r = await shareText(name, text);
-    if (r === 'copied') toast('نُسخت القائمة');
+    if (r === 'copied') toast(L('نُسخت القائمة', "List copied"));
   };
   if (!list.length)
     return (
       <div className="card">
-        <Empty icon="user" title="لا شيء معلّق على جهة بعينها">
-          عندما تكتب اسم شخص أو قروب أو مكان في خطوة (مثل «إرسال» أو «حفظ»)، ستجد هنا كل ما ينتظره في مكان واحد.
-        </Empty>
+        <Empty icon="user" title={L("لا شيء معلّق على جهة بعينها", "Nothing pending on a specific person")}>{L("عندما تكتب اسم شخص أو قروب أو مكان في خطوة (مثل «إرسال» أو «حفظ»)، ستجد هنا كل ما ينتظره في مكان واحد.", "When you write a person, group or place in a step (like “Send” or “File”), you'll find everything waiting on them here in one place.")}</Empty>
       </div>
     );
   return (
     <div className="stack">
-      <p className="muted small" style={{ margin: 0 }}>كل خطوة معلّقة مجمّعة حسب الشخص أو المجموعة أو المكان. الخطوات المعتمة تنتظر خطوة قبلها.</p>
+      <p className="muted small" style={{ margin: 0 }}>{L("كل خطوة معلّقة مجمّعة حسب الشخص أو المجموعة أو المكان. الخطوات المعتمة تنتظر خطوة قبلها.", "Every pending step grouped by person, group or place. Dimmed steps are waiting on an earlier step.")}</p>
       {list.map(([name, items]) => {
         const ready = items.filter((x) => x.actionable).length;
         return (
           <Group
             key={name}
-            title={<span className="row" style={{ gap: 6 }}><Icon name="user" size={14} /> {name} <span className="faint">({ready ? `${ready} جاهزة` : `${items.length} قادمة`})</span></span>}
-            action={<button onClick={() => copy(name, items)}>انسخ القائمة</button>}
+            title={<span className="row" style={{ gap: 6 }}><Icon name="user" size={14} /> {name} <span className="faint">({ready ? L(`${ready} جاهزة`, `${ready} ready`) : L(`${items.length} قادمة`, `${items.length} upcoming`)})</span></span>}
+            action={<button onClick={() => copy(name, items)}>{L("انسخ القائمة", "Copy list")}</button>}
           >
             {items.map(({ p, st, actionable, after }) => (
               <div key={p.id + st.id} className="r tap" style={actionable ? undefined : { opacity: 0.55 }} onClick={() => go(`work/${p.id}`)}>
@@ -260,12 +257,12 @@ function People({ procs }: { procs: Procedure[] }) {
                   <div className="sub">
                     {p.title}
                     {p.fields.find((f) => f.value.trim()) ? ` · ${p.fields.find((f) => f.value.trim())!.value}` : ''}
-                    {after ? ` · بعد: ${after}` : ''}
+                    {after ? L(` · بعد: ${after}`, ` · after: ${after}`) : ''}
                   </div>
                 </span>
                 {actionable && !p.archived && (
                   <button className="btn sm" onClick={(e) => { e.stopPropagation(); toggleStepUI(p.id, st.id); }}>
-                    <Icon name="check" size={14} /> {st.kind === 'send' ? 'أرسلته' : st.kind === 'reply' ? 'وصل الرد' : 'تم'}
+                    <Icon name="check" size={14} /> {st.kind === 'send' ? L('أرسلته', "Sent it") : st.kind === 'reply' ? L('وصل الرد', "Reply received") : L('تم', "Done")}
                   </button>
                 )}
               </div>
@@ -281,8 +278,8 @@ function Templates() {
   const s = useApp();
   return (
     <div className="stack">
-      <p className="muted small" style={{ margin: 0 }}>القالب = إجراء متكرر بخطواته الجاهزة. اكتب اسمه في بداية الإضافة السريعة، مثل «معاملة مؤسسة الأمل».</p>
-      <Group action={<button onClick={() => openSheet({ type: 'template' })}>+ قالب جديد</button>} title={`${s.templates.length} قوالب`}>
+      <p className="muted small" style={{ margin: 0 }}>{L("القالب = إجراء متكرر بخطواته الجاهزة. اكتب اسمه في بداية الإضافة السريعة، مثل «معاملة مؤسسة الأمل».", "A template is a recurring procedure with ready-made steps. Type its name at the start of quick add, e.g. “Transaction Al-Amal Co.”.")}</p>
+      <Group action={<button onClick={() => openSheet({ type: 'template' })}>{L("+ قالب جديد", "+ New template")}</button>} title={L(`${s.templates.length} قوالب`, `${s.templates.length} templates`)}>
         {s.templates.map((t) => (
           <Row
             key={t.id}
@@ -314,8 +311,8 @@ function ProcedureDetail({ id }: { id: string }) {
   if (!p)
     return (
       <div>
-        <PageTop title="غير موجود" back={{ label: 'العمل', to: 'work' }} />
-        <div className="card"><Empty icon="work" title="الإجراء غير موجود">ربما حُذف.</Empty></div>
+        <PageTop title={L("غير موجود", "Not found")} back={{ label: L('العمل', "Work"), to: 'work' }} />
+        <div className="card"><Empty icon="work" title={L("الإجراء غير موجود", "Procedure not found")}>{L("ربما حُذف.", "It may have been deleted.")}</Empty></div>
       </div>
     );
 
@@ -333,12 +330,11 @@ function ProcedureDetail({ id }: { id: string }) {
   return (
     <div>
       <PageTop
-        back={{ label: 'العمل', to: 'work' }}
-        title={<input className="input bare" style={{ fontSize: 'inherit', fontWeight: 'inherit', letterSpacing: 'inherit', padding: 0 }} value={p.title} onChange={(e) => up({ title: e.target.value })} aria-label="العنوان" />}
+        back={{ label: L('العمل', "Work"), to: 'work' }}
+        title={<input className="input bare" style={{ fontSize: 'inherit', fontWeight: 'inherit', letterSpacing: 'inherit', padding: 0 }} value={p.title} onChange={(e) => up({ title: e.target.value })} aria-label={L("العنوان", "Title")} />}
         sub={
           <>
-            {stage === 'done' ? 'مكتمل' : stage === 'waiting' ? 'بانتظار رد' : stage === 'partial' ? 'منجز جزئيًا' : 'لم يبدأ'} · {done} من {p.steps.length} خطوات
-            {p.archived ? ' · مؤرشف' : ''}
+            {stage === 'done' ? L('مكتمل', "Completed") : stage === 'waiting' ? L('بانتظار رد', "Awaiting reply") : stage === 'partial' ? L('منجز جزئيًا', "Partly done") : L('لم يبدأ', "Not started")} · {done}{L(" من ", " of ")}{p.steps.length}{L(" خطوات", " steps")}{p.archived ? L(' · مؤرشف', " · archived") : ''}
           </>
         }
       />
@@ -349,34 +345,34 @@ function ProcedureDetail({ id }: { id: string }) {
 
           {next && !editing && (
             <div className="next">
-              <span className="k">الخطوة التالية · {kindInfo(next.kind).label}</span>
+              <span className="k">{L("الخطوة التالية · ", "Next step · ")}{kindInfo(next.kind).label}</span>
               <div className="t">{next.title}</div>
               {next.target && !next.title.includes(next.target) && <div className="muted small">{next.target}</div>}
               <div className="row" style={{ marginTop: 12, gap: 8 }}>
                 <button className="btn primary" onClick={() => toggleStepUI(p.id, next.id)}>
-                  <Icon name="check" size={16} /> {next.kind === 'send' ? 'أرسلته' : next.kind === 'reply' ? 'وصل الرد' : 'تمت'}
+                  <Icon name="check" size={16} /> {next.kind === 'send' ? L('أرسلته', "Sent it") : next.kind === 'reply' ? L('وصل الرد', "Reply received") : L('تمت', "Done")}
                 </button>
                 {next.kind === 'reply' && (
-                  <button className="btn" onClick={() => { A.addLog(p.id, `تابعت${next.target ? ` مع ${next.target}` : ''} (بانتظار الرد)`); toast('سُجلت المتابعة'); }}>سجّل متابعة</button>
+                  <button className="btn" onClick={() => { A.addLog(p.id, L(`تابعت${next.target ? ` مع ${next.target}` : ''} (بانتظار الرد)`, `Followed up${next.target ? ` with ${next.target}` : ''} (awaiting reply)`)); toast(L('سُجلت المتابعة', "Follow-up logged")); }}>{L("سجّل متابعة", "Log follow-up")}</button>
                 )}
               </div>
             </div>
           )}
 
           <Group
-            title="الخطوات"
-            action={<button onClick={() => setEditing(!editing)}>{editing ? 'تم' : 'تعديل'}</button>}
+            title={L("الخطوات", "Steps")}
+            action={<button onClick={() => setEditing(!editing)}>{editing ? L('تم', "Done") : L('تعديل', "Edit")}</button>}
           >
             {p.steps.map((st, i) =>
               editing ? (
                 <div key={st.id} className="r" style={{ flexWrap: 'wrap', gap: 8 }}>
                   <StepKindSelect compact value={st.kind} onChange={(k) => A.updateStep(p.id, st.id, { kind: k })} />
-                  <input className="input grow" style={{ minWidth: 140, height: 36 }} value={st.title} onChange={(e) => A.updateStep(p.id, st.id, { title: e.target.value })} aria-label="الخطوة" />
-                  <input className="input" style={{ width: 140, height: 36 }} value={st.target || ''} onChange={(e) => A.updateStep(p.id, st.id, { target: e.target.value || undefined })} placeholder={st.kind === 'file' ? 'مكان الحفظ' : 'الشخص / الجهة'} aria-label="الجهة" list="masar-targets" />
+                  <input className="input grow" style={{ minWidth: 140, height: 36 }} value={st.title} onChange={(e) => A.updateStep(p.id, st.id, { title: e.target.value })} aria-label={L("الخطوة", "Step")} />
+                  <input className="input" style={{ width: 140, height: 36 }} value={st.target || ''} onChange={(e) => A.updateStep(p.id, st.id, { target: e.target.value || undefined })} placeholder={st.kind === 'file' ? L('مكان الحفظ', "Where it's filed") : L('الشخص / الجهة', "Person / party")} aria-label={L("الجهة", "Party")} list="masar-targets" />
                   <div className="row" style={{ gap: 2 }}>
-                    <button className="icon-btn sm" onClick={() => A.moveStep(p.id, st.id, -1)} disabled={i === 0} aria-label="لأعلى"><Icon name="up" size={14} /></button>
-                    <button className="icon-btn sm" onClick={() => A.moveStep(p.id, st.id, 1)} disabled={i === p.steps.length - 1} aria-label="لأسفل"><Icon name="down" size={14} /></button>
-                    <button className="icon-btn sm" onClick={() => { A.removeStep(p.id, st.id); toast('حُذفت الخطوة', { undoable: true }); }} aria-label="حذف"><Icon name="trash" size={14} /></button>
+                    <button className="icon-btn sm" onClick={() => A.moveStep(p.id, st.id, -1)} disabled={i === 0} aria-label={L("لأعلى", "Move up")}><Icon name="up" size={14} /></button>
+                    <button className="icon-btn sm" onClick={() => A.moveStep(p.id, st.id, 1)} disabled={i === p.steps.length - 1} aria-label={L("لأسفل", "Move down")}><Icon name="down" size={14} /></button>
+                    <button className="icon-btn sm" onClick={() => { A.removeStep(p.id, st.id); toast(L('حُذفت الخطوة', "Step deleted"), { undoable: true }); }} aria-label={L("حذف", "Delete")}><Icon name="trash" size={14} /></button>
                   </div>
                 </div>
               ) : (
@@ -387,7 +383,7 @@ function ProcedureDetail({ id }: { id: string }) {
                     <div className="sub">
                       <Icon name={kindInfo(st.kind).icon} size={11} /> {kindInfo(st.kind).label}
                       {st.target && !st.title.includes(st.target) ? ` · ${st.target}` : ''}
-                      {st.doneAt && ` · ${st.kind === 'send' ? 'أكدت الإرسال' : 'تم'} ${fmtDateTime(st.doneAt)}`}
+                      {st.doneAt && L(` · ${st.kind === 'send' ? 'أكدت الإرسال' : 'تم'} ${fmtDateTime(st.doneAt)}`, ` · ${st.kind === 'send' ? 'Confirmed sent' : 'Done'} ${fmtDateTime(st.doneAt)}`)}
                       {st.note && ` · ${st.note}`}
                     </div>
                   </div>
@@ -397,7 +393,7 @@ function ProcedureDetail({ id }: { id: string }) {
             {(editing || !p.steps.length) && (
               <div className="r" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
                 <button className="btn sm ghost" style={{ alignSelf: 'flex-start', paddingInline: 4 }} onClick={() => setBulkOpen(!bulkOpen)}>
-                  <Icon name="layers" size={14} /> {bulkOpen ? 'إخفاء' : 'اكتب عدة خطوات دفعة واحدة'}
+                  <Icon name="layers" size={14} /> {bulkOpen ? L('إخفاء', "Hide") : L('اكتب عدة خطوات دفعة واحدة', "Type several steps at once")}
                 </button>
                 {bulkOpen && (
                   <>
@@ -405,7 +401,7 @@ function ProcedureDetail({ id }: { id: string }) {
                       className="textarea"
                       value={bulk}
                       onChange={(e) => setBulk(e.target.value)}
-                      placeholder={'مثال — خطوة في كل سطر أو افصل بفاصلة:\nطباعة الملف\nحفظ في ملف مشتريات\nإرسال إلى نجيب'}
+                      placeholder={L('مثال — خطوة في كل سطر أو افصل بفاصلة:\nطباعة الملف\nحفظ في ملف مشتريات\nإرسال إلى نجيب', "Example — one step per line or separated by commas:\nPrint the file\nFile in the purchases folder\nSend to the manager")}
                     />
                     {bulkSteps.length > 0 && (
                       <div className="col" style={{ gap: 4 }}>
@@ -418,8 +414,8 @@ function ProcedureDetail({ id }: { id: string }) {
                         ))}
                       </div>
                     )}
-                    <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} disabled={!bulkSteps.length} onClick={() => { A.addSteps(p.id, bulkSteps); setBulk(''); setBulkOpen(false); toast(`أُضيفت ${bulkSteps.length} خطوات`, { undoable: true }); }}>
-                      <Icon name="plus" size={14} /> أضف {bulkSteps.length ? `${bulkSteps.length} خطوات` : ''}
+                    <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} disabled={!bulkSteps.length} onClick={() => { A.addSteps(p.id, bulkSteps); setBulk(''); setBulkOpen(false); toast(L(`أُضيفت ${bulkSteps.length} خطوات`, `Added ${bulkSteps.length} steps`), { undoable: true }); }}>
+                      <Icon name="plus" size={14} />{L(" أضف ", " Add ")}{bulkSteps.length ? L(`${bulkSteps.length} خطوات`, `${bulkSteps.length} steps`) : ''}
                     </button>
                   </>
                 )}
@@ -428,36 +424,36 @@ function ProcedureDetail({ id }: { id: string }) {
             {(editing || !p.steps.length) && (
               <div className="r" style={{ flexWrap: 'wrap', gap: 8 }}>
                 <StepKindSelect compact value={newKind} onChange={setNewKind} />
-                <input className="input grow" style={{ minWidth: 140, height: 36 }} value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder="خطوة جديدة…" />
-                <input className="input" style={{ width: 140, height: 36 }} value={newTarget} onChange={(e) => setNewTarget(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder="الجهة (اختياري)" list="masar-targets" />
-                <button className="btn sm" onClick={addStep} disabled={!newStep.trim()}><Icon name="plus" size={15} /> أضف</button>
+                <input className="input grow" style={{ minWidth: 140, height: 36 }} value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder={L("خطوة جديدة…", "New step…")} />
+                <input className="input" style={{ width: 140, height: 36 }} value={newTarget} onChange={(e) => setNewTarget(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder={L("الجهة (اختياري)", "Party (optional)")} list="masar-targets" />
+                <button className="btn sm" onClick={addStep} disabled={!newStep.trim()}><Icon name="plus" size={15} />{L(" أضف", " Add")}</button>
               </div>
             )}
           </Group>
-          <p className="faint tiny" style={{ margin: '-14px 6px 0' }}>خطوات «إرسال» تطلب تأكيدك، لأن الموقع لا يرسل شيئًا بنفسه — السجل يوثّق ما أكدته فقط.</p>
+          <p className="faint tiny" style={{ margin: '-14px 6px 0' }}>{L("خطوات «إرسال» تطلب تأكيدك، لأن الموقع لا يرسل شيئًا بنفسه — السجل يوثّق ما أكدته فقط.", "“Send” steps ask for your confirmation because the site never sends anything itself — the log records only what you confirmed.")}</p>
 
-          <Group title="التفاصيل" action={<button onClick={() => up({ fields: [...p.fields, { key: 'حقل جديد', value: '' }] })}>+ حقل</button>}>
+          <Group title={L("التفاصيل", "Details")} action={<button onClick={() => up({ fields: [...p.fields, { key: L('حقل جديد', "New field"), value: '' }] })}>{L("+ حقل", "+ Field")}</button>}>
             {p.fields.map((f, i) => (
               <div key={i} className="r" style={{ gap: 8 }}>
-                <input className="input bare" style={{ width: 110, padding: 0, color: 'var(--muted)', fontSize: 14 }} value={f.key} onChange={(e) => up({ fields: p.fields.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)) })} aria-label="اسم الحقل" />
+                <input className="input bare" style={{ width: 110, padding: 0, color: 'var(--muted)', fontSize: 14 }} value={f.key} onChange={(e) => up({ fields: p.fields.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)) })} aria-label={L("اسم الحقل", "Field name")} />
                 <input className="input bare grow" style={{ padding: 0 }} value={f.value} placeholder="—" onChange={(e) => up({ fields: p.fields.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })} aria-label={f.key} />
-                <button className="icon-btn sm" onClick={() => up({ fields: p.fields.filter((_, j) => j !== i) })} aria-label="حذف الحقل"><Icon name="x" size={13} /></button>
+                <button className="icon-btn sm" onClick={() => up({ fields: p.fields.filter((_, j) => j !== i) })} aria-label={L("حذف الحقل", "Delete field")}><Icon name="x" size={13} /></button>
               </div>
             ))}
             <div className="r">
-              <textarea className="textarea input bare" style={{ minHeight: 60, padding: 0 }} value={p.notes} onChange={(e) => up({ notes: e.target.value })} placeholder="ملاحظات…" />
+              <textarea className="textarea input bare" style={{ minHeight: 60, padding: 0 }} value={p.notes} onChange={(e) => up({ notes: e.target.value })} placeholder={L("ملاحظات…", "Notes…")} />
             </div>
           </Group>
         </div>
 
         <div className="stack" style={{ minWidth: 0 }}>
-          <Group title="المتابعة">
+          <Group title={L("المتابعة", "Follow-up")}>
             <div className="r">
-              <span className="main-t"><div className="lbl">الموعد</div></span>
+              <span className="main-t"><div className="lbl">{L("الموعد", "Due")}</div></span>
               <input type="date" className="input" style={{ width: 'auto', height: 34 }} value={p.due || ''} onChange={(e) => up({ due: e.target.value || undefined })} />
             </div>
             <div className="r" style={{ flexWrap: 'wrap' }}>
-              <span className="main-t"><div className="lbl">الأولوية</div></span>
+              <span className="main-t"><div className="lbl">{L("الأولوية", "Priority")}</div></span>
               <Seg value={p.priority} onChange={(v: Priority) => up({ priority: v })} options={([0, 1, 2, 3] as Priority[]).map((x) => ({ v: x, l: PRIORITY_LABEL[x] }))} />
             </div>
             <div className="r" style={{ minHeight: 0, paddingBlock: 8 }}>
@@ -469,16 +465,16 @@ function ProcedureDetail({ id }: { id: string }) {
           </Group>
 
           <section>
-            <div className="group-title"><span>السجل</span><span className="faint" style={{ fontWeight: 500 }}>أُنشئ {fmtDate(todayKey(p.createdAt), false)}</span></div>
+            <div className="group-title"><span>{L("السجل", "Log")}</span><span className="faint" style={{ fontWeight: 500 }}>{L("أُنشئ ", "Created ")}{fmtDate(todayKey(p.createdAt), false)}</span></div>
             <div className="card">
               <div className="row" style={{ gap: 6, marginBottom: 12 }}>
-                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && note.trim()) { A.addLog(p.id, note.trim()); setNote(''); } }} placeholder="أضف ملاحظة للسجل…" />
-                <button className="btn sm" disabled={!note.trim()} onClick={() => { A.addLog(p.id, note.trim()); setNote(''); }}>إضافة</button>
+                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && note.trim()) { A.addLog(p.id, note.trim()); setNote(''); } }} placeholder={L("أضف ملاحظة للسجل…", "Add a note to the log…")} />
+                <button className="btn sm" disabled={!note.trim()} onClick={() => { A.addLog(p.id, note.trim()); setNote(''); }}>{L("إضافة", "Add")}</button>
               </div>
               {p.log.length > 4 ? (
                 <>
                   <LogList log={p.log.slice(-4)} />
-                  <Collapse title="السجل الكامل" count={p.log.length}><LogList log={p.log.slice(0, -4)} /></Collapse>
+                  <Collapse title={L("السجل الكامل", "Full log")} count={p.log.length}><LogList log={p.log.slice(0, -4)} /></Collapse>
                 </>
               ) : (
                 <LogList log={p.log} />
@@ -487,12 +483,12 @@ function ProcedureDetail({ id }: { id: string }) {
           </section>
 
           <Group>
-            <Row icon="share" label="مشاركة / نسخ الملخص" onClick={async () => { const r = await shareText(p.title, procSummary(p)); if (r === 'copied') toast('نُسخ الملخص'); }} />
-            <Row icon="play" label="ابدأ مؤقت عمل" onClick={() => A.startTimer({ kind: 'procedure', refId: p.id, label: p.title })} />
-            <Row icon="layers" label="احفظه كقالب" sub="لإعادة استخدام نفس الخطوات" onClick={() => openSheet({ type: 'template', fromProc: p.id })} />
-            <Row icon="copy" label="نسخة جديدة بنفس الخطوات" onClick={() => { const nid = A.duplicateProcedure(p.id); go(`work/${nid}`); toast('أُنشئت نسخة جديدة'); }} />
-            <Row icon="archive" label={p.archived ? 'إخراج من الأرشيف' : 'أرشفة'} onClick={() => { A.archiveProcedure(p.id, !p.archived); if (!p.archived) { go('work'); toast('نُقل للأرشيف', { undoable: true }); } }} />
-            <Row icon="trash" danger label="حذف الإجراء" onClick={() => { if (confirm('حذف الإجراء وسجله نهائيًا؟')) { A.deleteProcedure(p.id); go('work'); toast('حُذف الإجراء', { undoable: true }); } }} />
+            <Row icon="share" label={L("مشاركة / نسخ الملخص", "Share / copy summary")} onClick={async () => { const r = await shareText(p.title, procSummary(p)); if (r === 'copied') toast(L('نُسخ الملخص', "Summary copied")); }} />
+            <Row icon="play" label={L("ابدأ مؤقت عمل", "Start work timer")} onClick={() => A.startTimer({ kind: 'procedure', refId: p.id, label: p.title })} />
+            <Row icon="layers" label={L("احفظه كقالب", "Save as template")} sub={L("لإعادة استخدام نفس الخطوات", "To reuse the same steps")} onClick={() => openSheet({ type: 'template', fromProc: p.id })} />
+            <Row icon="copy" label={L("نسخة جديدة بنفس الخطوات", "New copy with the same steps")} onClick={() => { const nid = A.duplicateProcedure(p.id); go(`work/${nid}`); toast(L('أُنشئت نسخة جديدة', "New copy created")); }} />
+            <Row icon="archive" label={p.archived ? L('إخراج من الأرشيف', "Restore from archive") : L('أرشفة', "Archive")} onClick={() => { A.archiveProcedure(p.id, !p.archived); if (!p.archived) { go('work'); toast(L('نُقل للأرشيف', "Moved to archive"), { undoable: true }); } }} />
+            <Row icon="trash" danger label={L("حذف الإجراء", "Delete procedure")} onClick={() => { if (confirm(L('حذف الإجراء وسجله نهائيًا؟', "Delete the procedure and its log permanently?"))) { A.deleteProcedure(p.id); go('work'); toast(L('حُذف الإجراء', "Procedure deleted"), { undoable: true }); } }} />
           </Group>
         </div>
       </div>
@@ -501,10 +497,10 @@ function ProcedureDetail({ id }: { id: string }) {
 }
 
 const PRIORITY_RULE: Record<Priority, string> = {
-  3: 'عاجل: يدخل قائمة اليوم دائمًا ولا يتأجل أبدًا، وأنبهك به يوميًا حتى ينتهي.',
-  2: 'مهم: اليوم أو بكرة. من اليوم الثاني لا يتأجل مرة أخرى.',
-  1: 'عادي: يتأجل تلقائيًا إلى الغد عندما يزدحم يومك.',
-  0: 'منخفض: أول ما يتأجل عند الازدحام.',
+  get 3() { return L('عاجل: يدخل قائمة اليوم دائمًا ولا يتأجل أبدًا، وأنبهك به يوميًا حتى ينتهي.', "Urgent: always in today's list, never postponed, and I remind you daily until it's done."); },
+  get 2() { return L('مهم: اليوم أو بكرة. من اليوم الثاني لا يتأجل مرة أخرى.', "Important: today or tomorrow. From the second day it can't be postponed again."); },
+  get 1() { return L('عادي: يتأجل تلقائيًا إلى الغد عندما يزدحم يومك.', "Normal: postponed to tomorrow automatically when your day is full."); },
+  get 0() { return L('منخفض: أول ما يتأجل عند الازدحام.', "Low: the first to be postponed when it's busy."); },
 };
 
 function LogList({ log }: { log: Procedure['log'] }) {

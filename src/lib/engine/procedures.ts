@@ -1,13 +1,14 @@
 import type { Procedure, Step, StepKind } from '../types';
+import { L } from '../i18n';
 
 export const STEP_KINDS: { kind: StepKind; label: string; waiting: string; icon: string }[] = [
-  { kind: 'action', label: 'تنفيذ', waiting: 'بانتظار التنفيذ', icon: 'bolt' },
-  { kind: 'print', label: 'طباعة', waiting: 'بانتظار الطباعة', icon: 'printer' },
-  { kind: 'file', label: 'حفظ', waiting: 'بانتظار الحفظ', icon: 'folder' },
-  { kind: 'certify', label: 'تصديق', waiting: 'بانتظار التصديق', icon: 'stamp' },
-  { kind: 'send', label: 'إرسال', waiting: 'بانتظار الإرسال', icon: 'send' },
-  { kind: 'reply', label: 'انتظار رد', waiting: 'بانتظار الرد', icon: 'hourglass' },
-  { kind: 'followup', label: 'متابعة', waiting: 'بانتظار المتابعة', icon: 'repeat' },
+  { kind: 'action', get label() { return L('تنفيذ', "Do"); }, get waiting() { return L('بانتظار التنفيذ', "Waiting to be done"); }, icon: 'bolt' },
+  { kind: 'print', get label() { return L('طباعة', "Print"); }, get waiting() { return L('بانتظار الطباعة', "Waiting to print"); }, icon: 'printer' },
+  { kind: 'file', get label() { return L('حفظ', "File"); }, get waiting() { return L('بانتظار الحفظ', "Waiting to file"); }, icon: 'folder' },
+  { kind: 'certify', get label() { return L('تصديق', "Certify"); }, get waiting() { return L('بانتظار التصديق', "Waiting for certification"); }, icon: 'stamp' },
+  { kind: 'send', get label() { return L('إرسال', "Send"); }, get waiting() { return L('بانتظار الإرسال', "Waiting to send"); }, icon: 'send' },
+  { kind: 'reply', get label() { return L('انتظار رد', "Await reply"); }, get waiting() { return L('بانتظار الرد', "Waiting for a reply"); }, icon: 'hourglass' },
+  { kind: 'followup', get label() { return L('متابعة', "Follow up"); }, get waiting() { return L('بانتظار المتابعة', "Waiting for follow-up"); }, icon: 'repeat' },
 ];
 
 export const kindInfo = (k: StepKind) => STEP_KINDS.find((s) => s.kind === k) || STEP_KINDS[0];

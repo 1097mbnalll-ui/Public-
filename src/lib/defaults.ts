@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   available: [240, 240, 240, 240, 240, 360, 360],
   studyCap: [150, 150, 150, 150, 120, 240, 240],
   dayEnd: '23:30',
+  lang: 'ar',
   pomodoroWork: 25,
   pomodoroBreak: 5,
   morningBrief: '07:30',
