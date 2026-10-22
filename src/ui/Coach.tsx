@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { go } from './router';
 import { useApp } from '../lib/store';
+import { useNow } from './kit';
+import { todayKey } from '../lib/dates';
 import * as A from '../lib/actions';
-import type { DayPlan } from '../lib/engine/planner';
+import { planDay, type DayPlan } from '../lib/engine/planner';
 import { coachFacts, coachSystem, factsKey, factsText, offlineMessage, type CoachFacts } from '../lib/engine/coach';
 import { askClaude, hasAiKey } from '../lib/ai';
 import { L, lang } from '../lib/i18n';
@@ -18,8 +20,8 @@ const dailyPrompt = (f: CoachFacts) =>
     `Here is my data right now:\n${factsText(f)}\n\nWrite today's message: two to four sentences, no headings or bullet points.`,
   );
 
-/** today's coach message, at the top of the Today page */
-export function CoachCard({ plan, now }: { plan: DayPlan; now: number }) {
+/** today's coach message, shown at the top of the coach page */
+export function CoachCard({ plan, now, inPage }: { plan: DayPlan; now: number; inPage?: boolean }) {
   const s = useApp();
   const cs = s.settings.coach;
   const facts = useMemo(() => coachFacts(s, plan, now), [s, plan, now]);
@@ -29,7 +31,6 @@ export function CoachCard({ plan, now }: { plan: DayPlan; now: number }) {
   const [err, setErr] = useState('');
   const asked = useRef('');
 
-  useEffect(() => A.setCoachScore(facts.today, facts.score), [facts.today, facts.score]);
 
   const generate = async (force = false) => {
     if (!ai || busy || (!force && asked.current === key)) return;
@@ -75,13 +76,33 @@ export function CoachCard({ plan, now }: { plan: DayPlan; now: number }) {
       <p className={`coach-text ${busy && !cached ? 'faint' : ''}`}>{text}</p>
       {err && <div className="tiny" style={{ color: 'var(--red)', marginBottom: 8 }}>{err}</div>}
       <div className="row wrap" style={{ gap: 6 }}>
-        <button className="btn sm primary" onClick={() => go('coach')}>
-          <Icon name="coach" size={14} /> {L('كلّم المدرب', 'Talk to the coach')}
-        </button>
+        {!inPage && (
+          <button className="btn sm primary" onClick={() => go('coach')}>
+            <Icon name="coach" size={14} /> {L('كلّم المدرب', 'Talk to the coach')}
+          </button>
+        )}
         {!ai && (
           <button className="btn sm ghost" onClick={() => go('me')}>{L('فعّل Claude لرسائل أذكى', 'Turn on Claude for smarter messages')}</button>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The coach lives behind one floating button (top corner, every page). Its dot shows how
+ * the day is going; it also records the day's lateness so the coach can see trends.
+ */
+export function CoachFab() {
+  const s = useApp();
+  const now = useNow();
+  const facts = useMemo(() => coachFacts(s, planDay(s, now), now), [s, now]);
+  useEffect(() => A.setCoachScore(facts.today, facts.score), [facts.today, facts.score]);
+  const fresh = s.settings.coach.enabled && s.coach.last?.day !== todayKey(now);
+  return (
+    <button className="coach-fab" onClick={() => go('coach')} aria-label={L('المدرب', 'Coach')} title={L('المدرب', 'Coach')}>
+      <Icon name="coach" size={22} stroke={2} />
+      {s.settings.coach.enabled && <i className={fresh ? 'pulse-dot' : ''} style={{ background: LEVEL_COLOR[facts.level] }} />}
+    </button>
   );
 }

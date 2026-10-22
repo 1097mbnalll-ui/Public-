@@ -15,7 +15,6 @@ import { autoReplanUI, completeTaskUI, deferTaskUI, runAction, toggleStepUI } fr
 import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
-import { CoachCard } from '../ui/Coach';
 import { L, startEdge } from '../lib/i18n';
 
 function greeting(h: number) {
@@ -474,7 +473,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
             )}
             <RingTile plan={plan} />
             <UrgentTile plan={plan} />
-            {s.settings.coach.enabled && <div className="span2"><CoachCard plan={plan} now={now} /></div>}
             {insights.length > 0 && <div className="span2"><Alerts list={insights} /></div>}
             <DaySummary plan={plan} />
             <StudyTile study={study} />

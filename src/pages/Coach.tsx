@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CoachCard } from '../ui/Coach';
+import { useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { PageTop } from '../ui/PageTop';
 import { go } from '../ui/router';
@@ -24,6 +26,8 @@ export function CoachPage() {
   const s = useApp();
   const cs = s.settings.coach;
   const ai = hasAiKey();
+  const now = useNow();
+  const plan = useMemo(() => planDay(s, now), [s, now]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -82,6 +86,7 @@ export function CoachPage() {
         actions={s.coach.chat.length > 0 && <button className="btn sm ghost" onClick={A.clearCoachChat}>{L('محادثة جديدة', 'New chat')}</button>}
       />
 
+      {cs.enabled && <div style={{ marginBottom: 14 }}><CoachCard plan={plan} now={now} inPage /></div>}
       <div className="coach-chat">
         {!s.coach.chat.length && (
           <div className="coach-hello">

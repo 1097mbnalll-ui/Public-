@@ -16,6 +16,7 @@ import { Settings } from './pages/Settings';
 import { Import } from './pages/Import';
 import { Receive } from './pages/Receive';
 import { CoachPage } from './pages/Coach';
+import { CoachFab } from './ui/Coach';
 import { todayKey } from './lib/dates';
 import { L } from './lib/i18n';
 
@@ -26,7 +27,6 @@ const NAV = [
   { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
-  { id: 'coach', get label() { return L('المدرب', "Coach"); }, icon: 'coach' },
 ];
 
 /** old links keep working */
@@ -34,7 +34,7 @@ function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'week') return { page: 'today', id: 'week' };
   if (page === 'settings') return { page: 'me' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'import' || page === 'receive') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive') return { page, id };
   return { page: 'today' };
 }
 
@@ -143,7 +143,7 @@ export function App() {
         <button className="tab-add" onClick={() => openSheet({ type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
-        {NAV.slice(2, 4).map((n) => (
+        {NAV.slice(2).map((n) => (
           <button key={n.id} className={`tab ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
             <Icon name={n.icon} size={22} /> {n.label}
           </button>
@@ -156,6 +156,7 @@ export function App() {
       <TimerBar />
       {s.timer?.focus && <FocusScreen />}
       <SheetHost />
+      {page !== 'coach' && page !== 'import' && page !== 'receive' && <CoachFab />}
       <Toasts />
     </div>
   );
