@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Collapse, Group, Row, Seg, Stepper, Switch } from '../ui/kit';
+import type { CoachTone } from '../lib/types';
 import { PageTop } from '../ui/PageTop';
 import { openSheet } from '../ui/sheets';
 import { receiveFile } from './Receive';
@@ -16,6 +17,7 @@ import { exportUI } from '../ui/ops';
 import { toast } from '../ui/toast';
 import { L } from '../lib/i18n';
 import { THEMES } from '../lib/themes';
+import { getAiKey, hasAiKey, setAiKey, askClaude } from '../lib/ai';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -94,6 +96,10 @@ export function Settings() {
             </button>
           ))}
         </div>
+      </Section>
+
+      <Section title={L("المدرب الذكي", "Smart coach")} desc={L("يتابع تأخيرك ويكلمك كل يوم: يحفّزك وأنت ماشي صح، ويشد عليك كل ما زاد تأخيرك.", "Watches your delays and talks to you daily: encourages you when you're on track, and gets tougher the more you fall behind.")}>
+        <CoachSettings />
       </Section>
 
       <Section title={L("وقتك المتاح", "Your available time")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
@@ -226,7 +232,7 @@ export function Settings() {
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("تقدير المذاكرة:", "Study estimates:")}</b>{L(" حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.", " chapter size × difficulty × your speed measured from your sessions + review time. Shown as a range (low–high) that narrows as you log more sessions. Then I simulate the days until the exam against your study time and split it between exams.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("التعلم منك:", "Learning from you:")}</b>{L(" أقارن تقديراتك بالوقت الفعلي (المؤقت أو إجابتك بعد الإنجاز) وأصحح التقديرات القادمة. المهام التي لم تُنجز في يومها تعود مؤجلة ويُحسب تأجيلها.", " I compare your estimates with the real time (timer or your answer after finishing) and correct future estimates. Tasks not done on their day come back as postponed, and the postponement is counted.")}</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يستخدم ذكاءً اصطناعيًا خارجيًا، ولا يعرف إلا ما أدخلته.", " it never sends messages or files to anyone, uses no external AI, and knows only what you entered.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يعرف إلا ما أدخلته. الذكاء الاصطناعي (Claude) لا يعمل إلا إذا أضفت مفتاحك في «المدرب الذكي»، وعندها تُرسل خطتك لـAnthropic لكتابة الرسالة فقط.", " it never sends messages or files to anyone and knows only what you entered. AI (Claude) only runs if you add your key under “Smart coach” — then your plan is sent to Anthropic just to write the message.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("اختصارات:", "Shortcuts:")}</b> <span className="kbd">N</span>{L(" إضافة سريعة · ", " quick add · ")}<span className="kbd">/</span>{L(" أو ", " or ")}<span className="kbd">Ctrl K</span>{L(" بحث.", " search.")}</p>
         </div>
       </Section>
@@ -294,5 +300,68 @@ function AvailabilityEditor() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CoachSettings() {
+  const st = useApp().settings;
+  const c = st.coach;
+  const [key, setKey] = useState(getAiKey());
+  const [saved, setSaved] = useState(hasAiKey());
+  const [testing, setTesting] = useState(false);
+  const tones: { v: CoachTone; l: string; d: string }[] = [
+    { v: 'gentle', l: L('لطيف', 'Gentle'), d: L('تحفيز فقط، بدون توبيخ.', 'Encouragement only, no scolding.') },
+    { v: 'firm', l: L('حازم', 'Firm'), d: L('صريح ويشد عليك إذا تأخرت.', 'Honest, and firm when you fall behind.') },
+    { v: 'harsh', l: L('شديد', 'Harsh'), d: L('توبيخ قاسٍ بقدر تأخيرك — بدون مجاملة.', 'Harsh scolding in proportion to your delay — no sugar-coating.') },
+  ];
+  const save = async () => {
+    setAiKey(key);
+    setSaved(!!key.trim());
+    if (!key.trim()) return toast(L('حُذف المفتاح من هذا الجهاز', 'Key removed from this device'));
+    setTesting(true);
+    try {
+      await askClaude('Reply with one short word.', [{ role: 'user', text: 'ping', at: Date.now() }], 200);
+      toast(L('تم الاتصال بـClaude ✓', 'Connected to Claude ✓'));
+    } catch (e: any) {
+      toast(e?.message || String(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+  return (
+    <>
+      <div className="row between">
+        <div>
+          <div style={{ fontWeight: 500 }}>{L("رسالة المدرب في صفحة اليوم", "Coach message on Today")}</div>
+          <div className="faint tiny">{L("تتغير حسب إنجازك وتأخيرك.", "Changes with what you finish and what's late.")}</div>
+        </div>
+        <Switch on={c.enabled} onChange={(v) => A.updateCoach({ enabled: v })} label={L("المدرب", "Coach")} />
+      </div>
+      <div className="field">
+        <label>{L("أسلوب المدرب", "Coach style")}</label>
+        <Seg value={c.tone} options={tones.map((t) => ({ v: t.v, l: t.l }))} onChange={(v) => A.updateCoach({ tone: v })} />
+        <div className="faint tiny">{tones.find((t) => t.v === c.tone)?.d}</div>
+      </div>
+      <div className="field">
+        <label>{L("عرّف المدرب عليك", "Tell the coach about you")}</label>
+        <textarea
+          className="textarea"
+          value={c.about}
+          onChange={(e) => A.updateCoach({ about: e.target.value })}
+          placeholder={L("مثال: أشتغل الصبح وأدرس بالليل، أأجل لما أتعب، يحمسني الكلام المباشر…", "e.g. I work mornings and study at night, I postpone when tired, direct talk motivates me…")}
+        />
+      </div>
+      <div className="field">
+        <label>{L("مفتاح Claude (اختياري)", "Claude key (optional)")}</label>
+        <div className="row" style={{ gap: 8 }}>
+          <input className="input" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" dir="ltr" />
+          <button className="btn primary" onClick={save} disabled={testing}>{testing ? L('يتحقق…', 'Checking…') : L('حفظ', 'Save')}</button>
+        </div>
+        <div className="faint tiny">
+          {saved ? L('مفعّل — الرسائل والمحادثة يكتبها Claude.', 'On — messages and chat are written by Claude.') : L('بدون مفتاح يكتب المدرب رسائل جاهزة من بياناتك.', 'Without a key the coach uses built-in messages based on your data.')}{' '}
+          {L('المفتاح من console.anthropic.com (مدفوع بالاستخدام، منفصل عن اشتراك Claude). يبقى على هذا الجهاز فقط ولا يدخل في النسخ الاحتياطية أو النقل. عند الاستخدام تُرسل خطتك (عناوين المهام والاختبارات) إلى Anthropic لكتابة الرد.', "Get one at console.anthropic.com (pay-as-you-go, separate from a Claude subscription). It stays on this device only and isn't included in backups or transfers. When used, your plan (task and exam titles) is sent to Anthropic to write the reply.")}
+        </div>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CoachChat } from './Coach';
 import { Sheet, useNow } from './kit';
 import { Icon } from './Icon';
 import { getState, mutate, rollover, useApp } from '../lib/store';
@@ -48,6 +49,8 @@ export function SheetHost() {
       return <Onboarding />;
     case 'transfer':
       return <TransferSheet />;
+    case 'coach':
+      return <CoachChat />;
   }
 }
 
@@ -217,7 +220,7 @@ function Onboarding() {
         <div className="col" style={{ gap: 12 }}>
           <div className="notice"><Icon name="shield" size={18} /><div><b>{L("بياناتك على جهازك فقط.", "Your data stays on your device.")}</b>{L(" لا حسابات ولا خوادم. نزّل نسخة احتياطية من الإعدادات بين فترة وأخرى.", " No accounts, no servers. Download a backup from settings every now and then.")}</div></div>
           <div className="notice"><Icon name="bell" size={18} /><div><b>{L("التنبيهات تعمل والموقع مفتوح.", "Reminders work while the site is open.")}</b>{L(" ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».", " Anything missed while it's closed shows up when you open it. For guaranteed alerts use the “Add to calendar” button.")}</div></div>
-          <div className="notice"><Icon name="info" size={18} /><div><b>{L("كل الحسابات من بياناتك.", "All calculations come from your data.")}</b>{L(" لا يوجد ذكاء اصطناعي خارجي؛ التقديرات تتحسن كلما سجلت وقتك الفعلي.", " No external AI; estimates improve as you log your real time.")}</div></div>
+          <div className="notice"><Icon name="info" size={18} /><div><b>{L("كل الحسابات من بياناتك.", "All calculations come from your data.")}</b>{L(" التقديرات تتحسن كلما سجلت وقتك الفعلي. الذكاء الاصطناعي اختياري ولا يعمل إلا بمفتاحك.", " Estimates improve as you log your real time. AI is optional and only runs with your own key.")}</div></div>
           <button className="btn" onClick={async () => {
             const r = await requestNotifications();
             if (r === 'granted') { A.updateSettings({ notifications: true }); toast(L('فُعّلت إشعارات المتصفح', "Browser notifications enabled")); }

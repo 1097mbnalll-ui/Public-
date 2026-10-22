@@ -177,6 +177,29 @@ export interface StudySession {
 
 // ---------- Settings & state ----------
 
+export type CoachTone = 'gentle' | 'firm' | 'harsh';
+
+export interface CoachSettings {
+  enabled: boolean;
+  tone: CoachTone;
+  /** what you want the coach to know about you */
+  about: string;
+}
+
+export interface CoachMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  at: number;
+}
+
+export interface CoachState {
+  /** last daily message (cached so it isn't regenerated on every visit) */
+  last?: { day: string; key: string; text: string; level: number; ai: boolean; at: number };
+  /** daily lateness score — lets the coach see trends ("third day in a row") */
+  history: Record<string, number>;
+  chat: CoachMessage[];
+}
+
 export interface Settings {
   name: string;
   /** free minutes for planned work (tasks + study) per weekday, Sunday = 0 */
@@ -187,6 +210,8 @@ export interface Settings {
   /** interface language */
   lang: 'ar' | 'en';
   theme: string;
+  /** the coach: tone and what you told it about yourself */
+  coach: CoachSettings;
   /** focus session lengths, minutes */
   pomodoroWork: number;
   pomodoroBreak: number;
@@ -251,6 +276,7 @@ export interface AppState {
   fired: Record<string, number>;
   /** brain-dump inbox from focus sessions */
   thoughts: Thought[];
+  coach: CoachState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

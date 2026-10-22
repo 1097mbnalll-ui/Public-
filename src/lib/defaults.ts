@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dayEnd: '23:30',
   lang: 'ar',
   theme: 'lavender',
+  coach: { enabled: true, tone: 'firm', about: '' },
   pomodoroWork: 25,
   pomodoroBreak: 5,
   morningBrief: '07:30',
@@ -81,6 +82,7 @@ export function initialState(): AppState {
     quotaLog: {},
     missed: [],
     thoughts: [],
+    coach: { history: {}, chat: [] },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -92,7 +94,8 @@ export function migrate(raw: any): AppState {
   const s: AppState = {
     ...base,
     ...raw,
-    settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
+    settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}), coach: { ...DEFAULT_SETTINGS.coach, ...(raw.settings?.coach || {}) } },
+    coach: { history: {}, chat: [], ...(raw.coach || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts'] as const) {

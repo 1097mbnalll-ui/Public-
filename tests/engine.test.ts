@@ -417,3 +417,29 @@ describe('quick add — English keywords', () => {
     expect(parseQuick('Send report important', [], now).priority).toBe(2);
   });
 });
+
+describe('coach — tone follows lateness', () => {
+  it('on track → level 0; longer and more urgent delays → higher level', async () => {
+    const { coachFacts, offlineMessage, toneLevel } = await import('../src/lib/engine/coach');
+    const s = initialState();
+    s.tasks.push(task({ title: 'ترتيب الغرفة', due: TODAY }));
+    let f = coachFacts(s, planDay(s, NOW), NOW);
+    expect(f.level).toBe(0);
+    expect(offlineMessage(f, 'harsh').length).toBeGreaterThan(10);
+
+    s.tasks.push(task({ title: 'تجديد الجواز', priority: 3, due: addDays(TODAY, -2) }));
+    f = coachFacts(s, planDay(s, NOW), NOW);
+    expect(f.overdue[0].title).toBe('تجديد الجواز');
+    expect(f.level).toBe(2); // 2 days × urgent weight 3 = 6
+
+    s.tasks.push(task({ title: 'تقرير', priority: 2, due: addDays(TODAY, -6), deferrals: 4 }));
+    f = coachFacts(s, planDay(s, NOW), NOW);
+    expect(f.level).toBe(4);
+    expect(offlineMessage(f, 'harsh')).toContain('تقرير');
+
+    // the chosen style caps the strength
+    expect(toneLevel(4, 'gentle')).toBe(1);
+    expect(toneLevel(4, 'firm')).toBe(3);
+    expect(toneLevel(4, 'harsh')).toBe(4);
+  });
+});

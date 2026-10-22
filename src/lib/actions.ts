@@ -573,3 +573,37 @@ export function importCoursePack(p: CoursePack): string {
   if (p.exam) saveExam({ courseId: cid, title: p.exam.title, date: p.exam.date, time: p.exam.time, reviewDays: p.exam.reviewDays ?? 1, unitIds: ids });
   return cid;
 }
+
+// ---------------- Coach ----------------
+
+export function setCoachScore(day: string, score: number) {
+  if (getState().coach.history[day] === score) return;
+  mutate((s) => {
+    s.coach.history[day] = score;
+    // keep a month of history
+    for (const d of Object.keys(s.coach.history)) if (d < addDays(day, -30)) delete s.coach.history[d];
+  });
+}
+
+export function setCoachLast(last: AppState['coach']['last']) {
+  mutate((s) => {
+    s.coach.last = last;
+  });
+}
+
+export function addCoachMessage(role: 'user' | 'assistant', text: string) {
+  mutate((s) => {
+    s.coach.chat.push({ role, text, at: now() });
+    s.coach.chat = s.coach.chat.slice(-40);
+  });
+}
+
+export function clearCoachChat() {
+  mutate((s) => {
+    s.coach.chat = [];
+  }, L('مُسحت المحادثة', 'Chat cleared'));
+}
+
+export function updateCoach(patch: Partial<AppState['settings']['coach']>) {
+  mutate((s) => Object.assign(s.settings.coach, patch));
+}

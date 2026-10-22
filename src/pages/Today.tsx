@@ -15,6 +15,7 @@ import { autoReplanUI, completeTaskUI, deferTaskUI, runAction, toggleStepUI } fr
 import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
+import { CoachCard } from '../ui/Coach';
 import { L, startEdge } from '../lib/i18n';
 
 function greeting(h: number) {
@@ -345,6 +346,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       ) : (
         <div className="two-col">
           <div className="stack" style={{ minWidth: 0 }}>
+            {s.settings.coach.enabled && <CoachCard plan={plan} now={now} />}
             {first ? <NextUp it={first} study={study} /> : (
               <div className="card"><Empty icon="check" title={L("لا شيء ملح اليوم", "Nothing pressing today")}>{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</Empty></div>
             )}

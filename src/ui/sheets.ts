@@ -13,7 +13,8 @@ export type SheetSpec =
   | { type: 'template'; id?: string; fromProc?: string }
   | { type: 'goal'; id: string }
   | { type: 'onboarding' }
-  | { type: 'transfer' };
+  | { type: 'transfer' }
+  | { type: 'coach' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();
