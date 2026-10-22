@@ -79,6 +79,16 @@ describe('quick add parser', () => {
     expect(p.templateRest).toBe('مؤسسة الأمل');
   });
 
+  it('«مهمة» as a noun stays in the title; as the last word it is the priority', () => {
+    const a = parseQuick('مهمة من اللابتوب', [], NOW);
+    expect(a.title).toBe('مهمة من اللابتوب');
+    expect(a.priority).toBeUndefined();
+    const b = parseQuick('تسليم البحث بكرة 30د مهم', [], NOW);
+    expect(b.title).toBe('تسليم البحث');
+    expect(b.priority).toBe(2);
+    expect(parseQuick('!مهم اتصل بالبنك', [], NOW).priority).toBe(2);
+  });
+
   it('keeps plain text untouched', () => {
     expect(parseQuick('شراء هدية لأمي', [], NOW).title).toBe('شراء هدية لأمي');
   });

@@ -15,6 +15,7 @@ import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
 import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
+import { TransferSheet } from './TransferSheet';
 
 export function SheetHost() {
   const sh = useSheet();
@@ -44,6 +45,8 @@ export function SheetHost() {
       return <GoalSheet id={sh.id} />;
     case 'onboarding':
       return <Onboarding />;
+    case 'transfer':
+      return <TransferSheet />;
   }
 }
 

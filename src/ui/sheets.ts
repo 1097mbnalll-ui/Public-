@@ -12,7 +12,8 @@ export type SheetSpec =
   | { type: 'step-confirm'; procId: string; stepId: string }
   | { type: 'template'; id?: string; fromProc?: string }
   | { type: 'goal'; id: string }
-  | { type: 'onboarding' };
+  | { type: 'onboarding' }
+  | { type: 'transfer' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

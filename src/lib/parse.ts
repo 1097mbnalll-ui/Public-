@@ -54,9 +54,10 @@ export function parseQuick(input: string, templates: Template[] = [], now = Date
     out.area = /عمل/.test(t) ? 'work' : /دراس|جامع/.test(t) ? 'study' : 'life';
   });
 
-  // priority
+  // priority: «عاجل» anywhere. «مهم/مهمة» is also a noun ("task"), so it only counts with "!" or as the
+  // last word (checked below, after dates and durations are taken out)
   take(new RegExp(`${B}(!!+|!?عاجل(?:ة|ه)?|ضروري(?:ة|ه)?)${E}`), () => (out.priority = 3)) ||
-    take(new RegExp(`${B}(!|!?مهم(?:ة|ه)?)${E}`), () => (out.priority = 2));
+    take(new RegExp(`${B}(!|!مهم(?:ة|ه)?)${E}`), () => (out.priority = 2));
   take(new RegExp(`${B}(لازم|موعد نهائي|ما يتأجل|مايتأجل|لا يتأجل)${E}`), () => (out.hard = true));
 
   // durations (before times so "ساعتين" isn't a clock)
@@ -102,6 +103,7 @@ export function parseQuick(input: string, templates: Template[] = [], now = Date
     take(new RegExp(`${B}(?:الساعة|الساعه)\\s*(\\d{1,2})(?::(\\d{2}))?${E}`), (m) => (out.dueTime = clock(+m[1], m[2] ? +m[2] : 0))) ||
     take(new RegExp(`${B}(\\d{1,2}):(\\d{2})${E}`), (m) => (out.dueTime = clock(+m[1], +m[2], undefined, true)));
   if (out.dueTime && !out.due) out.due = today;
+  if (out.priority == null) take(new RegExp(`${B}مهم(?:ة|ه)?\\s*$`), () => (out.priority = 2));
 
   out.title = s.replace(/\s+/g, ' ').trim();
 

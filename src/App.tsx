@@ -13,6 +13,7 @@ import { Study } from './pages/Study';
 import { Insights } from './pages/Insights';
 import { Settings } from './pages/Settings';
 import { Import } from './pages/Import';
+import { Receive } from './pages/Receive';
 import { todayKey } from './lib/dates';
 
 // Four places, each answering one question:
@@ -29,7 +30,7 @@ function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'week') return { page: 'today', id: 'week' };
   if (page === 'settings') return { page: 'me' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'import') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'import' || page === 'receive') return { page, id };
   return { page: 'today' };
 }
 
@@ -43,7 +44,7 @@ export function App() {
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
   useEffect(() => {
-    if (welcomed.current || s.meta.onboarded || route.page === 'import') return;
+    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive') return;
     welcomed.current = true;
     setTimeout(() => openSheet({ type: 'onboarding' }), 50);
   }, [route.page, s.meta.onboarded]);
@@ -85,6 +86,9 @@ export function App() {
       break;
     case 'import':
       body = <Import />;
+      break;
+    case 'receive':
+      body = <Receive />;
       break;
   }
 

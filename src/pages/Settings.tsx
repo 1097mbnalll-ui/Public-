@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Collapse, Group, Row, Stepper, Switch } from '../ui/kit';
 import { PageTop } from '../ui/PageTop';
+import { openSheet } from '../ui/sheets';
+import { receiveFile } from './Receive';
 import { go } from '../ui/router';
 import { Icon } from '../ui/Icon';
 import { getState, replaceState, useApp } from '../lib/store';
@@ -31,6 +33,7 @@ export function Settings() {
   const [snaps, setSnaps] = useState<string[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const xferRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     isPersisted().then(setPersisted);
@@ -118,6 +121,25 @@ export function Settings() {
           <label>ملخص الصباح</label>
           <input type="time" className="input" style={{ width: 160 }} value={st.morningBrief} onChange={(e) => A.updateSettings({ morningBrief: e.target.value })} />
         </div>
+      </Section>
+
+      <Section title="جهاز آخر" desc="انقل كل بياناتك لجوال أو كمبيوتر آخر بدون حساب: تُشفّر بكود، وترسل الرابط لنفسك، وتفتحه هناك.">
+        <div className="row wrap" style={{ gap: 8 }}>
+          <button className="btn primary" onClick={() => openSheet({ type: 'transfer' })}><Icon name="share" size={16} /> انقل بياناتي لجهاز آخر</button>
+          <button className="btn" onClick={() => xferRef.current?.click()}><Icon name="download" size={16} /> استقبل من ملف</button>
+          <input
+            ref={xferRef}
+            type="file"
+            accept=".masar,application/octet-stream"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) receiveFile(new Uint8Array(await f.arrayBuffer()));
+              e.target.value = '';
+            }}
+          />
+        </div>
+        <div className="faint tiny">وصلك رابط؟ افتحه فقط على الجهاز الآخر وسيطلب الكود.</div>
       </Section>
 
       <Section title="بياناتك والنسخ الاحتياطي">
