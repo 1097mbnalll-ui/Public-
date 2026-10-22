@@ -88,6 +88,19 @@ export interface DayPlan {
   study: StudyPlan;
 }
 
+/**
+ * Procedure priority, same rules as tasks:
+ *  عاجل → always in today, never postponed
+ *  مهم → today or tomorrow; from its second day (or after one postponement) it can't slip again
+ *  عادي / منخفض → postponed freely when the day is full
+ */
+export function procLevel(p: Procedure, today: string) {
+  const urgent = p.priority === 3;
+  const important = p.priority === 2 && (!p.due || p.due <= addDays(today, 1));
+  const aged = diffDays(todayKey(p.createdAt), today) >= 1 || (p.deferrals || 0) >= 1;
+  return { urgent, important, must: urgent || (important && aged) };
+}
+
 function procPriorityItem(p: Procedure) {
   return { priority: p.priority, due: p.due, hard: false, createdAt: p.createdAt, deferrals: 0 };
 }
@@ -174,12 +187,19 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
     if (p.archived || p.completedAt) continue;
     const stage = procStage(p);
     if (stage === 'waiting' || stage === 'done') continue;
-    const s = scoreItem(procPriorityItem(p), today, now);
+    if (p.plannedFor && p.plannedFor > today) continue;
+    const base = scoreItem(procPriorityItem(p), today, now);
     const next = nextStep(p);
+    const lvl = procLevel(p, today);
     if (stage === 'partial') {
-      s.score += 10;
-      s.reasons.push('بدأت فيه ولم يكتمل');
+      base.score += 10;
+      base.reasons.push('بدأت فيه ولم يكتمل');
     }
+    // the priority explanation leads the reasons
+    base.reasons = base.reasons.filter((r) => r !== 'عاجلة' && r !== 'مهمة');
+    if (lvl.urgent) base.reasons.unshift('عاجل — ضروري جدًا اليوم');
+    else if (lvl.important && lvl.must) base.reasons.unshift((p.deferrals || 0) >= 2 ? `مهم وأجّلته ${p.deferrals} مرات — لا تؤجله أكثر` : 'مهم — اليوم آخر موعد مريح له');
+    else if (lvl.important) base.reasons.unshift('مهم — خلّصه اليوم أو بكرة');
     cands.push({
       kind: 'procedure',
       id: p.id,
@@ -187,9 +207,10 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       sub: next ? `${kindInfo(next.kind).label}: ${next.title}` : undefined,
       area: 'work',
       minutes: procMinutes(p),
-      score: s.score,
-      reasons: s.reasons,
-      must: !!p.due && p.due <= today,
+      score: base.score + (lvl.urgent ? 40 : lvl.important && lvl.must ? 15 : 0),
+      reasons: base.reasons,
+      must: lvl.must || (!!p.due && p.due <= today),
+      level: lvl.urgent ? 'urgent' : p.priority === 2 ? 'important' : undefined,
     });
   }
 
@@ -239,19 +260,25 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
   };
 }
 
-/** items to push to tomorrow so the rest fits (lowest value first, never hard deadlines) */
+/** items to push to tomorrow so the rest fits (lowest value first). Never: عاجل, hard deadlines, or a مهم that already waited. */
 export function suggestDeferrals(plan: DayPlan, state: AppState): PlanItem[] {
   let over = plan.load - plan.remaining;
   if (over <= 0) return [];
   const out: PlanItem[] = [];
   const movable = plan.items
-    .filter((i) => i.kind === 'task')
+    .filter((i) => i.kind === 'task' || i.kind === 'procedure')
     .filter((i) => {
-      const t = state.tasks.find((x) => x.id === i.id);
-      // never suggest pushing back urgent tasks, hard deadlines, or an important task that already waited
-      if (!t || t.priority === 3 || (t.hard && t.due && t.due <= plan.today)) return false;
-      const waited = diffDays(todayKey(t.createdAt), plan.today) >= 1 || t.deferrals >= 1;
-      return !(t.priority === 2 && waited && (!t.due || t.due <= addDays(plan.today, 1)));
+      if (i.kind === 'task') {
+        const t = state.tasks.find((x) => x.id === i.id);
+        if (!t || t.priority === 3 || (t.hard && t.due && t.due <= plan.today)) return false;
+        const waited = diffDays(todayKey(t.createdAt), plan.today) >= 1 || t.deferrals >= 1;
+        return !(t.priority === 2 && waited && (!t.due || t.due <= addDays(plan.today, 1)));
+      }
+      const p = state.procedures.find((x) => x.id === i.id);
+      if (!p || p.priority === 3) return false;
+      // مهم with a deadline of today stays; عادي / منخفض can always move
+      if (p.priority === 2 && p.due && p.due <= plan.today) return false;
+      return !procLevel(p, plan.today).must;
     })
     .sort((a, b) => a.score - b.score);
   for (const i of movable) {

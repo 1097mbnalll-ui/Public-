@@ -56,6 +56,14 @@ export function App() {
     } as Record<string, number>;
   }, [s]);
 
+  // every person / group / place used in a step so far, offered as suggestions
+  const targets = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const p of s.procedures) for (const st of p.steps) if (st.target?.trim()) c.set(st.target.trim(), (c.get(st.target.trim()) || 0) + 1);
+    for (const t of s.templates) for (const st of t.steps) if (st.target?.trim()) c.set(st.target.trim(), (c.get(st.target.trim()) || 0) + 1);
+    return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  }, [s.procedures, s.templates]);
+
   const { page, id } = resolve(route.page, route.id);
   const wide = page === 'today' || (page === 'work' && !!id);
   let body: React.ReactNode;
@@ -125,6 +133,9 @@ export function App() {
         ))}
       </nav>
 
+      <datalist id="masar-targets">
+        {targets.map((t) => <option key={t} value={t} />)}
+      </datalist>
       <TimerBar />
       {s.timer?.focus && <FocusScreen />}
       <SheetHost />

@@ -42,7 +42,11 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
       const id = addProcedure(title || tpl!.name, tpl, { priority: fPrio, due: fDue, fields });
       closeSheet();
       if (openAfter || !tpl) go(`work/${id}`);
-      else toast(`أُضيف الإجراء «${title}» بـ ${tpl.steps.length} خطوات`, { buttons: [{ label: 'افتح', fn: () => go(`work/${id}`) }] });
+      else
+        toast(
+          fPrio === 3 ? `🔴 «${title}» عاجل — في قائمة اليوم ولا يتأجل` : fPrio === 2 ? `«${title}» مهم — خلّصه اليوم أو بكرة` : `أُضيف الإجراء «${title}» بـ ${tpl.steps.length} خطوات`,
+          { buttons: [{ label: 'افتح', fn: () => go(`work/${id}`) }], ms: fPrio >= 2 ? 7000 : undefined },
+        );
     } else {
       const id = addTask({ title, area: fArea, priority: fPrio, due: fDue, dueTime: p.dueTime, estimate: p.estimate, hard: !!p.hard });
       closeSheet();

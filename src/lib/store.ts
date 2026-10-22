@@ -106,7 +106,9 @@ export function replaceState(raw: unknown, label = 'استعادة') {
 /** day-change housekeeping: unfinished plans for past days come back as deferred */
 export function rollover(now = Date.now()) {
   const today = todayKey(now);
-  const stale = state.tasks.some((t) => t.status === 'open' && t.plannedFor && t.plannedFor < today);
+  const stale =
+    state.tasks.some((t) => t.status === 'open' && t.plannedFor && t.plannedFor < today) ||
+    state.procedures.some((p) => p.plannedFor && p.plannedFor < today);
   const oldFired = Object.values(state.fired).some((at) => now - at > 7 * 86_400_000);
   if (!stale && !oldFired) return;
   mutate((s) => {
@@ -114,6 +116,12 @@ export function rollover(now = Date.now()) {
       if (t.status === 'open' && t.plannedFor && t.plannedFor < today) {
         t.plannedFor = undefined;
         t.deferrals += 1;
+      }
+    }
+    for (const p of s.procedures) {
+      if (p.plannedFor && p.plannedFor < today) {
+        p.plannedFor = undefined;
+        p.deferrals = (p.deferrals || 0) + 1;
       }
     }
     for (const [k, at] of Object.entries(s.fired)) if (now - at > 7 * 86_400_000) delete s.fired[k];

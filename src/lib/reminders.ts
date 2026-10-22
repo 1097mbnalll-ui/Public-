@@ -47,6 +47,14 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     if (at <= now && !state.fired[id])
       out.push({ id, title: `عاجلة: ${t.title}`, body: 'ضرورية جدًا — خلّصها اليوم.', at, ref: `task/${t.id}`, kind: 'auto' });
   }
+  for (const p of state.procedures) {
+    if (p.archived || p.completedAt || p.priority !== 3) continue;
+    const id = `urgent-proc:${p.id}:${today}`;
+    const at = Math.max(p.createdAt + 60_000, atTime(today, state.settings.morningBrief || '08:00'));
+    const next = p.steps.find((x) => !x.done);
+    if (at <= now && !state.fired[id])
+      out.push({ id, title: `عاجل: ${p.title}`, body: next ? `الخطوة التالية: ${next.title}` : 'ضروري اليوم.', at, ref: `work/${p.id}`, kind: 'auto' });
+  }
   for (const e of state.exams) {
     if (e.score != null) continue;
     const at = atTime(addDays(e.date, -1), '20:00');

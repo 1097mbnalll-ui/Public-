@@ -129,7 +129,7 @@ export function TemplateEditor({ id, fromProc }: { id?: string; fromProc?: strin
                 <span className="faint small num" style={{ width: 16 }}>{i + 1}</span>
                 <StepKindSelect compact value={st.kind} onChange={(k) => upStep(i, { kind: k })} />
                 <input className="input grow" style={{ minWidth: 140 }} value={st.title} onChange={(e) => upStep(i, { title: e.target.value })} placeholder={kindInfo(st.kind).label + '…'} />
-                <input className="input" style={{ width: 150 }} value={st.target || ''} onChange={(e) => upStep(i, { target: e.target.value || undefined })} placeholder="الجهة / المكان" />
+                <input className="input" style={{ width: 150 }} value={st.target || ''} onChange={(e) => upStep(i, { target: e.target.value || undefined })} placeholder="الجهة / المكان" list="masar-targets" />
                 <button className="icon-btn sm" onClick={() => i > 0 && setSteps(steps.map((x, j) => (j === i - 1 ? steps[i] : j === i ? steps[i - 1] : x)))} aria-label="لأعلى"><Icon name="up" size={15} /></button>
                 <button className="icon-btn sm" onClick={() => setSteps(steps.filter((_, j) => j !== i))} aria-label="حذف"><Icon name="x" size={15} /></button>
               </div>

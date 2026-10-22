@@ -17,7 +17,7 @@ export function ReplanSheet() {
   const plan = useMemo(() => planDay(s), [s]);
   const suggested = useMemo(() => suggestDeferrals(plan, s), [plan, s]);
   const [sel, setSel] = useState<string[]>(suggested.map((i) => i.id));
-  const movable = plan.items.filter((i) => i.kind === 'task');
+  const movable = plan.items.filter((i) => (i.kind === 'task' || i.kind === 'procedure') && i.level !== 'urgent');
   const selMinutes = movable.filter((i) => sel.includes(i.id)).reduce((a, i) => a + i.minutes, 0);
   const after = plan.load - selMinutes;
 
@@ -56,7 +56,7 @@ export function ReplanSheet() {
           </div>
         </div>
         <p className="muted small" style={{ margin: 0 }}>
-          اخترت لك الأقل أهمية أولًا، ولم أقترح أي مهمة لا تحتمل التأجيل. المذاكرة المقترحة تبقى لأنها محسوبة على موعد اختبارك.
+          اخترت لك الأقل أهمية أولًا. العاجل لا يظهر هنا أبدًا، ولا أقترح ما لا يحتمل التأجيل. المذاكرة المقترحة تبقى لأنها محسوبة على موعد اختبارك.
         </p>
         <div className="list">
           {movable.map((i) => {

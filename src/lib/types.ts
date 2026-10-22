@@ -94,6 +94,9 @@ export interface Procedure {
   steps: Step[];
   priority: Priority;
   due?: string;
+  /** pushed to a later day (عادي / منخفض only) */
+  plannedFor?: string;
+  deferrals?: number;
   reminder?: Reminder;
   log: LogEntry[];
   archived: boolean;

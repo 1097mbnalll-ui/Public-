@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
-import { parseQuick } from '../src/lib/parse';
+import { parseQuick, parseSteps } from '../src/lib/parse';
 import { addDays, atTime, todayKey } from '../src/lib/dates';
 import { planStudy } from '../src/lib/engine/study';
 import { planDay, scoreItem, suggestDeferrals } from '../src/lib/engine/planner';
@@ -314,5 +314,84 @@ describe('auto-rescheduling alert', () => {
     expect(alert?.actions[0].act).toBe('auto-replan');
     expect(alert?.detail).toContain('«عادي»');
     expect(alert?.detail).not.toContain('«عاجل»');
+  });
+});
+
+describe('step list parser', () => {
+  it('turns a typed list into typed steps with their targets', () => {
+    const st = parseSteps('طباعة الملف، حفظ في ملف مشتريات، إرسال إلى نجيب');
+    expect(st.map((x) => x.kind)).toEqual(['print', 'file', 'send']);
+    expect(st[1].target).toBe('ملف مشتريات');
+    expect(st[2].target).toBe('نجيب');
+  });
+  it('understands groups, places and replies; supports lines and numbering', () => {
+    const st = parseSteps('1. مراجعة الفاتورة\n2. إرسال لقروب فواتير الموردين\n3. تصديق من الغرفة التجارية\n4. انتظار الرد من الغرفة التجارية');
+    expect(st.map((x) => x.kind)).toEqual(['action', 'send', 'certify', 'reply']);
+    expect(st[1].target).toBe('قروب فواتير الموردين');
+    expect(st[2].target).toBe('الغرفة التجارية');
+    expect(st[3].target).toBe('الغرفة التجارية');
+  });
+  it('detects printing inside a longer phrase', () => {
+    expect(parseSteps('تجهيز المستند وطباعته')[0].kind).toBe('print');
+  });
+});
+
+describe('work procedures priority', () => {
+  const proc = (title: string, priority: 0 | 1 | 2 | 3, extra: any = {}) => ({
+    id: title,
+    title,
+    notes: '',
+    fields: [],
+    priority,
+    log: [],
+    archived: false,
+    createdAt: NOW,
+    updatedAt: NOW,
+    steps: [
+      { id: title + '1', title: 'تنفيذ', kind: 'action' as const, done: false },
+      { id: title + '2', title: 'إرسال', kind: 'send' as const, target: 'المدير', done: false },
+    ],
+    ...extra,
+  });
+
+  it('عاجل is always in today and ranked first; never suggested for postponing', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 20;
+    s.procedures.push(proc('عاجل', 3), proc('عادي', 1, { due: TODAY }), proc('منخفض', 0, { due: TODAY }));
+    const plan = planDay(s, NOW);
+    expect(plan.items[0].title).toBe('عاجل');
+    expect(plan.items[0].must).toBe(true);
+    expect(plan.items[0].level).toBe('urgent');
+    const moved = suggestDeferrals(plan, s).map((i) => i.title);
+    expect(moved).not.toContain('عاجل');
+    expect(moved).toContain('منخفض'); // lowest value goes first
+  });
+
+  it('عادي / منخفض are postponed (skipped today once pushed), عاجل ignores a postponement date', () => {
+    const s = initialState();
+    s.procedures.push(proc('عادي', 1, { plannedFor: addDays(TODAY, 1) }));
+    s.procedures.push(proc('منخفض', 0, { plannedFor: addDays(TODAY, 1) }));
+    expect(planDay(s, NOW).items.map((i) => i.title)).toEqual([]);
+  });
+
+  it('مهم: flexible on its first day, must-do from the next', () => {
+    const s = initialState();
+    s.procedures.push(proc('جديد', 2), proc('قديم', 2, { createdAt: NOW - 86_400_000 }));
+    const plan = planDay(s, NOW);
+    const all = [...plan.items, ...plan.later];
+    expect(all.find((i) => i.title === 'جديد')!.must).toBe(false);
+    expect(all.find((i) => i.title === 'قديم')!.must).toBe(true);
+  });
+
+  it('one-tap alert lists procedures it will move', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 20;
+    s.procedures.push(proc('عاجل', 3), proc('عادي', 1, { due: TODAY }));
+    const study = planStudy(s, NOW);
+    const plan = planDay(s, NOW, study);
+    const a = buildInsights(s, plan, study, NOW).find((i) => i.id.startsWith('overload:'));
+    expect(a?.actions[0].act).toBe('auto-replan');
+    expect(a?.detail).toContain('«عادي»');
+    expect(a?.detail).not.toContain('«عاجل»');
   });
 });

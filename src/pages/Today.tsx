@@ -132,8 +132,8 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
         <button className="btn" onClick={() => act.check(it)}>
           <Icon name="check" size={16} /> {it.kind === 'study' ? 'سجّل ما ذاكرته' : it.kind === 'procedure' ? 'تمت الخطوة' : 'أنجزتها'}
         </button>
-        {it.kind === 'task' && !it.must && (
-          <button className="btn ghost" onClick={() => deferTaskUI(it.id)}>غدًا</button>
+        {(it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent' && (
+          <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast('نُقل إلى الغد', { undoable: true })))}>غدًا</button>
         )}
       </div>
     </div>

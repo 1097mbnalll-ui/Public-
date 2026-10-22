@@ -143,3 +143,40 @@ function clock(h: number, m: number, mark?: string, is24 = false): string {
   h = Math.min(23, Math.max(0, h));
   return `${String(h).padStart(2, '0')}:${String(Math.min(59, m)).padStart(2, '0')}`;
 }
+
+
+// ---------- step lists ----------
+// "طباعة الملف، حفظ في ملف مشتريات، إرسال إلى نجيب" → 3 typed steps with targets
+
+import type { StepKind, TemplateStep } from './types';
+
+const KIND_WORDS: [StepKind, RegExp][] = [
+  ['reply', /(انتظار|انتظر|ننتظر|رد من|الرد|يرد|اعتماد|موافق)/],
+  ['followup', /(متابع|تابع|ذكر|ذكّر|اسال عن|اسأل عن)/],
+  ['certify', /(تصديق|صدق|توثيق|وثق|ختم|اختم)/],
+  ['print', /(طباع|اطبع|طبع|print)/],
+  ['send', /(ارسال|ارسل|بعث|ابعث|رفع|ارفع|شارك|مشارك)/],
+  ['file', /(حفظ|احفظ|ارشف|أرشف|ارشفه|تخزين|خزن|ملف)/],
+];
+
+/** the person / group / place after "إلى / في / من / عند / مع / لـ" (kept exactly as written) */
+function targetOf(text: string): string | undefined {
+  const m =
+    text.match(/(?:^|\s)(?:الى|إلى|الي|لـ|في|فى|من|عند|مع|على)\s+(.+)$/) ||
+    text.match(/(?:^|\s)ل((?:قروب|مجموعه|مجموعة|مكتب|قسم|بنك|شركه|شركة|مؤسسه|مؤسسة)\s*.*)$/);
+  const t = m?.[1].replace(/[،,.؛]+$/, '').trim();
+  return t || undefined;
+}
+
+export function parseSteps(input: string): TemplateStep[] {
+  return input
+    .split(/\n|،|;|؛|\sثم\s|\sبعدها\s/)
+    .map((x) => x.replace(/^[\s\-–•*\d.)(]+/, '').trim())
+    .filter(Boolean)
+    .map((title) => {
+      const n = normalize(title);
+      const kind = KIND_WORDS.find(([, re]) => re.test(n))?.[0] ?? 'action';
+      const target = kind === 'action' || kind === 'print' ? undefined : targetOf(title);
+      return { title, kind, target };
+    });
+}

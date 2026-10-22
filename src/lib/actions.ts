@@ -126,6 +126,13 @@ export function deferMany(ids: string[], day = addDays(todayKey(), 1)) {
         t.deferrals += 1;
         t.updatedAt = now();
       }
+    for (const p of s.procedures)
+      if (ids.includes(p.id) && p.priority < 3) {
+        p.plannedFor = day;
+        p.deferrals = (p.deferrals || 0) + 1;
+        p.log.push({ at: now(), text: 'رُحّل إلى الغد' });
+        p.updatedAt = now();
+      }
   }, 'نقل للغد');
 }
 
@@ -228,6 +235,15 @@ export function addStep(procId: string, step: { title: string; kind: StepKind; t
   withProc(procId, (p) => {
     p.steps.push({ ...step, id: uid(), done: false });
     if (p.completedAt) p.completedAt = undefined;
+  });
+}
+
+export function addSteps(procId: string, steps: { title: string; kind: StepKind; target?: string }[]) {
+  if (!steps.length) return;
+  withProc(procId, (p) => {
+    for (const st of steps) p.steps.push({ ...st, id: uid(), done: false });
+    if (p.completedAt) p.completedAt = undefined;
+    p.log.push({ at: now(), text: `أُضيفت ${steps.length} خطوات` });
   });
 }
 

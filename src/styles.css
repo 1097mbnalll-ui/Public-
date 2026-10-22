@@ -877,7 +877,7 @@ input[type='datetime-local'] {
   background: var(--green);
 }
 
-.steps-dots i.next {
+.steps-dots i.cur {
   background: var(--amber);
 }
 

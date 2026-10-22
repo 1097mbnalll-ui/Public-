@@ -43,6 +43,24 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       ],
     });
 
+  // --- عاجل (إجراءات العمل): in today, never postponed ---
+  for (const p of state.procedures) {
+    if (p.archived || p.completedAt || p.priority !== 3) continue;
+    const next = nextStep(p);
+    if (!next) continue;
+    const waiting = procStage(p) === 'waiting';
+    out.push({
+      id: `urgent-proc:${p.id}:${today}`,
+      level: 'critical',
+      title: `إجراء عاجل: ${p.title}`,
+      detail: waiting ? `بانتظار ${next.target || 'الرد'} — تابعه اليوم.` : `الخطوة التالية: ${next.title}${next.target ? ` (${next.target})` : ''}. ضروري اليوم.`,
+      actions: [
+        { label: 'افتح', act: 'open-proc', arg: p.id },
+        ...(waiting ? [] : [{ label: 'تمت الخطوة', act: 'step-done', arg: `${p.id}:${next.id}` }]),
+      ],
+    });
+  }
+
   // --- exams ---
   for (const ep of study.exams) {
     const name = `${ep.course.name} — ${ep.exam.title}`;
@@ -100,7 +118,7 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
       level: 'warn',
       title: `وقتك اليوم لا يكفي — الخطة أكبر بـ ${fmtMinutes(plan.overBy)}`,
       detail: moves.length
-        ? `أقدر أرحّل ${moves.length === 1 ? 'مهمة غير عاجلة' : moves.length === 2 ? 'مهمتين غير عاجلتين' : `${moves.length} مهام غير عاجلة`} إلى الغد (${names}) فيتوفر ${fmtMinutes(freed)}.${freed < plan.overBy ? ' الباقي عاجل أو لا يتأجل.' : ''}`
+        ? `أقدر أرحّل ${moves.length === 1 ? 'عنصرًا غير عاجل' : moves.length === 2 ? 'عنصرين غير عاجلين' : `${moves.length} عناصر غير عاجلة`} إلى الغد (${names}) فيتوفر ${fmtMinutes(freed)}.${freed < plan.overBy ? ' الباقي عاجل أو لا يتأجل.' : ''}`
         : 'كل ما في خطتك عاجل أو لا يتأجل. قلّل مذاكرة اليوم أو حدّث وقتك المتاح.',
       actions: moves.length
         ? [{ label: 'أعد الجدولة تلقائيًا', act: 'auto-replan' }, { label: 'أختار بنفسي', act: 'replan' }]
