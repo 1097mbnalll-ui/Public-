@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { applyTheme } from './lib/themes';
 import { Icon } from './ui/Icon';
 import { useApp } from './lib/store';
 import { useRoute, go } from './ui/router';
@@ -43,6 +44,8 @@ export function App() {
   useShortcuts();
 
   const lng = s.settings.lang;
+  const theme = s.settings.theme;
+  useLayoutEffect(() => applyTheme(theme), [theme]);
   useEffect(() => {
     document.documentElement.lang = lng === 'en' ? 'en' : 'ar';
     document.documentElement.dir = lng === 'en' ? 'ltr' : 'rtl';
@@ -106,7 +109,7 @@ export function App() {
         <div className="brand">
           <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
         <button className="btn primary block side-add" onClick={() => openSheet({ type: 'quick' })}>
-          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(0,0,0,.2)', color: 'rgba(0,0,0,.55)' }}>N</span>
+          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(255,255,255,.4)', color: 'rgba(255,255,255,.85)' }}>N</span>
         </button>
         {NAV.map((n) => (
           <button key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>

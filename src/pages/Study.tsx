@@ -101,7 +101,7 @@ function StudyOverview() {
               <div className="bars" style={{ height: 90 }}>
                 {week.map((d, i) => (
                   <div key={d} className="b" title={`${fmtDate(d)}: ${fmtMinutes(studied[i])}`}>
-                    <i style={{ height: `${(studied[i] / maxStudy) * 80}%`, background: d === today ? 'var(--accent)' : 'rgba(138,164,255,.45)' }} />
+                    <i style={{ height: `${(studied[i] / maxStudy) * 80}%`, background: d === today ? 'var(--accent)' : 'var(--accent-dim)' }} />
                     <span>{fmtDate(d).split(' ')[0].replace('ال', '')}</span>
                   </div>
                 ))}

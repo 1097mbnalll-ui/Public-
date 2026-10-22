@@ -15,6 +15,7 @@ import { initialState } from '../lib/defaults';
 import { exportUI } from '../ui/ops';
 import { toast } from '../ui/toast';
 import { L } from '../lib/i18n';
+import { THEMES } from '../lib/themes';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -81,6 +82,19 @@ export function Settings() {
           <Row icon="insights" iconColor="var(--accent)" label={L("ما تعلمته عنك", "What I've learned about you")} sub={L("دقة تقديراتك، سرعة مذاكرتك، أنماط التأجيل", "Estimate accuracy, study speed, postponing patterns")} chevron onClick={() => go('me/insights')} />
         </Group>
       </div>
+
+      <Section title={L("الألوان", "Colours")} desc={L("اختر الألوان اللي ترتاح لها — تتغير فورًا وتنحفظ مع بياناتك.", "Pick the colours you like — they change instantly and are saved with your data.")}>
+        <div className="themes">
+          {THEMES.map((t) => (
+            <button key={t.id} className={`theme-opt ${st.theme === t.id ? 'on' : ''}`} onClick={() => A.updateSettings({ theme: t.id })} aria-pressed={st.theme === t.id}>
+              <span className="theme-swatch" style={{ background: `linear-gradient(150deg, ${t.bg[0]}, ${t.bg[1]} 55%, ${t.bg[2]})` }}>
+                <i style={{ background: `linear-gradient(135deg, ${t.accent}, ${t.pop})` }} />
+              </span>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </Section>
 
       <Section title={L("وقتك المتاح", "Your available time")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
         <AvailabilityEditor />

@@ -186,6 +186,7 @@ export interface Settings {
   dayEnd: string; // HH:MM
   /** interface language */
   lang: 'ar' | 'en';
+  theme: string;
   /** focus session lengths, minutes */
   pomodoroWork: number;
   pomodoroBreak: number;

@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   studyCap: [150, 150, 150, 150, 120, 240, 240],
   dayEnd: '23:30',
   lang: 'ar',
+  theme: 'lavender',
   pomodoroWork: 25,
   pomodoroBreak: 5,
   morningBrief: '07:30',

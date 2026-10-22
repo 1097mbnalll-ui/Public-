@@ -66,7 +66,7 @@ export function Insights() {
           <div className="bars" style={{ height: 140 }}>
             {days.map((d, i) => (
               <div key={d} className="b" title={L(`${fmtDate(d)}: ${fmtMinutes(rec[i].minutes)} · ${rec[i].done} إنجاز`, `${fmtDate(d)}: ${fmtMinutes(rec[i].minutes)} · ${rec[i].done} done`)}>
-                <i style={{ height: `${(rec[i].minutes / maxM) * 85}%`, background: d === today ? 'var(--accent)' : 'rgba(138,164,255,.45)' }} />
+                <i style={{ height: `${(rec[i].minutes / maxM) * 85}%`, background: d === today ? 'var(--accent)' : 'var(--accent-dim)' }} />
                 <span>{new Date(d + 'T12:00').getDate()}</span>
               </div>
             ))}

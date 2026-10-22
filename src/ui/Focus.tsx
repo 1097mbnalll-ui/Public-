@@ -137,7 +137,7 @@ export function FocusScreen() {
       <div className="focus-center">
         <div className="focus-ring" style={{ width: size, height: size }}>
           <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,.07)" strokeWidth="7" fill="none" />
+            <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--track)" strokeWidth="7" fill="none" />
             <circle
               cx={size / 2}
               cy={size / 2}
