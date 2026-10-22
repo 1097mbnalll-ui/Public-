@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon';
 import { useApp, useSaveStatus } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, daysWord, fmtClock, fmtDate, fmtMinutes, fmtTime, relDay, timeAgo, todayKey } from '../lib/dates';
-import { planDay, type DayPlan, type PlanItem } from '../lib/engine/planner';
+import { planDay, suggestDeferrals, type DayPlan, type PlanItem } from '../lib/engine/planner';
 import { planStudy, type StudyPlan } from '../lib/engine/study';
 import { buildInsights, type Insight } from '../lib/engine/insights';
 import { nextStep, procStage } from '../lib/engine/procedures';
@@ -171,32 +171,54 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   const s = useApp();
   const [edit, setEdit] = useState(false);
   const override = s.dayOverrides[plan.today];
-  const free = Math.max(0, plan.remaining - plan.load);
+  const done = plan.doneMinutes;
+  const left = plan.load;
+  const progress = done + left ? done / (done + left) : 0;
+  const movable = useMemo(() => suggestDeferrals(plan, s), [plan, s]);
+  const usedUp = plan.capacity - done <= 0;
+
+  // one sentence that explains how the numbers relate
+  let status: React.ReactNode;
+  let tone = 'var(--green)';
+  if (!left) status = L('ما بقي عليك شيء اليوم ✓', 'Nothing left for today ✓');
+  else if (!plan.overloaded)
+    status = L(`يكفيك الوقت: تخلص تقريبًا ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `، ويبقى لك ${fmtMinutes(plan.remaining - left)} فراغ` : ''}.`, `You have enough time: done around ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `, with ${fmtMinutes(plan.remaining - left)} to spare` : ''}.`);
+  else {
+    tone = 'var(--red)';
+    status = usedUp
+      ? L(`خلّصت وقتك المحدد لليوم (${fmtMinutes(plan.capacity)}) واشتغلت ${fmtMinutes(done)} — الباقي كله فوق وقتك.`, `You've used today's set time (${fmtMinutes(plan.capacity)}) and worked ${fmtMinutes(done)} — everything left is beyond it.`)
+      : plan.remaining < plan.capacity - done
+        ? L(`ما بقي من يومك إلا ${fmtMinutes(plan.remaining)} تقريبًا، وعليك ${fmtMinutes(left)} — يزيد ${fmtMinutes(plan.overBy)}.`, `Only about ${fmtMinutes(plan.remaining)} of your day is left and you have ${fmtMinutes(left)} — ${fmtMinutes(plan.overBy)} too much.`)
+        : L(`باقي من وقتك ${fmtMinutes(plan.remaining)} وعليك ${fmtMinutes(left)} — يزيد ${fmtMinutes(plan.overBy)}.`, `You have ${fmtMinutes(plan.remaining)} left and ${fmtMinutes(left)} to do — ${fmtMinutes(plan.overBy)} too much.`);
+  }
+
   return (
     <div className="summary">
       <div className="row between" style={{ alignItems: 'baseline' }}>
-        <div className="big num">{fmtMinutes(plan.load)} <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>{L("من عمل مخطط", "of planned work")}</span></div>
+        <div>
+          <div className="faint tiny">{L('باقي عليك اليوم', 'Left for today')}</div>
+          <div className="big num">{left ? fmtMinutes(left) : '✓'}</div>
+        </div>
+        <div style={{ textAlign: 'end' }}>
+          <div className="faint tiny">{L('أنجزت', 'Done')}</div>
+          <div className="num" style={{ fontWeight: 700, fontSize: 17, color: done ? 'var(--green)' : undefined }}>{fmtMinutes(done)}</div>
+        </div>
+      </div>
+      <Bar value={progress} color={plan.overloaded ? 'var(--amber)' : 'var(--green)'} />
+      <div className="small" style={{ color: tone === 'var(--green)' ? 'var(--muted)' : tone }}>{status}</div>
+      <div className="row between wrap" style={{ gap: 8 }}>
         <button className="btn sm ghost" onClick={() => setEdit(!edit)} style={{ paddingInline: 6 }}>
-          {override != null ? L(`متاح ${fmtMinutes(override)}`, `${fmtMinutes(override)} available`) : L('وقتي اليوم', "My time today")} <Icon name="edit" size={13} />
+          <Icon name="clock" size={13} /> {L(`وقتك اليوم: ${fmtMinutes(plan.capacity)}`, `Your time today: ${fmtMinutes(plan.capacity)}`)}{override != null ? L(' (معدّل)', ' (changed)') : ''} <Icon name="edit" size={13} />
         </button>
-      </div>
-      <Bar value={plan.remaining ? plan.load / plan.remaining : plan.load ? 1 : 0} color={plan.overloaded ? 'var(--red)' : plan.load / Math.max(1, plan.remaining) > 0.85 ? 'var(--amber)' : 'var(--green)'} />
-      <div className="row between small">
-        <span className="muted">
-          {plan.overloaded ? (
-            <span style={{ color: 'var(--red)' }}>{L("أكثر من وقتك المتبقي بـ ", "Over your remaining time by ")}{fmtMinutes(plan.overBy)}</span>
-          ) : plan.load ? (
-            <>{L("يتبقى لك ", "You have ")}{fmtMinutes(free)}{L(" فراغ · تنتهي ~", " free · done by ~")}{fmtTime(Date.now() + plan.load * 60000)}</>
+        {plan.overloaded &&
+          (movable.length ? (
+            <button className="btn sm" onClick={autoReplanUI}>
+              <Icon name="layers" size={14} /> {L(`أجّل اللي يتأجل لبكرة (${movable.length})`, `Move what can wait to tomorrow (${movable.length})`)}
+            </button>
           ) : (
-            <>{L("وقتك المتاح ", "Your available time ")}{fmtMinutes(plan.remaining)}</>
-          )}
-        </span>
-        {plan.doneMinutes > 0 && <span className="faint">{L("أنجزت ", "Done ")}{fmtMinutes(plan.doneMinutes)}</span>}
+            <span className="faint tiny">{L('كل الباقي عاجل أو مطلوب — زد وقتك اليوم لو تقدر.', 'Everything left is urgent or required — add time today if you can.')}</span>
+          ))}
       </div>
-      {plan.overloaded && (
-        <button className="btn sm" style={{ justifySelf: 'start' }} onClick={autoReplanUI}>
-          <Icon name="layers" size={14} />{L(" أعد الجدولة تلقائيًا", " Reschedule automatically")}</button>
-      )}
       {edit && (
         <div className="col" style={{ gap: 8, paddingTop: 4 }}>
           <div className="small muted">{L("كم وقتًا حرًا عندك اليوم للمذاكرة والمهام؟", "How much free time do you have today for study and tasks?")}</div>
