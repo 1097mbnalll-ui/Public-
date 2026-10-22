@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: Settings = {
   available: [240, 240, 240, 240, 240, 360, 360],
   studyCap: [150, 150, 150, 150, 120, 240, 240],
   dayEnd: '23:30',
+  pomodoroWork: 25,
+  pomodoroBreak: 5,
   morningBrief: '07:30',
   notifications: false,
   nudges: true,
@@ -76,6 +78,7 @@ export function initialState(): AppState {
     fired: {},
     quotaLog: {},
     missed: [],
+    thoughts: [],
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -90,7 +93,7 @@ export function migrate(raw: any): AppState {
     settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
-  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed'] as const) {
+  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts'] as const) {
     if (!Array.isArray(s[k])) (s as any)[k] = [];
   }
   for (const k of ['dayOverrides', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {

@@ -6,6 +6,7 @@ import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
 import { taskTime } from './engine/learning';
 import { isProcDone, kindInfo } from './engine/procedures';
+import { pomodoro } from './engine/focus';
 
 const now = () => Date.now();
 
@@ -428,7 +429,7 @@ export function logStudy(courseId: string, unitId: string | undefined, minutes: 
 
 export function startTimer(t: { kind: 'task' | 'study' | 'procedure'; refId: string; label: string; courseId?: string; unitId?: string }) {
   mutate((s) => {
-    s.timer = { ...t, startedAt: now(), acc: 0, running: true };
+    s.timer = { ...t, startedAt: now(), acc: 0, running: true, focus: true };
   });
 }
 
@@ -457,7 +458,9 @@ export function resumeTimer() {
 export function stopTimer(): { minutes: number; timer: NonNullable<AppState['timer']> } | null {
   const t = getState().timer;
   if (!t) return null;
-  const minutes = Math.max(1, Math.round(timerElapsed(t) / 60000));
+  // credit work blocks only — Pomodoro breaks are not work time
+  const { pomodoroWork, pomodoroBreak } = getState().settings;
+  const minutes = Math.max(1, Math.round(pomodoro(timerElapsed(t), pomodoroWork, pomodoroBreak).workMs / 60000));
   mutate((s) => {
     s.timer = undefined;
     if (t.kind === 'task') {
@@ -471,6 +474,24 @@ export function stopTimer(): { minutes: number; timer: NonNullable<AppState['tim
     }
   });
   return { minutes, timer: t };
+}
+
+export function setFocus(open: boolean) {
+  mutate((s) => {
+    if (s.timer) s.timer.focus = open;
+  });
+}
+
+export function addThought(text: string, during?: string) {
+  mutate((s) => {
+    s.thoughts.push({ id: uid(), text, at: now(), during });
+  });
+}
+
+export function removeThought(id: string) {
+  mutate((s) => {
+    s.thoughts = s.thoughts.filter((x) => x.id !== id);
+  }, 'حذف فكرة');
 }
 
 export function cancelTimer() {

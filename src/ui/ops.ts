@@ -4,6 +4,7 @@ import * as A from '../lib/actions';
 import { getState } from '../lib/store';
 import { fmtMinutes } from '../lib/dates';
 import { exportBackup } from '../lib/backup';
+import { planDay, suggestDeferrals } from '../lib/engine/planner';
 import type { Action } from '../lib/engine/insights';
 import { toast } from './toast';
 import { openSheet } from './sheets';
@@ -68,6 +69,8 @@ export function runAction(a: Action) {
       return go(a.arg!);
     case 'replan':
       return openSheet({ type: 'replan' });
+    case 'auto-replan':
+      return autoReplanUI();
     case 'export':
       return exportUI();
     case 'set-estimate':
@@ -88,4 +91,24 @@ export function runAction(a: Action) {
       A.dropTask(a.arg!);
       return toast('أُلغيت المهمة', { undoable: true });
   }
+}
+
+/** one tap: push the lowest-value, non-urgent tasks to tomorrow until today fits */
+export function autoReplanUI() {
+  const s = getState();
+  const plan = planDay(s);
+  const moves = suggestDeferrals(plan, s);
+  if (!moves.length) {
+    toast('لا توجد مهام يمكن ترحيلها — كل ما في خطتك عاجل أو لا يتأجل');
+    return;
+  }
+  A.deferMany(moves.map((m) => m.id));
+  const after = planDay(getState());
+  const list = moves.map((m) => `«${m.title}»`).join('، ');
+  toast(
+    after.overloaded
+      ? `رحّلت ${list} إلى الغد. ما زال اليوم أكبر بـ ${fmtMinutes(after.overBy)} (عاجل أو لا يتأجل).`
+      : `رحّلت ${list} إلى الغد — يومك الآن يتسع لخطتك ✓`,
+    { undoable: true, ms: 9000 },
+  );
 }

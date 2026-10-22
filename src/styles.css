@@ -1852,3 +1852,106 @@ button.r:active,
     align-items: start;
   }
 }
+
+/* ================= deep focus ================= */
+
+.focus-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 18px);
+  background:
+    radial-gradient(700px 420px at 50% 30%, rgba(109, 139, 255, 0.12), transparent 70%),
+    #060608;
+  animation: fade 0.35s ease;
+  overflow-y: auto;
+}
+
+.focus-screen.is-break {
+  background:
+    radial-gradient(700px 420px at 50% 30%, rgba(82, 211, 150, 0.12), transparent 70%),
+    #060608;
+}
+
+.focus-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.focus-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.focus-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.focus-clock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.focus-clock .num {
+  font-size: 56px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+
+.focus-task {
+  display: grid;
+  gap: 4px;
+  max-width: 520px;
+}
+
+.focus-title {
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.focus-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  transition: transform 0.15s var(--ease);
+}
+
+.focus-btn:active {
+  transform: scale(0.94);
+}
+
+.focus-btn.primary {
+  background: linear-gradient(160deg, #9db3ff, #6d8bff);
+  color: #0b0d18;
+  border-color: transparent;
+}
+
+.focus-dump {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}

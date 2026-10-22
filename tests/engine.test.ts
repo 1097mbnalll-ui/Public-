@@ -7,6 +7,7 @@ import { planDay, scoreItem, suggestDeferrals } from '../src/lib/engine/planner'
 import { calibration, coursePace } from '../src/lib/engine/learning';
 import { buildInsights } from '../src/lib/engine/insights';
 import { procStage } from '../src/lib/engine/procedures';
+import { pomodoro } from '../src/lib/engine/focus';
 import type { AppState, Task } from '../src/lib/types';
 
 // Fixed "now": Tuesday 2026-10-20, 9:00 local
@@ -282,5 +283,36 @@ describe('procedures & insights', () => {
     const ins = buildInsights(s, planDay(s, NOW, study), study, NOW);
     const hit = ins.find((i) => i.id.startsWith('proc-partial'));
     expect(hit?.title).toContain('إرسال للمدير');
+  });
+});
+
+describe('focus / pomodoro', () => {
+  const M = 60000;
+  it('counts work blocks only and tracks phases', () => {
+    expect(pomodoro(10 * M).phase).toBe('work');
+    expect(pomodoro(10 * M).left).toBe(15 * M);
+    const br = pomodoro(27 * M);
+    expect(br.phase).toBe('break');
+    expect(br.left).toBe(3 * M);
+    expect(br.done).toBe(1);
+    expect(br.workMs).toBe(25 * M); // the 2 break minutes are not work
+    const second = pomodoro(40 * M);
+    expect(second.phase).toBe('work');
+    expect(second.workMs).toBe(35 * M);
+  });
+});
+
+describe('auto-rescheduling alert', () => {
+  it('offers one-tap rescheduling only with movable tasks, never moving urgent ones', () => {
+    const s = initialState();
+    s.dayOverrides[TODAY] = 60;
+    s.tasks.push(task({ title: 'عاجل', priority: 3, estimate: 50 }));
+    s.tasks.push(task({ title: 'عادي', priority: 1, estimate: 40, due: TODAY }));
+    const study = planStudy(s, NOW);
+    const plan = planDay(s, NOW, study);
+    const alert = buildInsights(s, plan, study, NOW).find((i) => i.id.startsWith('overload:'));
+    expect(alert?.actions[0].act).toBe('auto-replan');
+    expect(alert?.detail).toContain('«عادي»');
+    expect(alert?.detail).not.toContain('«عاجل»');
   });
 });

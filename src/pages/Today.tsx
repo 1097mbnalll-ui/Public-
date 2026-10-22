@@ -9,8 +9,9 @@ import { planStudy, type StudyPlan } from '../lib/engine/study';
 import { buildInsights, type Insight } from '../lib/engine/insights';
 import { nextStep, procStage } from '../lib/engine/procedures';
 import { openSheet } from '../ui/sheets';
+import { toast } from '../ui/toast';
 import { go } from '../ui/router';
-import { completeTaskUI, deferTaskUI, runAction, toggleStepUI } from '../ui/ops';
+import { autoReplanUI, completeTaskUI, deferTaskUI, runAction, toggleStepUI } from '../ui/ops';
 import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
@@ -190,8 +191,8 @@ function DaySummary({ plan }: { plan: DayPlan }) {
         {plan.doneMinutes > 0 && <span className="faint">أنجزت {fmtMinutes(plan.doneMinutes)}</span>}
       </div>
       {plan.overloaded && (
-        <button className="btn sm" style={{ justifySelf: 'start' }} onClick={() => openSheet({ type: 'replan' })}>
-          <Icon name="layers" size={14} /> رتّب يومي — اختر ما يتأجل
+        <button className="btn sm" style={{ justifySelf: 'start' }} onClick={autoReplanUI}>
+          <Icon name="layers" size={14} /> أعد الجدولة تلقائيًا
         </button>
       )}
       {edit && (
@@ -251,6 +252,30 @@ function Upcoming({ study }: { study: StudyPlan }) {
             </span>
             <span className="val small">{relDay(i.day, today)}</span>
           </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** brain-dump from focus sessions: turn into a task or let it go */
+function Thoughts() {
+  const s = useApp();
+  if (!s.thoughts.length) return null;
+  return (
+    <section>
+      <div className="group-title"><span>أفكار من جلسات التركيز ({s.thoughts.length})</span></div>
+      <div className="rows">
+        {[...s.thoughts].reverse().map((t) => (
+          <div key={t.id} className="r">
+            <span className="ic"><Icon name="note" size={15} /></span>
+            <span className="main-t">
+              <div className="lbl">{t.text}</div>
+              <div className="sub">{t.during ? `أثناء «${t.during}» · ` : ''}{timeAgo(t.at)}</div>
+            </span>
+            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast('صارت مهمة', { buttons: [{ label: 'تفاصيل', fn: () => openSheet({ type: 'task', id }) }] }); }}>مهمة</button>
+            <button className="icon-btn sm" onClick={() => { A.removeThought(t.id); toast('حُذفت', { undoable: true }); }} aria-label="حذف"><Icon name="x" size={14} /></button>
+          </div>
         ))}
       </div>
     </section>
@@ -371,6 +396,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
               </section>
             )}
             <Alerts list={insights} />
+            <Thoughts />
             <Upcoming study={study} />
             {s.procedures.some((p) => !p.archived && !p.completedAt) && (
               <section>

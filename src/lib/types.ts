@@ -181,6 +181,9 @@ export interface Settings {
   /** max study minutes per weekday */
   studyCap: number[];
   dayEnd: string; // HH:MM
+  /** focus session lengths, minutes */
+  pomodoroWork: number;
+  pomodoroBreak: number;
   morningBrief: string; // HH:MM or ''
   notifications: boolean;
   nudges: boolean;
@@ -200,6 +203,17 @@ export interface Timer {
   /** ms accumulated before the current run */
   acc: number;
   running: boolean;
+  /** full-screen focus view is open (the timer keeps running when minimised) */
+  focus?: boolean;
+}
+
+/** a thought jotted down during focus, to deal with later */
+export interface Thought {
+  id: string;
+  text: string;
+  at: number;
+  /** what you were working on when it came up */
+  during?: string;
 }
 
 export interface DayRecord {
@@ -229,6 +243,8 @@ export interface AppState {
   quotaLog: Record<string, Record<string, number>>;
   /** automatic reminders already delivered (id → when) */
   fired: Record<string, number>;
+  /** brain-dump inbox from focus sessions */
+  thoughts: Thought[];
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

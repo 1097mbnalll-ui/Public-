@@ -2,7 +2,7 @@
 
 import type { AppState } from '../types';
 import { daysWord, diffDays, fmtDate, fmtMinutes, todayKey } from '../dates';
-import { type DayPlan, deadlineRisks, openTasks, weekLoad } from './planner';
+import { type DayPlan, deadlineRisks, openTasks, suggestDeferrals, weekLoad } from './planner';
 import type { StudyPlan } from './study';
 import { kindInfo, lastActivity, nextStep, procStage } from './procedures';
 
@@ -90,7 +90,23 @@ export function buildInsights(state: AppState, plan: DayPlan, study: StudyPlan, 
     }
   }
 
-  // (today's overload is shown on the capacity card itself)
+  // --- today doesn't fit: offer one-tap rescheduling ---
+  if (plan.overloaded) {
+    const moves = suggestDeferrals(plan, state);
+    const freed = moves.reduce((a, i) => a + i.minutes, 0);
+    const names = moves.slice(0, 3).map((i) => `«${i.title}»`).join('، ') + (moves.length > 3 ? ` و${moves.length - 3} غيرها` : '');
+    out.push({
+      id: `overload:${today}:${plan.items.length}`,
+      level: 'warn',
+      title: `وقتك اليوم لا يكفي — الخطة أكبر بـ ${fmtMinutes(plan.overBy)}`,
+      detail: moves.length
+        ? `أقدر أرحّل ${moves.length === 1 ? 'مهمة غير عاجلة' : moves.length === 2 ? 'مهمتين غير عاجلتين' : `${moves.length} مهام غير عاجلة`} إلى الغد (${names}) فيتوفر ${fmtMinutes(freed)}.${freed < plan.overBy ? ' الباقي عاجل أو لا يتأجل.' : ''}`
+        : 'كل ما في خطتك عاجل أو لا يتأجل. قلّل مذاكرة اليوم أو حدّث وقتك المتاح.',
+      actions: moves.length
+        ? [{ label: 'أعد الجدولة تلقائيًا', act: 'auto-replan' }, { label: 'أختار بنفسي', act: 'replan' }]
+        : [{ label: 'راجع الخطة', act: 'replan' }],
+    });
+  }
 
   // --- overdue tasks ---
   const overdue = openTasks(state).filter((t) => t.due && t.due < today);

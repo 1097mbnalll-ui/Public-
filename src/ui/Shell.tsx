@@ -56,6 +56,15 @@ function clock(ms: number) {
   return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
 }
 
+/** end the running session: tasks get the minutes, study asks how much was covered */
+export function finishTimerUI() {
+  const r = A.stopTimer();
+  if (!r) return;
+  if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
+  else toast(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`);
+}
+
+/** compact bar while a session runs outside focus mode; tap it to go back into focus */
 export function TimerBar() {
   const s = useApp();
   const [, setT] = useState(0);
@@ -65,25 +74,21 @@ export function TimerBar() {
     const id = setInterval(() => setT((x) => x + 1), 1000);
     return () => clearInterval(id);
   }, [timer?.running]);
-  if (!timer) return null;
+  if (!timer || timer.focus) return null;
   const elapsed = A.timerElapsed(timer);
-  const stop = () => {
-    const r = A.stopTimer();
-    if (!r) return;
-    if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
-    else toast(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`, { undoable: false });
-  };
   return (
     <div className="timerbar" role="status">
-      {timer.running ? <span className="pulse" /> : <Icon name="pause" size={14} className="faint" />}
-      <span className="ellipsis small" style={{ maxWidth: 160 }}>{timer.label}</span>
-      <span className="clock">{clock(elapsed)}</span>
+      <button className="row" style={{ gap: 8, minWidth: 0 }} onClick={() => A.setFocus(true)} title="افتح وضع التركيز">
+        {timer.running ? <span className="pulse" /> : <Icon name="pause" size={14} className="faint" />}
+        <span className="ellipsis small" style={{ maxWidth: 150 }}>{timer.label}</span>
+        <span className="clock">{clock(elapsed)}</span>
+      </button>
       {timer.running ? (
         <button className="icon-btn sm" onClick={A.pauseTimer} aria-label="إيقاف مؤقت"><Icon name="pause" size={16} /></button>
       ) : (
         <button className="icon-btn sm" onClick={A.resumeTimer} aria-label="استئناف"><Icon name="play" size={14} /></button>
       )}
-      <button className="icon-btn sm" onClick={stop} aria-label="إنهاء وحفظ" style={{ color: 'var(--accent)' }}><Icon name="stop" size={15} /></button>
+      <button className="icon-btn sm" onClick={finishTimerUI} aria-label="إنهاء وحفظ" style={{ color: 'var(--accent)' }}><Icon name="stop" size={15} /></button>
       <button className="icon-btn sm" onClick={() => { if (confirm('إلغاء المؤقت بدون حفظ الوقت؟')) A.cancelTimer(); }} aria-label="إلغاء"><Icon name="x" size={15} /></button>
     </div>
   );

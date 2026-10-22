@@ -5,6 +5,7 @@ import { useRoute, go } from './ui/router';
 import { openSheet } from './ui/sheets';
 import { SheetHost, TimerBar, useHeartbeat, useQuotaLog, useShortcuts } from './ui/Shell';
 import { Toasts } from './ui/toast';
+import { FocusScreen } from './ui/Focus';
 import { Today } from './pages/Today';
 import { Tasks } from './pages/Tasks';
 import { Work } from './pages/Work';
@@ -125,6 +126,7 @@ export function App() {
       </nav>
 
       <TimerBar />
+      {s.timer?.focus && <FocusScreen />}
       <SheetHost />
       <Toasts />
     </div>
