@@ -227,7 +227,7 @@ function CourseDetail({ id }: { id: string }) {
  * «حصة اليوم»: for every upcoming exam, how much to study today (and which lessons) so the
  * material is finished before the review days. Missed minutes roll into the next days' quota.
  */
-function TodayQuota({ plan }: { plan: StudyPlan }) {
+export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string }) {
   const s = useApp();
   const today = todayKey();
   const active = plan.exams.filter((ep) => ep.quota > 0 || ep.inReview || ep.status === 'unknown');
@@ -239,7 +239,7 @@ function TodayQuota({ plan }: { plan: StudyPlan }) {
   return (
     <section>
       <div className="group-title">
-        <span>{L("حصة اليوم", "Today's quota")}</span>
+        <span>{title || L("حصة اليوم", "Today's quota")}</span>
         <span className="faint" style={{ fontWeight: 500 }}>{totalLeft ? L(`باقي ${fmtMinutes(totalLeft)}`, `${fmtMinutes(totalLeft)} left`) : L('أنجزت حصص اليوم ✓', "Today's quotas done ✓")}</span>
       </div>
       <div className="col" style={{ gap: 10 }}>

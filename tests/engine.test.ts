@@ -443,3 +443,31 @@ describe('coach — tone follows lateness', () => {
     expect(toneLevel(4, 'harsh')).toBe(4);
   });
 });
+
+describe('today only holds what belongs to today', () => {
+  it('a normal task with a far or no due date waits under «if there is time»', () => {
+    const s = initialState();
+    s.tasks.push(task({ title: 'ترتيب المكتبة', priority: 1 }));
+    s.tasks.push(task({ title: 'شراء هدية', priority: 1, due: addDays(TODAY, 5) }));
+    s.tasks.push(task({ title: 'دفع الفاتورة', priority: 1, due: addDays(TODAY, 1) }));
+    const p = planDay(s, NOW);
+    const ids = p.items.map((i) => i.title);
+    expect(ids).toContain('دفع الفاتورة');
+    expect(ids).not.toContain('ترتيب المكتبة');
+    expect(ids).not.toContain('شراء هدية');
+    expect(p.later.map((i) => i.title)).toContain('ترتيب المكتبة');
+  });
+
+  it('the study quota is always part of today, even on a full day', () => {
+    const s = initialState();
+    withCourse(s, [20, 20, 20], 10);
+    s.settings.available = s.settings.available.map(() => 30);
+    const p = planDay(s, NOW);
+    expect(p.items.some((i) => i.kind === 'study')).toBe(true);
+  });
+
+  it('«لازم» alone does not make a task un-postponable', () => {
+    expect(parseQuick('لازم أشتري خبز', [], NOW).hard).toBeFalsy();
+    expect(parseQuick('تسليم البحث ما يتأجل', [], NOW).hard).toBe(true);
+  });
+});

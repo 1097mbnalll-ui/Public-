@@ -58,7 +58,8 @@ export function parseQuick(input: string, templates: Template[] = [], now = Date
   // last word (checked below, after dates and durations are taken out)
   take(new RegExp(`${B}(!!+|!?عاجل(?:ة|ه)?|ضروري(?:ة|ه)?|!?urgent|asap)${E}`, 'i'), () => (out.priority = 3)) ||
     take(new RegExp(`${B}(!|!مهم(?:ة|ه)?|!?important)${E}`, 'i'), () => (out.priority = 2));
-  take(new RegExp(`${B}(لازم|موعد نهائي|ما يتأجل|مايتأجل|لا يتأجل)${E}`), () => (out.hard = true));
+  // «لازم» alone is everyday speech ("لازم أشتري…"), so only explicit phrases mark a hard deadline
+  take(new RegExp(`${B}(!لازم|موعد نهائي|ما يتأجل|مايتأجل|لا يتأجل|ما ينأجل)${E}`), () => (out.hard = true));
 
   // durations (before times so "ساعتين" isn't a clock)
   take(new RegExp(`${B}(\\d+(?:\\.\\d+)?)\\s*(د|دق|دقيقة|دقيقه|دقايق|دقائق)${E}`), (m) => (out.estimate = Math.round(+m[1])));

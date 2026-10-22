@@ -110,6 +110,12 @@ export function openTasks(state: AppState): Task[] {
   return state.tasks.filter((t) => t.status === 'open');
 }
 
+function belongsToday(c: PlanItem, state: AppState, today: string): boolean {
+  if (c.kind === 'study' || c.level) return true;
+  const due = c.kind === 'task' ? state.tasks.find((t) => t.id === c.id)?.due : state.procedures.find((p) => p.id === c.id)?.due;
+  return !!due && due <= addDays(today, 1);
+}
+
 export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): DayPlan {
   const today = todayKey(now);
   const studyPlan = study || planStudy(state, now);
@@ -133,8 +139,9 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       area: 'study',
       minutes: ep.todayMinutes,
       score: urgent ? 90 : 55,
+      // today's quota is what keeps you on pace for the exam — it's always part of today
       reasons: [L(`${ep.exam.title} ${ep.daysLeft === 1 ? 'غدًا' : `بعد ${daysWord(ep.daysLeft)}`}`, `${ep.exam.title} ${ep.daysLeft === 1 ? 'tomorrow' : `in ${daysWord(ep.daysLeft)}`}`)],
-      must: urgent,
+      must: true,
       courseColor: ep.course.color,
     });
   }
@@ -228,20 +235,12 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       mustLoad += c.minutes;
       continue;
     }
-    // optional items only when they are worth doing today and still fit
-    const worth = c.score >= 30 || c.kind === 'study';
-    if (worth && load + c.minutes <= remaining) {
+    // optional items join today only when they belong to it: important, or due by tomorrow.
+    // Normal / low items with no near date wait under «لو بقي وقت» instead of filling the day.
+    if (belongsToday(c, state, today) && load + c.minutes <= remaining) {
       items.push(c);
       load += c.minutes;
     } else later.push(c);
-  }
-  // fill leftover time with the best remaining items, if any
-  for (const c of [...later]) {
-    if (load + c.minutes > remaining) continue;
-    if (c.score < 15) continue;
-    items.push(c);
-    load += c.minutes;
-    later.splice(later.indexOf(c), 1);
   }
   items.sort((a, b) => (a.dueTime || '99').localeCompare(b.dueTime || '99') || Number(b.must) - Number(a.must) || b.score - a.score);
 

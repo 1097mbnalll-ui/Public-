@@ -16,6 +16,7 @@ import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { CoachCard } from '../ui/Coach';
+import { TodayQuota } from './Study';
 import { L, startEdge } from '../lib/i18n';
 
 function greeting(h: number) {
@@ -308,15 +309,18 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const h = new Date(now).getHours();
   const doneToday = s.tasks.filter((t) => t.status === 'done' && t.completedAt && todayKey(t.completedAt) === today);
   const waiting = s.procedures.filter((p) => !p.archived && !p.completedAt && procStage(p) === 'waiting').length;
-  const [first, ...rest] = plan.items;
+  const [first, ...afterFirst] = plan.items;
+  // study is listed in full under «مطلوب منك اليوم — المذاكرة», so it isn't repeated here
+  const rest = afterFirst.filter((i) => i.kind !== 'study');
   const empty = !s.tasks.length && !s.procedures.length && !s.courses.length;
 
   let t = now + (first ? first.minutes * 60000 : 0);
-  const starts = rest.map((i) => {
-    const st = t;
+  // start times count study blocks too, so the clock stays honest
+  const startOf = new Map<PlanItem, number>();
+  for (const i of afterFirst) {
+    startOf.set(i, t);
     t += i.minutes * 60000;
-    return st;
-  });
+  }
 
   return (
     <div>
@@ -351,10 +355,11 @@ export function Today({ view }: { view: 'day' | 'week' }) {
               <div className="card"><Empty icon="check" title={L("لا شيء ملح اليوم", "Nothing pressing today")}>{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</Empty></div>
             )}
             <DaySummary plan={plan} />
+            <TodayQuota plan={study} title={L('مطلوب منك اليوم — المذاكرة', 'Required today — study')} />
             {rest.length > 0 && (
               <section>
                 <div className="group-title"><span>{L("بعده", "After that")}</span><span className="faint" style={{ fontWeight: 500 }}>{rest.length}</span></div>
-                <div className="rows">{rest.map((it, n) => <PlanRow key={it.kind + it.id} it={it} start={starts[n]} study={study} />)}</div>
+                <div className="rows">{rest.map((it) => <PlanRow key={it.kind + it.id} it={it} start={startOf.get(it)} study={study} />)}</div>
               </section>
             )}
             {plan.later.length > 0 && (
