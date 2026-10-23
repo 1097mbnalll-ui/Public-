@@ -41,7 +41,7 @@ export function SheetHost() {
     case 'step-confirm':
       return <StepConfirm procId={sh.procId} stepId={sh.stepId} />;
     case 'template':
-      return <TemplateEditor id={sh.id} fromProc={sh.fromProc} />;
+      return <TemplateEditor id={sh.id} fromProc={sh.fromProc} fromTask={sh.fromTask} forTask={sh.forTask} />;
     case 'goal':
       return <GoalSheet id={sh.id} />;
     case 'onboarding':

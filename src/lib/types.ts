@@ -19,6 +19,10 @@ export interface CheckItem {
   id: string;
   title: string;
   done: boolean;
+  /** optional classification of the step (print, send, file…) */
+  kind?: StepKind;
+  /** optional person / place for the step */
+  target?: string;
 }
 
 export interface Task {
@@ -107,12 +111,17 @@ export interface Procedure {
 
 export interface TemplateStep {
   title: string;
-  kind: StepKind;
+  /** required for procedures; optional for task templates */
+  kind?: StepKind;
   target?: string;
 }
 
 export interface Template {
   id: string;
+  /** 'task' → a reusable task with steps; absent → a work-procedure template */
+  for?: 'task';
+  area?: Area;
+  estimate?: number;
   name: string;
   steps: TemplateStep[];
   fields: Field[];

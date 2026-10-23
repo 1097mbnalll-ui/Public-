@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { fmtDate, fmtDateTime, relDay, timeAgo, todayKey } from '../lib/dates';
-import { STEP_KINDS, kindInfo, lastActivity, nextStep, procProgress, procStage, procSummary } from '../lib/engine/procedures';
+import { kindInfo, lastActivity, nextStep, procProgress, procStage, procSummary } from '../lib/engine/procedures';
 import { PRIORITY_LABEL } from '../lib/engine/planner';
 import { matches } from '../lib/text';
 import { parseSteps } from '../lib/parse';
@@ -17,21 +17,12 @@ import { ReminderField } from '../ui/ReminderField';
 import { shareText, StepKindSelect } from '../ui/WorkSheets';
 import { PageTop } from '../ui/PageTop';
 import { TaskRow } from './Tasks';
-import { L, startEdge } from '../lib/i18n';
+import { L } from '../lib/i18n';
 
 export function Work() {
   const r = useRoute();
   if (r.id) return <ProcedureDetail key={r.id} id={r.id} />;
   return <WorkList />;
-}
-
-function StepsDots({ p }: { p: Procedure }) {
-  const next = nextStep(p);
-  return (
-    <div className="steps-dots" aria-hidden>
-      {p.steps.map((s) => <i key={s.id} className={s.done ? 'on' : s === next ? 'cur' : ''} />)}
-    </div>
-  );
 }
 
 /** quiet → amber → red as a procedure sits untouched */
@@ -44,54 +35,79 @@ function staleColor(p: Procedure): React.CSSProperties | undefined {
   return undefined;
 }
 
-function ProcRow({ p }: { p: Procedure }) {
+function stepDoneLabel(kind?: StepKind) {
+  return kind === 'send' ? L('أرسلته', 'Sent it') : kind === 'reply' ? L('وصل الرد', 'Reply received') : L('تم', 'Done');
+}
+
+/** one procedure as a calm card: what it is, what's next, how far along — and one button */
+function ProcCard({ p }: { p: Procedure }) {
   const next = nextStep(p);
   const lead = p.fields.find((f) => f.value.trim());
   const today = todayKey();
   const late = p.due && !p.completedAt && p.due < today;
+  const done = p.steps.filter((x) => x.done).length;
+  const open = !p.completedAt && !p.archived;
   return (
-    <div
-      className="r tap"
-      onClick={() => go(`work/${p.id}`)}
-      style={{ alignItems: 'flex-start', boxShadow: p.completedAt ? undefined : p.priority === 3 ? startEdge('var(--red)') : p.priority === 2 ? startEdge('var(--amber)') : undefined }}
-    >
-      <div className="main-t">
-        <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
-          <div className="lbl">{p.title}</div>
-          <StepsDots p={p} />
+    <div className={`proc-card tap ${open && p.priority === 3 ? 'urgent' : open && p.priority === 2 ? 'important' : ''}`} onClick={() => go(`work/${p.id}`)}>
+      <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="pc-t">{p.title}</div>
+          {lead && <div className="pc-lead">{lead.value}</div>}
         </div>
-        <div className="sub">
-          {!p.completedAt && p.priority === 3 && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجل · ", "Urgent · ")}</span>}
-          {!p.completedAt && p.priority === 2 && <span style={{ color: 'var(--amber)' }}>{L("مهم · ", "Important · ")}</span>}
-          {!p.completedAt && p.priority === 0 && <span>{L("منخفض · ", "Low · ")}</span>}
-          {next ? (
-            <span style={{ color: next.kind === 'reply' ? 'var(--violet)' : 'var(--amber)' }}>{L("التالي: ", "Next: ")}{next.title}
-            </span>
-          ) : p.completedAt ? (
-            <span style={{ color: 'var(--green)' }}>{L("مكتمل ", "Done ")}{timeAgo(p.completedAt)}</span>
-          ) : (
-            L('بلا خطوات بعد', "No steps yet")
-          )}
-          {lead && ` · ${lead.value}`}
-          {!p.completedAt && p.steps.length > 0 && ` · ${p.steps.filter((x) => x.done).length}/${p.steps.length}`}
-          {p.due && !p.completedAt && <span style={late ? { color: 'var(--red)' } : undefined}> · {relDay(p.due)}</span>}
-          {!p.completedAt && <span style={staleColor(p)}>{` · ${timeAgo(lastActivity(p))}`}</span>}
-        </div>
+        {open && p.priority === 3 && <span className="chip red">{L('عاجل', 'Urgent')}</span>}
+        {open && p.priority === 2 && <span className="chip amber">{L('مهم', 'Important')}</span>}
+        {p.completedAt && <span className="chip green">{L('مكتمل', 'Done')}</span>}
       </div>
-      {next && !p.archived && (
-        <button className="btn sm" style={{ alignSelf: 'center' }} onClick={(e) => { e.stopPropagation(); toggleStepUI(p.id, next.id); }} title={L(`تم: ${next.title}`, `Done: ${next.title}`)}>
-          <Icon name="check" size={14} />{L(" تم", " Done")}</button>
+
+      {next ? (
+        <div className="pc-next">
+          <span className={`pc-ic ${next.kind === 'reply' ? 'wait' : ''}`}><Icon name={kindInfo(next.kind).icon} size={15} /></span>
+          <span className="grow" style={{ minWidth: 0 }}>
+            <span className="faint">{next.kind === 'reply' ? L('بانتظار: ', 'Waiting: ') : L('التالي: ', 'Next: ')}</span>
+            <b>{next.title}</b>
+            {next.target && !next.title.includes(next.target) && <span className="faint"> · {next.target}</span>}
+          </span>
+        </div>
+      ) : (
+        !p.completedAt && <div className="pc-next faint">{L('بلا خطوات بعد — افتحه وأضف خطواته', 'No steps yet — open it and add them')}</div>
       )}
+
+      <div className="row between" style={{ gap: 10 }}>
+        <div className="pc-meta">
+          {p.steps.length > 0 && (
+            <span className="pc-bar"><i style={{ width: `${(done / p.steps.length) * 100}%` }} /></span>
+          )}
+          {p.steps.length > 0 && <span className="num">{done}/{p.steps.length}</span>}
+          {p.due && open && <span style={late ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{relDay(p.due)}</span>}
+          {open && <span style={staleColor(p)}>{timeAgo(lastActivity(p))}</span>}
+          {p.completedAt && <span>{timeAgo(p.completedAt)}</span>}
+        </div>
+        {next && open && (
+          <button className="btn sm primary" onClick={(e) => { e.stopPropagation(); toggleStepUI(p.id, next.id); }} title={L(`تم: ${next.title}`, `Done: ${next.title}`)}>
+            <Icon name="check" size={14} /> {stepDoneLabel(next.kind)}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 type View = 'open' | 'waiting' | 'people' | 'done' | 'templates';
 
+function Section({ title, count, tone, children }: { title: string; count?: number; tone?: 'red' | 'amber'; children: React.ReactNode }) {
+  return (
+    <section className="proc-sec">
+      <div className={`group-title ${tone ? `tone-${tone}` : ''}`}><span>{title}{count != null ? ` (${count})` : ''}</span></div>
+      <div className="proc-list">{children}</div>
+    </section>
+  );
+}
+
 function WorkList() {
   const s = useApp();
   const [view, setView] = useState<View>('open');
   const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
   const list = useMemo(
     () =>
       s.procedures.filter(
@@ -104,109 +120,97 @@ function WorkList() {
   const active = open.filter((p) => procStage(p) !== 'waiting');
   const finished = list.filter((p) => p.completedAt || p.archived).sort((a, b) => (b.completedAt || b.updatedAt) - (a.completedAt || a.updatedAt));
   const workTasks = s.tasks.filter((t) => t.status === 'open' && t.area === 'work');
+  const templates = s.templates.filter((t) => t.for !== 'task').sort((a, b) => b.uses - a.uses);
 
-  // urgent → in today and never postponed; important → today or tomorrow; the rest grouped by what each is waiting on
-  const prio = (p: Procedure) => p.priority;
-  const urgent = active.filter((p) => prio(p) === 3);
-  const important = active.filter((p) => prio(p) === 2);
-  const rest = active.filter((p) => prio(p) <= 1);
-  const byKind = STEP_KINDS.filter((k) => k.kind !== 'reply')
-    .map((k) => ({ k, items: rest.filter((p) => nextStep(p)?.kind === k.kind) }))
-    .filter((g) => g.items.length);
-  const noSteps = rest.filter((p) => !nextStep(p));
-  const stale = open.filter((p) => (Date.now() - lastActivity(p)) / 86_400_000 >= 3).length;
+  // urgent → today, never postponed; important → today or tomorrow; the rest, longest-idle first
+  const urgent = active.filter((p) => p.priority === 3);
+  const important = active.filter((p) => p.priority === 2);
+  const rest = active.filter((p) => p.priority <= 1).sort((a, b) => lastActivity(a) - lastActivity(b));
 
   return (
     <div>
       <PageTop
         title={L("العمل", "Work")}
-        sub={open.length ? L(`${open.length} إجراءات مفتوحة`, `${open.length} open procedures`) : L('تابع كل إجراء خطوة بخطوة حتى لا تضيع خطوة', "Follow each procedure step by step so nothing gets lost")}
-        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick', mode: 'proc' })}><Icon name="plus" size={15} />{L(" إجراء", " Procedure")}</button>}
+        sub={open.length ? L(`${open.length} إجراءات مفتوحة${waiting.length ? ` · ${waiting.length} بانتظار رد` : ''}`, `${open.length} open procedures${waiting.length ? ` · ${waiting.length} awaiting reply` : ''}`) : L('تابع كل إجراء خطوة بخطوة حتى لا تضيع خطوة', "Follow each procedure step by step so nothing gets lost")}
+        actions={
+          <>
+            <button className="icon-btn" onClick={() => { setSearching(!searching); if (searching) setQ(''); }} aria-label={L('بحث', 'Search')}><Icon name="search" size={18} /></button>
+            <button className="btn sm primary" onClick={() => openSheet({ type: 'quick', mode: 'proc' })}><Icon name="plus" size={15} />{L(" إجراء", " Procedure")}</button>
+          </>
+        }
       />
 
       <div className="col" style={{ gap: 12, marginBottom: 18 }}>
         <Seg
-          value={view}
+          value={view === 'templates' ? 'open' : view}
           onChange={setView}
           options={[
-            { v: 'open', l: L('الحالية', "Current") },
+            { v: 'open', l: L(`الحالية${active.length ? ` ${active.length}` : ''}`, `Current${active.length ? ` ${active.length}` : ''}`) },
             { v: 'waiting', l: L(`بانتظار رد${waiting.length ? ` ${waiting.length}` : ''}`, `Awaiting reply${waiting.length ? ` ${waiting.length}` : ''}`) },
             { v: 'people', l: L('الجهات', "People") },
             { v: 'done', l: L('المنتهية', "Finished") },
-            { v: 'templates', l: L('القوالب', "Templates") },
           ]}
         />
-        {view !== 'templates' && view !== 'people' && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث: شركة، شخص، رقم فاتورة، ملاحظة…", "Search: company, person, invoice no., note…")} />}
+        {(searching || q) && view !== 'people' && view !== 'templates' && <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث: شركة، شخص، رقم فاتورة، ملاحظة…", "Search: company, person, invoice no., note…")} />}
       </div>
 
       {view === 'open' && (
         <div className="stack">
-          {open.length > 0 && !q && (
-            <div className="kpis">
-              <div className="kpi"><div className="v" style={{ color: urgent.length ? 'var(--red)' : undefined }}>{urgent.length}</div><div className="k">{L("عاجلة — لليوم", "Urgent — for today")}</div></div>
-              <div className="kpi"><div className="v" style={{ color: waiting.length ? 'var(--violet)' : undefined }}>{waiting.length}</div><div className="k">{L("بانتظار رد", "Awaiting reply")}</div></div>
-              <div className="kpi"><div className="v" style={{ color: stale ? 'var(--amber)' : undefined }}>{stale}</div><div className="k">{L("راكدة 3 أيام+", "Idle 3+ days")}</div></div>
-            </div>
-          )}
-          {urgent.length > 0 && (
-            <Group title={<span style={{ color: 'var(--red)' }}>{L("عاجلة — تنفّذ اليوم ولا تتأجل (", "Urgent — do today, never postponed (")}{urgent.length})</span>}>
-              {urgent.map((p) => <ProcRow key={p.id} p={p} />)}
-            </Group>
-          )}
-          {important.length > 0 && (
-            <Group title={<span style={{ color: 'var(--amber)' }}>{L("مهمة — اليوم أو بكرة (", "Important — today or tomorrow (")}{important.length})</span>}>
-              {important.map((p) => <ProcRow key={p.id} p={p} />)}
-            </Group>
-          )}
-          {byKind.map(({ k, items }) => (
-            <Group key={k.kind} title={<span className="row" style={{ gap: 6 }}><Icon name={k.icon} size={14} /> {k.waiting} ({items.length})</span>}>
-              {items.map((p) => <ProcRow key={p.id} p={p} />)}
-            </Group>
-          ))}
-          {noSteps.length > 0 && <Group title={L("بلا خطوات", "No steps")}>{noSteps.map((p) => <ProcRow key={p.id} p={p} />)}</Group>}
+          {urgent.length > 0 && <Section title={L('عاجل — اليوم ولا يتأجل', 'Urgent — today, never postponed')} count={urgent.length} tone="red">{urgent.map((p) => <ProcCard key={p.id} p={p} />)}</Section>}
+          {important.length > 0 && <Section title={L('مهم — اليوم أو بكرة', 'Important — today or tomorrow')} count={important.length} tone="amber">{important.map((p) => <ProcCard key={p.id} p={p} />)}</Section>}
+          {rest.length > 0 && <Section title={urgent.length || important.length ? L('باقي الإجراءات', 'Other procedures') : L('الإجراءات', 'Procedures')} count={rest.length}>{rest.map((p) => <ProcCard key={p.id} p={p} />)}</Section>}
           {!active.length && (
             <div className="card">
               <Empty icon="work" title={q ? L('لا نتائج', "No results") : L('لا إجراءات قيد العمل', "No procedures in progress")}>
-                {!q && L('أضف إجراءً بخطواته (طباعة، حفظ، تصديق، إرسال…) وسيظهر هنا مرتبًا حسب الأولوية وما ينتظره.', "Add a procedure with its steps (print, file, certify, send…) and it shows here, ordered by priority and what it's waiting on.")}
+                {!q && L('أضف إجراءً بخطواته (طباعة، حفظ، تصديق، إرسال…) وسيظهر هنا مرتبًا حسب الأولوية.', "Add a procedure with its steps (print, file, certify, send…) and it shows here, ordered by priority.")}
               </Empty>
             </div>
           )}
-          {s.templates.length > 0 && !q && (
-            <div>
-              <div className="group-title"><span>{L("ابدأ سريعًا", "Quick start")}</span></div>
+          {workTasks.length > 0 && !q && (
+            <Group title={L(`مهام عمل (${workTasks.length})`, `Work tasks (${workTasks.length})`)}>
+              {workTasks.slice(0, 8).map((t) => <TaskRow key={t.id} t={t} />)}
+            </Group>
+          )}
+          {!q && (
+            <section>
+              <div className="group-title">
+                <span>{L('ابدأ من قالب', 'Start from a template')}</span>
+                <button onClick={() => setView('templates')}>{L('إدارة القوالب', 'Manage templates')}</button>
+              </div>
               <div className="hscroll">
-                {s.templates.slice().sort((a, b) => b.uses - a.uses).map((t) => (
-                  <button key={t.id} className="chip btnish" onClick={() => openSheet({ type: 'quick', text: t.name + ' ' })}>
+                {templates.map((t) => (
+                  <button key={t.id} className="chip btnish" onClick={() => openSheet({ type: 'quick', text: t.name + ' ', mode: 'proc' })}>
                     <Icon name="layers" size={13} /> {t.name}
                   </button>
                 ))}
+                <button className="chip btnish" onClick={() => openSheet({ type: 'template' })}><Icon name="plus" size={13} /> {L('قالب جديد', 'New template')}</button>
               </div>
-            </div>
-          )}
-          {workTasks.length > 0 && !q && (
-            <Group title={L(`مهام عمل بلا خطوات (${workTasks.length})`, `Work tasks without steps (${workTasks.length})`)}>
-              {workTasks.slice(0, 8).map((t) => <TaskRow key={t.id} t={t} />)}
-            </Group>
+            </section>
           )}
         </div>
       )}
 
       {view === 'waiting' &&
         (waiting.length ? (
-          <Group>{waiting.map((p) => <ProcRow key={p.id} p={p} />)}</Group>
+          <div className="proc-list">{waiting.map((p) => <ProcCard key={p.id} p={p} />)}</div>
         ) : (
           <div className="card"><Empty icon="hourglass" title={L("لا شيء بانتظار رد", "Nothing awaiting a reply")}>{L("عندما تصل لخطوة «انتظار رد» ينتقل الإجراء هنا، وأذكّرك بالمتابعة إن تأخر.", "When a procedure reaches an “Await reply” step it moves here, and I remind you to follow up if it's late.")}</Empty></div>
         ))}
 
       {view === 'done' &&
         (finished.length ? (
-          <Group>{finished.map((p) => <ProcRow key={p.id} p={p} />)}</Group>
+          <div className="proc-list">{finished.map((p) => <ProcCard key={p.id} p={p} />)}</div>
         ) : (
           <div className="card"><Empty icon="check" title={L("لا إجراءات منتهية بعد", "No finished procedures yet")} /></div>
         ))}
 
       {view === 'people' && <People procs={open} />}
-      {view === 'templates' && <Templates />}
+      {view === 'templates' && (
+        <>
+          <button className="btn sm ghost" style={{ marginBottom: 10, paddingInline: 4 }} onClick={() => setView('open')}><Icon name="back" size={14} /> {L('رجوع', 'Back')}</button>
+          <Templates />
+        </>
+      )}
     </div>
   );
 }
@@ -276,11 +280,12 @@ function People({ procs }: { procs: Procedure[] }) {
 
 function Templates() {
   const s = useApp();
+  const list = s.templates.filter((t) => t.for !== 'task');
   return (
     <div className="stack">
       <p className="muted small" style={{ margin: 0 }}>{L("القالب = إجراء متكرر بخطواته الجاهزة. اكتب اسمه في بداية الإضافة السريعة، مثل «معاملة مؤسسة الأمل».", "A template is a recurring procedure with ready-made steps. Type its name at the start of quick add, e.g. “Transaction Al-Amal Co.”.")}</p>
-      <Group action={<button onClick={() => openSheet({ type: 'template' })}>{L("+ قالب جديد", "+ New template")}</button>} title={L(`${s.templates.length} قوالب`, `${s.templates.length} templates`)}>
-        {s.templates.map((t) => (
+      <Group action={<button onClick={() => openSheet({ type: 'template' })}>{L("+ قالب جديد", "+ New template")}</button>} title={L(`${list.length} قوالب`, `${list.length} templates`)}>
+        {list.map((t) => (
           <Row
             key={t.id}
             icon="layers"
@@ -366,7 +371,7 @@ function ProcedureDetail({ id }: { id: string }) {
             {p.steps.map((st, i) =>
               editing ? (
                 <div key={st.id} className="r" style={{ flexWrap: 'wrap', gap: 8 }}>
-                  <StepKindSelect compact value={st.kind} onChange={(k) => A.updateStep(p.id, st.id, { kind: k })} />
+                  <StepKindSelect compact value={st.kind} onChange={(k) => A.updateStep(p.id, st.id, { kind: k || 'action' })} />
                   <input className="input grow" style={{ minWidth: 140, height: 36 }} value={st.title} onChange={(e) => A.updateStep(p.id, st.id, { title: e.target.value })} aria-label={L("الخطوة", "Step")} />
                   <input className="input" style={{ width: 140, height: 36 }} value={st.target || ''} onChange={(e) => A.updateStep(p.id, st.id, { target: e.target.value || undefined })} placeholder={st.kind === 'file' ? L('مكان الحفظ', "Where it's filed") : L('الشخص / الجهة', "Person / party")} aria-label={L("الجهة", "Party")} list="masar-targets" />
                   <div className="row" style={{ gap: 2 }}>
@@ -414,7 +419,7 @@ function ProcedureDetail({ id }: { id: string }) {
                         ))}
                       </div>
                     )}
-                    <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} disabled={!bulkSteps.length} onClick={() => { A.addSteps(p.id, bulkSteps); setBulk(''); setBulkOpen(false); toast(L(`أُضيفت ${bulkSteps.length} خطوات`, `Added ${bulkSteps.length} steps`), { undoable: true }); }}>
+                    <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} disabled={!bulkSteps.length} onClick={() => { A.addSteps(p.id, bulkSteps.map((x) => ({ ...x, kind: x.kind || 'action' }))); setBulk(''); setBulkOpen(false); toast(L(`أُضيفت ${bulkSteps.length} خطوات`, `Added ${bulkSteps.length} steps`), { undoable: true }); }}>
                       <Icon name="plus" size={14} />{L(" أضف ", " Add ")}{bulkSteps.length ? L(`${bulkSteps.length} خطوات`, `${bulkSteps.length} steps`) : ''}
                     </button>
                   </>
@@ -423,7 +428,7 @@ function ProcedureDetail({ id }: { id: string }) {
             )}
             {(editing || !p.steps.length) && (
               <div className="r" style={{ flexWrap: 'wrap', gap: 8 }}>
-                <StepKindSelect compact value={newKind} onChange={setNewKind} />
+                <StepKindSelect compact value={newKind} onChange={(k) => setNewKind(k || 'action')} />
                 <input className="input grow" style={{ minWidth: 140, height: 36 }} value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder={L("خطوة جديدة…", "New step…")} />
                 <input className="input" style={{ width: 140, height: 36 }} value={newTarget} onChange={(e) => setNewTarget(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()} placeholder={L("الجهة (اختياري)", "Party (optional)")} list="masar-targets" />
                 <button className="btn sm" onClick={addStep} disabled={!newStep.trim()}><Icon name="plus" size={15} />{L(" أضف", " Add")}</button>

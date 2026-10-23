@@ -2777,7 +2777,7 @@ h3 {
   min-width: 0;
 }
 
-.bento > .bcol > div,
+.bento > .bcol > div:not(.bpair),
 .bento .bpair > div {
   min-width: 0;
   display: flex;
@@ -2836,6 +2836,10 @@ h3 {
     grid-template-columns: 1fr 1fr;
     gap: 14px;
   }
+  /* on laptops each column keeps its own source order */
+  .bento .bcol > * {
+    order: 0;
+  }
   .bento .bwide {
     grid-column: auto;
   }
@@ -2874,4 +2878,179 @@ h3 {
   .chip.btnish {
     height: 36px;
   }
+}
+
+/* ================= «جديد» sheet ================= */
+
+.qa {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qa-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.qa-k {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 56px;
+}
+
+.qa-date {
+  width: auto;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.qa-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--hover);
+}
+
+.qa-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-step {
+  padding: 8px 12px;
+  align-items: center;
+}
+
+.task-step .select {
+  max-width: 128px;
+}
+
+/* ================= Work: procedure cards ================= */
+
+.proc-sec {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-title.tone-red {
+  color: var(--red);
+}
+
+.group-title.tone-amber {
+  color: var(--amber);
+}
+
+.proc-list {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 900px) {
+  .proc-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.proc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease);
+  min-width: 0;
+}
+
+.proc-card:active {
+  transform: scale(0.99);
+}
+
+.proc-card.urgent {
+  border-inline-start: 4px solid var(--red);
+}
+
+.proc-card.important {
+  border-inline-start: 4px solid var(--amber);
+}
+
+.pc-t {
+  font-size: 16.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.pc-lead {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-top: 1px;
+}
+
+.pc-next {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--hover);
+}
+
+.pc-next b {
+  font-weight: 700;
+}
+
+.pc-ic {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pc-ic.wait {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.pc-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--faint);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.pc-bar {
+  width: 70px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.pc-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--grad);
 }

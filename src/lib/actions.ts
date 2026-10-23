@@ -178,7 +178,7 @@ export function addProcedure(title: string, template?: Template, extra?: Partial
       templateId: tpl?.id,
       notes: tpl?.notes || '',
       fields: tpl ? structuredClone(tpl.fields) : [],
-      steps: (tpl?.steps || []).map((st) => ({ ...st, id: uid(), done: false })),
+      steps: (tpl?.steps || []).map((st) => ({ ...st, kind: st.kind || 'action', id: uid(), done: false })),
       priority: 1,
       log: [{ at: now(), text: tpl ? L(`أُنشئ من قالب «${tpl.name}»`, `Created from template “${tpl.name}”`) : L('أُنشئ', "Created") }],
       archived: false,
@@ -326,6 +326,37 @@ export function templateFromProcedure(procId: string, name: string): string {
     notes: p.notes,
     fields: p.fields.map((f) => ({ key: f.key, value: '' })),
     steps: p.steps.map((st) => ({ title: st.title, kind: st.kind, target: st.target })),
+  });
+}
+
+/** a new task from a task template: its steps, area and estimate */
+export function addTaskFromTemplate(tpl: Template, extra: Partial<Task> = {}): string {
+  const id = addTask({
+    title: tpl.name,
+    area: tpl.area || 'life',
+    estimate: tpl.estimate,
+    notes: tpl.notes || '',
+    ...extra,
+    checklist: tpl.steps.filter((x) => x.title.trim()).map((x) => ({ id: uid(), title: x.title, done: false, ...(x.kind ? { kind: x.kind } : {}), ...(x.target ? { target: x.target } : {}) })),
+  });
+  mutate((s) => {
+    const t = s.templates.find((x) => x.id === tpl.id);
+    if (t) t.uses += 1;
+  });
+  return id;
+}
+
+export function templateFromTask(taskId: string, name: string): string {
+  const t = getState().tasks.find((x) => x.id === taskId);
+  if (!t) return '';
+  return saveTemplate({
+    for: 'task',
+    name,
+    area: t.area,
+    estimate: t.estimate,
+    notes: t.notes,
+    fields: [],
+    steps: t.checklist.map((c) => ({ title: c.title, ...(c.kind ? { kind: c.kind } : {}), ...(c.target ? { target: c.target } : {}) })),
   });
 }
 

@@ -125,7 +125,8 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
         {it.title}
       </div>
       <div className="m">{metaLine(it)}</div>
-      {it.reasons.length > 0 && <div className="m2">{it.level ? it.reasons[0] : it.reasons.join(' · ')}</div>}
+      {/* the reason is already in the meta line unless the line shows lesson details instead */}
+      {it.sub && it.reasons.length > 0 && <div className="m2">{it.level ? it.reasons[0] : it.reasons.join(' · ')}</div>}
       <div className="row wrap" style={{ marginTop: 14, gap: 8 }}>
         {!running && (
           <button className="btn primary" onClick={() => act.start(it)}>
@@ -149,30 +150,13 @@ function RingTile({ plan }: { plan: DayPlan }) {
   const p = done + left ? done / (done + left) : 0;
   return (
     <div className="tile">
-      <div className="k2"><Icon name="clock" size={14} /> {L('يومك', 'Your day')}</div>
+      <div className="k2"><Icon name="clock" size={14} /> {L('وقتي', 'My time')}</div>
       <div className="col" style={{ gap: 8, alignItems: 'flex-start' }}>
         <Ring value={p} size={76} stroke={9} />
         <div>
           <div className="tv num">{left ? fmtMinutes(left) : '✓'}</div>
           <div className="faint tiny">{left ? L('باقي عليك', 'left to do') : L('ما بقي شيء', 'nothing left')}{done ? L(` · أنجزت ${fmtMinutes(done)}`, ` · ${fmtMinutes(done)} done`) : ''}</div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** «عاجل»: what can't wait */
-function UrgentTile({ plan }: { plan: DayPlan }) {
-  const urgent = plan.items.filter((i) => i.level === 'urgent');
-  const important = plan.items.filter((i) => i.level === 'important');
-  const list = urgent.length ? urgent : important;
-  const cls = urgent.length ? 'urgent' : important.length ? 'amber' : 'calm';
-  return (
-    <div className={`tile ut ${cls}`}>
-      <div className="k2"><Icon name="flag" size={14} /> {urgent.length ? L('عاجل', 'Urgent') : important.length ? L('مهم', 'Important') : L('عاجل', 'Urgent')}</div>
-      <div className="tv num">{list.length ? list.length : '✓'}</div>
-      <div className="faint tiny" style={{ color: 'inherit', opacity: 0.8 }}>
-        {list.length ? (urgent.length ? L('لا تتأجل أبدًا — ', "Never postponed — ") : L('اليوم أو بكرة — ', "Today or tomorrow — ")) + list[0].title : L('لا شيء عاجل اليوم', 'Nothing urgent today')}
       </div>
     </div>
   );
@@ -490,8 +474,11 @@ export function Today({ view }: { view: 'day' | 'week' }) {
                   <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
                 )}
               </div>
-              <div className="o5 bwide"><DaySummary plan={plan} /></div>
-              <div className="o6 bwide"><StudyTile study={study} /></div>
+              {/* under the hero: «وقتي» on the right, the day's status beside it */}
+              <div className="bpair">
+                <div className="o2"><RingTile plan={plan} /></div>
+                <div className="o3"><DaySummary plan={plan} /></div>
+              </div>
               {rest.length > 0 && (
                 <div className="o7 bwide tile">
                   <div className="k2 row between"><span>{L("بعدها", "After that")}</span><span className="faint">{rest.length}</span></div>
@@ -500,11 +487,8 @@ export function Today({ view }: { view: 'day' | 'week' }) {
               )}
             </div>
             <div className="bcol">
-              <div className="bpair">
-                <div className="o2"><RingTile plan={plan} /></div>
-                <div className="o3"><UrgentTile plan={plan} /></div>
-              </div>
               {insights.length > 0 && <div className="o4 bwide"><Alerts list={insights} /></div>}
+              <div className="o6 bwide"><StudyTile study={study} /></div>
               <div className="o8 bwide"><WeekTile study={study} /></div>
             </div>
           </div>

@@ -11,7 +11,7 @@ export const STEP_KINDS: { kind: StepKind; label: string; waiting: string; icon:
   { kind: 'followup', get label() { return L('متابعة', "Follow up"); }, get waiting() { return L('بانتظار المتابعة', "Waiting for follow-up"); }, icon: 'repeat' },
 ];
 
-export const kindInfo = (k: StepKind) => STEP_KINDS.find((s) => s.kind === k) || STEP_KINDS[0];
+export const kindInfo = (k?: StepKind) => STEP_KINDS.find((s) => s.kind === k) || STEP_KINDS[0];
 
 export function nextStep(p: Procedure): Step | undefined {
   return p.steps.find((s) => !s.done);

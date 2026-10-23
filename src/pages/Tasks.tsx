@@ -46,7 +46,7 @@ export function TaskRow({ t }: { t: Task }) {
   );
 }
 
-type View = 'open' | 'waiting' | 'done' | 'goals';
+type View = 'open' | 'waiting' | 'done' | 'goals' | 'templates';
 
 export function Tasks() {
   const s = useApp();
@@ -112,9 +112,10 @@ export function Tasks() {
             { v: 'waiting', l: L(`بانتظار${waiting.length ? ` (${waiting.length})` : ''}`, `Waiting${waiting.length ? ` (${waiting.length})` : ''}`) },
             { v: 'done', l: L('المنجزة', "Done") },
             { v: 'goals', l: L('الأهداف', "Goals") },
+            { v: 'templates', l: L('القوالب', 'Templates') },
           ]}
         />
-        {view !== 'goals' && (
+        {view !== 'goals' && view !== 'templates' && (
           <div className="row wrap" style={{ gap: 8 }}>
             <div className="row grow" style={{ minWidth: 200, position: 'relative' }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث في المهام…", "Search tasks…")} />
@@ -164,6 +165,36 @@ export function Tasks() {
         ))}
 
       {view === 'goals' && <Goals />}
+      {view === 'templates' && <TaskTemplates />}
+    </div>
+  );
+}
+
+/** reusable tasks with their steps — pick one in «جديد» → «من قالب» */
+function TaskTemplates() {
+  const s = useApp();
+  const list = s.templates.filter((t) => t.for === 'task').sort((a, b) => b.uses - a.uses);
+  return (
+    <div className="stack">
+      <p className="muted small" style={{ margin: 0 }}>{L('القالب = مهمة تتكرر بخطواتها الجاهزة. تختاره من «جديد» تحت «من قالب»، أو تحفظ أي مهمة لها خطوات كقالب من تفاصيلها.', 'A template is a recurring task with its steps ready. Pick it in “New” under “From a template”, or save any task with steps as a template from its details.')}</p>
+      <Group title={L(`${list.length} قوالب`, `${list.length} templates`)} action={<button onClick={() => openSheet({ type: 'template', forTask: true })}>{L('+ قالب جديد', '+ New template')}</button>}>
+        {list.length ? (
+          list.map((t) => (
+            <div key={t.id} className="r tap" onClick={() => openSheet({ type: 'template', id: t.id })}>
+              <span className="ic"><Icon name="layers" size={16} /></span>
+              <div className="main-t">
+                <div className="lbl">{t.name}</div>
+                <div className="sub">{t.steps.length ? t.steps.map((x) => x.title).join(' ← ') : L('بدون خطوات', 'No steps')}</div>
+              </div>
+              <button className="btn sm" onClick={(e) => { e.stopPropagation(); const id = A.addTaskFromTemplate(t); toast(L(`أُضيفت «${t.name}»`, `Added “${t.name}”`), { buttons: [{ label: L('تفاصيل', 'Details'), fn: () => openSheet({ type: 'task', id }) }] }); }}>
+                <Icon name="plus" size={14} /> {L('استخدم', 'Use')}
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="r"><span className="faint small">{L('ما عندك قوالب مهام بعد.', 'No task templates yet.')}</span></div>
+        )}
+      </Group>
     </div>
   );
 }

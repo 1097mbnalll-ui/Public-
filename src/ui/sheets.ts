@@ -10,7 +10,7 @@ export type SheetSpec =
   | { type: 'palette' }
   | { type: 'replan' }
   | { type: 'step-confirm'; procId: string; stepId: string }
-  | { type: 'template'; id?: string; fromProc?: string }
+  | { type: 'template'; id?: string; fromProc?: string; fromTask?: string; forTask?: boolean }
   | { type: 'goal'; id: string }
   | { type: 'onboarding' }
   | { type: 'transfer' };

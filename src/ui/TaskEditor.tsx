@@ -8,7 +8,9 @@ import { AREA_LABEL, PRIORITY_LABEL } from '../lib/engine/planner';
 import { calibration, taskTime } from '../lib/engine/learning';
 import type { Area, Priority, Task } from '../lib/types';
 import { uid } from '../lib/text';
-import { closeSheet } from './sheets';
+import { closeSheet, openSheet } from './sheets';
+import { StepKindSelect } from './WorkSheets';
+import { parseSteps } from '../lib/parse';
 import { ReminderField } from './ReminderField';
 import { completeTaskUI } from './ops';
 import { toast } from './toast';
@@ -25,10 +27,11 @@ export function TaskEditor({ id }: { id: string }) {
   const time = taskTime(s, t, cal);
   const open = t.status === 'open';
 
+  // one line → one step; several lines (pasted) → several steps, types recognised from the words
   const addItem = () => {
-    const v = newItem.trim();
-    if (!v) return;
-    up({ checklist: [...t.checklist, { id: uid(), title: v, done: false }] });
+    const found = parseSteps(newItem);
+    if (!found.length) return;
+    up({ checklist: [...t.checklist, ...found.map((x) => ({ id: uid(), title: x.title, done: false, ...(x.kind && x.kind !== 'action' ? { kind: x.kind } : {}), ...(x.target ? { target: x.target } : {}) }))] });
     setNewItem('');
   };
 
@@ -120,12 +123,22 @@ export function TaskEditor({ id }: { id: string }) {
         </div>
 
         <div className="field">
-          <label>{L("الخطوات ", "Steps ")}{t.checklist.length > 0 && `(${t.checklist.filter((c) => c.done).length}/${t.checklist.length})`}</label>
+          <div className="row between">
+            <label>{L("الخطوات ", "Steps ")}{t.checklist.length > 0 && `(${t.checklist.filter((c) => c.done).length}/${t.checklist.length})`}</label>
+            {t.checklist.length > 0 && (
+              <button className="btn sm ghost" onClick={() => openSheet({ type: 'template', fromTask: t.id })}>
+                <Icon name="layers" size={14} /> {L('احفظها كقالب', 'Save as template')}
+              </button>
+            )}
+          </div>
           <div className="list">
-            {t.checklist.map((c) => (
-              <div className="item" key={c.id} style={{ padding: '9px 12px' }}>
+            {t.checklist.map((c, i) => (
+              <div className="item task-step" key={c.id}>
                 <Check square on={c.done} onClick={() => up({ checklist: t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)) })} />
-                <input className="input bare grow" style={{ padding: 0 }} value={c.title} onChange={(e) => up({ checklist: t.checklist.map((x) => (x.id === c.id ? { ...x, title: e.target.value } : x)) })} />
+                <div className="grow col" style={{ gap: 4, minWidth: 0 }}>
+                  <input className="input bare" style={{ padding: 0 }} value={c.title} onChange={(e) => up({ checklist: t.checklist.map((x) => (x.id === c.id ? { ...x, title: e.target.value } : x)) })} aria-label={L(`الخطوة ${i + 1}`, `Step ${i + 1}`)} />
+                </div>
+                <StepKindSelect compact optional value={c.kind} onChange={(k) => up({ checklist: t.checklist.map((x) => (x.id === c.id ? { ...x, kind: k } : x)) })} />
                 <button className="icon-btn sm" onClick={() => up({ checklist: t.checklist.filter((x) => x.id !== c.id) })} aria-label={L("حذف", "Delete")}>
                   <Icon name="x" size={15} />
                 </button>
@@ -133,9 +146,19 @@ export function TaskEditor({ id }: { id: string }) {
             ))}
             <div className="item" style={{ padding: '6px 12px' }}>
               <Icon name="plus" size={18} className="faint" />
-              <input className="input bare grow" placeholder={L("قسّمها لخطوات صغيرة…", "Split it into small steps…")} value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
+              <textarea
+                rows={1}
+                className="input bare grow"
+                style={{ resize: 'none', minHeight: 0 }}
+                placeholder={L("خطوة جديدة… (تقدر تلصق عدة أسطر)", "New step… (you can paste several lines)")}
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); addItem(); } }}
+              />
+              {newItem.trim() && <button className="btn sm" onClick={addItem}>{L('أضف', 'Add')}</button>}
             </div>
           </div>
+          <div className="faint tiny">{L('تصنيف الخطوة (طباعة، إرسال، حفظ…) اختياري.', 'Classifying a step (print, send, file…) is optional.')}</div>
         </div>
 
         <Collapse title={L("المزيد: الانتظار، التكرار، التذكير، الملاحظات", "More: waiting, repeat, reminder, notes")} defaultOpen={!!(t.waitingOn || t.recurrence || t.reminder || t.notes || t.goalId)}>
