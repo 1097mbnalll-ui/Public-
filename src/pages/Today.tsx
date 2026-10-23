@@ -16,6 +16,8 @@ import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
+import { isNight, workStart } from '../lib/engine/capacity';
+import { InstallCard } from '../ui/InstallCard';
 
 function greeting(h: number) {
   if (h < 5) return L('ليلة هادئة', "Quiet night");
@@ -109,7 +111,7 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
   return (
     <div className="tile hero-t">
       <div className="row between" style={{ alignItems: 'flex-start' }}>
-        <span className="k">{running ? L('تعمل عليه الآن', "Working on it now") : L('ابدأ بهذا', "Start with this")}</span>
+        <span className="k">{running ? L('تعمل عليه الآن', "Working on it now") : isNight(Date.now()) ? L('أول شيء الصبح', 'First thing in the morning') : L('ابدأ بهذا', "Start with this")}</span>
         {it.level === 'urgent' ? (
           <span className="chip"><Icon name="alert" size={12} />{L(" عاجلة", " Urgent")}</span>
         ) : it.level === 'important' ? (
@@ -182,9 +184,9 @@ function StudyTile({ study }: { study: StudyPlan }) {
   if (!rows.length) return null;
   const left = rows.reduce((a, ep) => a + (ep.inReview ? 0 : ep.todayMinutes), 0);
   return (
-    <div className="tile span2">
+    <div className="tile">
       <div className="k2 row between">
-        <span><Icon name="study" size={14} /> {L('مطلوب منك اليوم — المذاكرة', 'Required today — study')}</span>
+        <span><Icon name="study" size={14} /> {L('المذاكرة المطلوبة اليوم', 'Study required today')}</span>
         <span className="faint">{left ? L(`باقي ${fmtMinutes(left)}`, `${fmtMinutes(left)} left`) : L('أنجزت حصص اليوم ✓', "Today's quotas done ✓")}</span>
       </div>
       <div className="col" style={{ gap: 14 }}>
@@ -233,8 +235,9 @@ function WeekTile({ study }: { study: StudyPlan }) {
   const now = useNow();
   const days = useMemo(() => weekLoad(s, now, 7, study), [s, now, study]);
   const today = todayKey(now);
+  if (!days.some((d) => d.day !== today && d.study + d.tasks > 0)) return null;
   return (
-    <div className="tile span2 tap" role="button" tabIndex={0} onClick={() => go('week')} onKeyDown={(e) => e.key === 'Enter' && go('week')}>
+    <div className="tile tap" role="button" tabIndex={0} onClick={() => go('week')} onKeyDown={(e) => e.key === 'Enter' && go('week')}>
       <div className="k2 row between"><span><Icon name="cal" size={14} /> {L('أسبوعك', 'Your week')}</span><span className="faint">{L('افتح الأيام السبعة', 'Open next 7 days')}</span></div>
       <div className="wbars">
         {days.map((d) => {
@@ -287,7 +290,10 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   // one sentence that explains how the numbers relate
   let status: React.ReactNode;
   let tone = 'var(--muted)';
+  const start = workStart(Date.now());
   if (!left) status = L('ما بقي عليك شيء اليوم ✓', 'Nothing left for today ✓');
+  else if (isNight(Date.now()))
+    status = L(`الوقت متأخر — نام الحين. خطتك (${fmtMinutes(left)}) تبدأ الصبح، وتخلص تقريبًا ${fmtTime(start + left * 60000)}.`, `It's late — go to sleep. Your plan (${fmtMinutes(left)}) starts in the morning and ends around ${fmtTime(start + left * 60000)}.`);
   else if (!plan.overloaded)
     status = L(`يكفيك الوقت: تخلص تقريبًا ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `، ويبقى لك ${fmtMinutes(plan.remaining - left)} فراغ` : ''}.`, `You have enough time: done around ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `, with ${fmtMinutes(plan.remaining - left)} to spare` : ''}.`);
   else {
@@ -300,7 +306,7 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   }
 
   return (
-    <div className="tile summary-t span2">
+    <div className="tile summary-t">
       <div className="small" style={{ color: tone }}>{status}</div>
       <div className="row between wrap" style={{ gap: 8 }}>
         <button className="btn sm ghost" onClick={() => setEdit(!edit)} style={{ paddingInline: 6 }}>
@@ -422,17 +428,25 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const now = useNow();
   const study = useMemo(() => planStudy(s, now), [s, now]);
   const plan = useMemo(() => planDay(s, now, study), [s, now, study]);
-  const insights = useMemo(() => buildInsights(s, plan, study, now).filter((i) => !i.id.startsWith('week-heavy')), [s, plan, study, now]);
+  const insights = useMemo(() => {
+    const planned = new Set(plan.items.map((i) => i.id));
+    // urgent items already sit in the hero / «عاجل» tile / list — don't repeat them as alerts
+    return buildInsights(s, plan, study, now).filter((i) => {
+      if (i.id.startsWith('week-heavy') || i.id.startsWith('urgent:')) return false;
+      if (i.id.startsWith('urgent-proc:')) return !planned.has(i.id.split(':')[1]);
+      return true;
+    });
+  }, [s, plan, study, now]);
   const today = todayKey(now);
   const h = new Date(now).getHours();
   const doneToday = s.tasks.filter((t) => t.status === 'done' && t.completedAt && todayKey(t.completedAt) === today);
   const waiting = s.procedures.filter((p) => !p.archived && !p.completedAt && procStage(p) === 'waiting').length;
   const [first, ...afterFirst] = plan.items;
-  // study is listed in full under «مطلوب منك اليوم — المذاكرة», so it isn't repeated here
+  // study is listed in full under «المذاكرة المطلوبة اليوم», so it isn't repeated here
   const rest = afterFirst.filter((i) => i.kind !== 'study');
   const empty = !s.tasks.length && !s.procedures.length && !s.courses.length;
 
-  let t = now + (first ? first.minutes * 60000 : 0);
+  let t = workStart(now) + (first ? first.minutes * 60000 : 0);
   // start times count study blocks too, so the clock stays honest
   const startOf = new Map<PlanItem, number>();
   for (const i of afterFirst) {
@@ -467,22 +481,32 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         </div>
       ) : (
         <div className="stack">
+          <InstallCard />
+          {/* two independent columns on laptops (no gaps between uneven tiles); one flowing grid on phones, ordered by `o-*` */}
           <div className="bento">
-            {first ? <NextUp it={first} study={study} /> : (
-              <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
-            )}
-            <RingTile plan={plan} />
-            <UrgentTile plan={plan} />
-            {insights.length > 0 && <div className="span2"><Alerts list={insights} /></div>}
-            <DaySummary plan={plan} />
-            <StudyTile study={study} />
-            {rest.length > 0 && (
-              <div className="tile span2">
-                <div className="k2 row between"><span>{L("بعدها", "After that")}</span><span className="faint">{rest.length}</span></div>
-                <div className="rows flat">{rest.map((it) => <PlanRow key={it.kind + it.id} it={it} start={startOf.get(it)} study={study} />)}</div>
+            <div className="bcol">
+              <div className="o1 bwide">
+                {first ? <NextUp it={first} study={study} /> : (
+                  <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
+                )}
               </div>
-            )}
-            <WeekTile study={study} />
+              <div className="o5 bwide"><DaySummary plan={plan} /></div>
+              <div className="o6 bwide"><StudyTile study={study} /></div>
+              {rest.length > 0 && (
+                <div className="o7 bwide tile">
+                  <div className="k2 row between"><span>{L("بعدها", "After that")}</span><span className="faint">{rest.length}</span></div>
+                  <div className="rows flat">{rest.map((it) => <PlanRow key={it.kind + it.id} it={it} start={startOf.get(it)} study={study} />)}</div>
+                </div>
+              )}
+            </div>
+            <div className="bcol">
+              <div className="bpair">
+                <div className="o2"><RingTile plan={plan} /></div>
+                <div className="o3"><UrgentTile plan={plan} /></div>
+              </div>
+              {insights.length > 0 && <div className="o4 bwide"><Alerts list={insights} /></div>}
+              <div className="o8 bwide"><WeekTile study={study} /></div>
+            </div>
           </div>
 
           <div className="two-col">

@@ -1,5 +1,5 @@
 import type { AppState } from '../types';
-import { minutesUntil, todayKey, weekday } from '../dates';
+import { atTime, minutesUntil, todayKey, weekday } from '../dates';
 
 /** free minutes you said you have for planned work on a day */
 export function availableFor(state: AppState, day: string): number {
@@ -14,6 +14,14 @@ export function studyCapFor(state: AppState, day: string): number {
 /** minutes left before your day ends */
 export function minutesLeftToday(state: AppState, now: number): number {
   return Math.max(0, minutesUntil(state.settings.dayEnd || '23:30', now));
+}
+
+/** between midnight and 5am: time to sleep, not to plan work until dawn */
+export const isNight = (now: number) => new Date(now).getHours() < 5;
+
+/** when today's work can realistically start: now, or 8am if it's the middle of the night */
+export function workStart(now: number): number {
+  return isNight(now) ? atTime(todayKey(now), '08:00') : now;
 }
 
 export function dayRecord(state: AppState, day: string) {

@@ -31,7 +31,8 @@ export interface CoachFacts {
   level: number;
 }
 
-const WEIGHT: Record<number, number> = { 3: 3, 2: 2, 1: 1, 0: 1 };
+// low-priority items never drive the scolding — they're allowed to wait
+const WEIGHT: Record<number, number> = { 3: 3, 2: 2, 1: 1, 0: 0 };
 
 export function lateness(state: AppState, plan: DayPlan, now = Date.now()): { score: number; overdue: LateItem[] } {
   const today = todayKey(now);
@@ -48,7 +49,7 @@ export function lateness(state: AppState, plan: DayPlan, now = Date.now()): { sc
 
   let score = 0;
   for (const o of overdue) score += Math.min(o.days, 14) * WEIGHT[o.priority];
-  for (const t of state.tasks) if (t.status === 'open' && t.deferrals >= 2) score += Math.min(t.deferrals, 6) - 1;
+  for (const t of state.tasks) if (t.status === 'open' && t.priority >= 1 && t.deferrals >= 2) score += Math.min(t.deferrals, 6) - 1;
   for (const ep of plan.study.exams) {
     if (ep.status === 'behind') score += 3;
     else if (ep.status === 'tight') score += 1;
@@ -134,15 +135,22 @@ function pick<T>(xs: T[], seed: string): T {
 /** built-in message, used without an API key or when the AI call fails */
 export function offlineMessage(f: CoachFacts, tone: CoachTone): string {
   const lvl = toneLevel(f.level, tone);
-  const worst = f.overdue[0];
+  const counted = f.overdue.filter((o) => o.priority >= 1);
+  const worst = counted[0];
   const next = f.leftToday[0];
+  const urgentNow = f.leftToday.find((i) => i.level === 'urgent');
   const w = worst ? `«${worst.title}»` : '';
   const d = worst ? worst.days : 0;
   const days = countAr(d, 'يوم', 'يومين', 'أيام', 'يومًا');
-  const n = f.overdue.length;
+  const n = counted.length;
   const late = countAr(n, 'مهمة متأخرة', 'مهمتين متأخرتين', 'مهام متأخرة', 'مهمة متأخرة');
   const doneN = countAr(f.doneToday.length, 'مهمة', 'مهمتين', 'مهام', 'مهمة');
-  const nx = next ? L(` ابدأ الآن بـ«${next.title}».`, ` Start “${next.title}” now.`) : '';
+  // what's urgent today always comes first
+  const nx = urgentNow
+    ? L(` «${urgentNow.title}» عاجل وما يتأجل — ابدأ فيه الحين.`, ` “${urgentNow.title}” is urgent and can't wait — start it now.`)
+    : next
+      ? L(` ابدأ الآن بـ«${next.title}».`, ` Start “${next.title}” now.`)
+      : '';
   const lines: Record<number, string[]> = {
     0: f.doneToday.length
       ? [

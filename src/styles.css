@@ -2764,3 +2764,114 @@ h3 {
     height: 54px;
   }
 }
+
+/* ================= Today: bento v2 — columns on laptop, one grid on phone ================= */
+
+.bento .bcol,
+.bento .bpair {
+  display: contents;
+}
+
+.bento .bwide {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.bento > .bcol > div,
+.bento .bpair > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bento > .bcol > div > .tile,
+.bento .bpair > div > .tile,
+.bento > .bcol > div > section {
+  flex: 1;
+}
+
+.bento .hero-t {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.o1 { order: 1; }
+.o2 { order: 2; }
+.o3 { order: 3; }
+.o4 { order: 4; }
+.o5 { order: 5; }
+.o6 { order: 6; }
+.o7 { order: 7; }
+.o8 { order: 8; }
+
+.install-card b {
+  font-weight: 800;
+}
+
+.ic-round {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (min-width: 900px) {
+  .bento {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+  .bento .bcol {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .bento > .bcol > .bpair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .bento .bwide {
+    grid-column: auto;
+  }
+  .bento .hero-t {
+    padding: 26px;
+    min-height: 260px;
+    justify-content: center;
+  }
+}
+
+/* «عاجل» in dark themes: a clear colour instead of a muddy mix */
+:root[data-dark='1'] .ut.urgent {
+  background: linear-gradient(150deg, rgba(255, 107, 129, 0.24), rgba(255, 181, 71, 0.1));
+  border-color: rgba(255, 107, 129, 0.3);
+}
+
+:root[data-dark='1'] .ut.amber {
+  background: linear-gradient(150deg, rgba(255, 181, 71, 0.22), rgba(255, 255, 255, 0.04));
+  border-color: rgba(255, 181, 71, 0.28);
+}
+
+/* comfortable tap targets on phones */
+@media (max-width: 899px) and (pointer: coarse) {
+  .icon-btn,
+  .icon-btn.sm {
+    width: 40px;
+    height: 40px;
+  }
+  .check {
+    width: 28px;
+    height: 28px;
+  }
+  .btn.sm {
+    height: 36px;
+  }
+  .chip.btnish {
+    height: 36px;
+  }
+}

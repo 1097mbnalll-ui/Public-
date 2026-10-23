@@ -239,7 +239,7 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
   return (
     <section>
       <div className="group-title">
-        <span>{title || L("حصة اليوم", "Today's quota")}</span>
+        <span>{title || L("المذاكرة المطلوبة اليوم", "Study required today")}</span>
         <span className="faint" style={{ fontWeight: 500 }}>{totalLeft ? L(`باقي ${fmtMinutes(totalLeft)}`, `${fmtMinutes(totalLeft)} left`) : L('أنجزت حصص اليوم ✓', "Today's quotas done ✓")}</span>
       </div>
       <div className="col" style={{ gap: 10 }}>
