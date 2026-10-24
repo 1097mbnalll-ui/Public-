@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
+import type { AppState, Area, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -797,4 +797,28 @@ export function markSmsSeen(keys: string[]) {
     const all = [...(s.money.smsSeen || []), ...keys.filter((k) => !s.money.smsSeen?.includes(k))];
     s.money.smsSeen = all.slice(-3000);
   });
+}
+
+// ---------------- Schedule ----------------
+
+/** add lectures / shifts; `replace` swaps the whole timetable (a new term) */
+export function setSchedule(list: Omit<ClassBlock, 'id' | 'createdAt'>[], replace = false) {
+  mutate((s) => {
+    if (replace) s.schedule = [];
+    for (const b of list) s.schedule.push({ ...b, id: uid(), createdAt: now() });
+  }, replace ? L('استبدال الجدول', 'Replace timetable') : undefined);
+}
+
+export function saveBlock(b: Omit<ClassBlock, 'id' | 'createdAt'> & { id?: string }) {
+  mutate((s) => {
+    const cur = b.id && s.schedule.find((x) => x.id === b.id);
+    if (cur) Object.assign(cur, b, { updatedAt: now() });
+    else s.schedule.push({ ...b, id: uid(), createdAt: now() });
+  });
+}
+
+export function deleteBlock(id: string) {
+  mutate((s) => {
+    s.schedule = s.schedule.filter((x) => x.id !== id);
+  }, L('حذف من الجدول', 'Remove from timetable'));
 }

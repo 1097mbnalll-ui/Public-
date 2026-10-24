@@ -18,6 +18,7 @@ import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
+import { BlockSheet } from '../pages/Schedule';
 import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
@@ -59,6 +60,8 @@ export function SheetHost() {
       return <SmsSheet />;
     case 'money-settings':
       return <MoneySettingsSheet />;
+    case 'block':
+      return <BlockSheet key={sh.id || 'new'} id={sh.id} />;
     case 'sync':
       return <SyncSheet />;
     case 'sub':

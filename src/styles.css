@@ -3220,3 +3220,31 @@ h3 {
 .sync-status svg { color: var(--green); flex: none; }
 .sync-status.bad { background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .sync-status.bad svg { color: var(--amber); }
+
+/* timetable rows on Today */
+.class-now { margin-bottom: 10px; padding: 10px 14px; border-radius: 16px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; }
+.class-now .faint { font-weight: 500; }
+.r.class-r { background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 14px; }
+.class-ic { width: 26px; text-align: center; font-size: 17px; flex: none; }
+
+/* جدولي */
+.src3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.src3 button { border-radius: 20px; padding: 14px 6px; text-align: center; font-size: 13px; font-weight: 700; background: var(--surface); border: 1px solid var(--glass-border); color: var(--text); }
+.src3 button i { display: block; font-style: normal; font-size: 24px; margin-bottom: 4px; }
+.sched-read { padding: 4px 14px; }
+.sched-read .r { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.sched-read .r:last-child { border-bottom: 0; }
+.sched-read .r > b { width: 64px; flex: none; padding-top: 3px; }
+.sched-read .c { display: flex; flex-wrap: wrap; gap: 6px; }
+.sched-read .c span { padding: 4px 9px; border-radius: 10px; font-weight: 700; font-size: 12px; }
+.sched-grid { padding: 10px 8px 12px; overflow: hidden; }
+.sg-head, .sg-body { display: grid; grid-template-columns: 26px repeat(var(--cols), minmax(0, 1fr)); gap: 4px; }
+.sg-head span { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); padding-bottom: 6px; overflow: hidden; white-space: nowrap; text-overflow: clip; }
+.sg-body { position: relative; }
+.sg-hours span { display: block; font-size: 10px; color: var(--faint); text-align: center; }
+.sg-day { position: relative; border-radius: 10px; background: color-mix(in srgb, var(--green) 7%, transparent); }
+.sg-day > i { position: absolute; inset-inline: 0; border-top: 1px dashed var(--line); }
+.sg-b { position: absolute; inset-inline: 1px; border-radius: 8px; color: #fff; padding: 3px 4px; text-align: start; overflow: hidden; display: flex; flex-direction: column; gap: 1px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.sg-b b { font-size: 10.5px; line-height: 1.2; }
+.sg-b span { font-size: 9.5px; opacity: .85; }
+@media (min-width: 900px) { .sg-b b { font-size: 12.5px; } .sg-b span { font-size: 11px; } .sg-head span { font-size: 13px; } }

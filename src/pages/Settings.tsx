@@ -1,3 +1,4 @@
+import { InstallCard } from '../ui/InstallCard';
 import { useEffect, useRef, useState } from 'react';
 import { Collapse, Group, Row, Seg, Stepper, Switch } from '../ui/kit';
 import type { CoachTone } from '../lib/types';
@@ -144,6 +145,14 @@ export function Settings() {
           <label>{L("ملخص الصباح", "Morning summary")}</label>
           <input type="time" className="input" style={{ width: 160 }} value={st.morningBrief} onChange={(e) => A.updateSettings({ morningBrief: e.target.value })} />
         </div>
+      </Section>
+
+      <Section title={L("ثبّت التطبيق", "Install the app")}>
+        <InstallCard always />
+      </Section>
+
+      <Section title={L("جدولي", "My timetable")} desc={L("محاضراتك أو دوامك — المهام والمذاكرة تنحط في وقتك الفاضي بس.", "Your lectures or shifts — tasks and study go only into your free time.")}>
+        <button className="btn primary" onClick={() => go('schedule')}><Icon name="week" size={16} />{L(" جدولي", " My timetable")}</button>
       </Section>
 
       <Section title={L("المزامنة بين أجهزتك", "Sync across your devices")} desc={L("جوالك والتابلت يشوفون نفس البيانات تلقائيًا، ورسائل البنك تدخل مصاريفك لحالها — عن طريق حساب قوقل حقك.", "Your phone and tablet see the same data automatically, and bank messages land in your spending — through your own Google account.")}>

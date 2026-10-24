@@ -18,6 +18,9 @@ import { Receive } from './pages/Receive';
 import { CoachPage } from './pages/Coach';
 import { Money } from './pages/Money';
 import { SyncJoin } from './pages/SyncJoin';
+import { Schedule } from './pages/Schedule';
+import { InstallCard } from './ui/InstallCard';
+import { PageTop } from './ui/PageTop';
 import { CoachFab } from './ui/Coach';
 import { todayKey } from './lib/dates';
 import { L } from './lib/i18n';
@@ -36,8 +39,9 @@ const NAV = [
 function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'week') return { page: 'today', id: 'week' };
   if (page === 'settings') return { page: 'me' };
+  if (page === 'install') return { page: 'install' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule') return { page, id };
   return { page: 'today' };
 }
 
@@ -60,7 +64,7 @@ export function App() {
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
   useEffect(() => {
-    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync') return;
+    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install') return;
     welcomed.current = true;
     setTimeout(() => openSheet({ type: 'onboarding' }), 50);
   }, [route.page, s.meta.onboarded]);
@@ -114,6 +118,12 @@ export function App() {
       break;
     case 'sync':
       body = <SyncJoin />;
+      break;
+    case 'schedule':
+      body = <Schedule />;
+      break;
+    case 'install':
+      body = <div><PageTop title={L('ثبّت «مسار»', 'Install Masar')} /><InstallCard always /></div>;
       break;
   }
 

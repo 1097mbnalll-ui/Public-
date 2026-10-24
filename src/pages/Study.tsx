@@ -53,7 +53,10 @@ function StudyOverview() {
       <PageTop
         title={L("الدراسة", "Study")}
         sub={todayTotal ? L(`باقي عليك اليوم ${fmtMinutes(todayTotal)} مذاكرة`, `${fmtMinutes(todayTotal)} of study left today`) : courses.length ? L('لا مذاكرة مطلوبة اليوم', "No study needed today") : L('موادك واختباراتك وهل أنت جاهز', "Your courses, exams, and whether you're ready")}
-        actions={courses.length > 0 && <button className="btn sm primary" onClick={() => openSheet({ type: 'study-log' })}><Icon name="clock" size={15} />{L(" سجّل", " Log")}</button>}
+        actions={<>
+          <button className="btn sm" onClick={() => go('schedule')}><Icon name="week" size={15} />{L(" جدولي", " Timetable")}</button>
+          {courses.length > 0 && <button className="btn sm primary" onClick={() => openSheet({ type: 'study-log' })}><Icon name="clock" size={15} />{L(" سجّل", " Log")}</button>}
+        </>}
       />
 
       {!courses.length ? (

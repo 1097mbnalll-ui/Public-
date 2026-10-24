@@ -1,10 +1,13 @@
 import type { AppState } from '../types';
 import { atTime, minutesUntil, todayKey, weekday } from '../dates';
+import { blocksOn, busyBetween, freeMinutes } from './schedule';
 
 /** free minutes you said you have for planned work on a day */
 export function availableFor(state: AppState, day: string): number {
   const o = state.dayOverrides[day];
-  return o != null ? o : state.settings.available[weekday(day)] ?? 0;
+  const set = o != null ? o : state.settings.available[weekday(day)] ?? 0;
+  // lectures / shifts take their share: never plan more than the time left around them
+  return blocksOn(state, day).length ? Math.min(set, freeMinutes(state, day)) : set;
 }
 
 export function studyCapFor(state: AppState, day: string): number {
@@ -13,7 +16,9 @@ export function studyCapFor(state: AppState, day: string): number {
 
 /** minutes left before your day ends */
 export function minutesLeftToday(state: AppState, now: number): number {
-  return Math.max(0, minutesUntil(state.settings.dayEnd || '23:30', now));
+  const end = state.settings.dayEnd || '23:30';
+  const left = minutesUntil(end, now);
+  return Math.max(0, left - busyBetween(state, todayKey(now), now, atTime(todayKey(now), end)));
 }
 
 /** between midnight and 5am: time to sleep, not to plan work until dawn */

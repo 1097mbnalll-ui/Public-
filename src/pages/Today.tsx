@@ -17,6 +17,7 @@ import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
 import { isNight, workStart } from '../lib/engine/capacity';
+import { advance, blockLabel, blocksOn, nowBlock, skipBusy } from '../lib/engine/schedule';
 import { InstallCard } from '../ui/InstallCard';
 import { MoneyTile } from './Money';
 
@@ -276,11 +277,13 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   let status: React.ReactNode;
   let tone = 'var(--muted)';
   const start = workStart(Date.now());
+  // the finish time steps over today's lectures / shifts
+  const finish = advance(s, start, left);
   if (!left) status = L('ما بقي عليك شيء اليوم ✓', 'Nothing left for today ✓');
   else if (isNight(Date.now()))
-    status = L(`الوقت متأخر — نام الحين. خطتك (${fmtMinutes(left)}) تبدأ الصبح، وتخلص تقريبًا ${fmtTime(start + left * 60000)}.`, `It's late — go to sleep. Your plan (${fmtMinutes(left)}) starts in the morning and ends around ${fmtTime(start + left * 60000)}.`);
+    status = L(`الوقت متأخر — نام الحين. خطتك (${fmtMinutes(left)}) تبدأ الصبح، وتخلص تقريبًا ${fmtTime(finish)}.`, `It's late — go to sleep. Your plan (${fmtMinutes(left)}) starts in the morning and ends around ${fmtTime(finish)}.`);
   else if (!plan.overloaded)
-    status = L(`يكفيك الوقت: تخلص تقريبًا ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `، ويبقى لك ${fmtMinutes(plan.remaining - left)} فراغ` : ''}.`, `You have enough time: done around ${fmtTime(Date.now() + left * 60000)}${plan.remaining - left > 0 ? `, with ${fmtMinutes(plan.remaining - left)} to spare` : ''}.`);
+    status = L(`يكفيك الوقت: تخلص تقريبًا ${fmtTime(finish)}${plan.remaining - left > 0 ? `، ويبقى لك ${fmtMinutes(plan.remaining - left)} فراغ` : ''}.`, `You have enough time: done around ${fmtTime(finish)}${plan.remaining - left > 0 ? `, with ${fmtMinutes(plan.remaining - left)} to spare` : ''}.`);
   else {
     tone = 'var(--red)';
     status = usedUp
@@ -431,13 +434,21 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const rest = afterFirst.filter((i) => i.kind !== 'study');
   const empty = !s.tasks.length && !s.procedures.length && !s.courses.length;
 
-  let t = workStart(now) + (first ? first.minutes * 60000 : 0);
-  // start times count study blocks too, so the clock stays honest
+  // start times count study blocks too and step over lectures, so the clock stays honest
+  let t = advance(s, workStart(now), first ? first.minutes : 0);
   const startOf = new Map<PlanItem, number>();
   for (const i of afterFirst) {
-    startOf.set(i, t);
-    t += i.minutes * 60000;
+    const at = skipBusy(s, t);
+    startOf.set(i, at);
+    t = advance(s, at, i.minutes);
   }
+  // today's remaining lectures / shifts, shown in place among the planned items
+  const classes = blocksOn(s, today).filter((x) => x.to > workStart(now));
+  const inClass = nowBlock(s, now);
+  const timeline: ({ kind: 'item'; it: PlanItem; at: number } | { kind: 'class'; x: (typeof classes)[number] })[] = [
+    ...rest.map((it) => ({ kind: 'item' as const, it, at: startOf.get(it) ?? 0 })),
+    ...classes.filter((x) => x.b.id !== inClass?.b.id).map((x) => ({ kind: 'class' as const, x })),
+  ].sort((a, b) => (a.kind === 'item' ? a.at : a.x.from) - (b.kind === 'item' ? b.at : b.x.from));
 
   return (
     <div>
@@ -457,6 +468,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         <WeekView />
       ) : empty ? (
         <div className="stack">
+        <InstallCard />
         <MoneyTile now={now} />
         <div className="card">
           <Empty icon="today" title={L("ابدأ بإضافة ما يشغلك", "Start by adding what's on your mind")}>{L("أضف مهمة، أو إجراء عمل بخطواته، أو مادة واختبارها — وسأرتب لك يومك حسب وقتك المتاح.", "Add a task, a work procedure with its steps, or a course and its exam — and I'll arrange your day around your available time.")}<div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
@@ -474,6 +486,12 @@ export function Today({ view }: { view: 'day' | 'week' }) {
           <div className="bento">
             <div className="bcol">
               <div className="o1 bwide">
+                {inClass && (
+                  <div className="class-now">
+                    🎓 {L(`الحين: ${inClass.b.title} — حتى ${fmtClock(inClass.b.end)}`, `Now: ${inClass.b.title} — until ${fmtClock(inClass.b.end)}`)}
+                    {first ? <span className="faint">{L(` · بعدها: ${first.title}`, ` · then: ${first.title}`)}</span> : null}
+                  </div>
+                )}
                 {first ? <NextUp it={first} study={study} /> : (
                   <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
                 )}
@@ -483,10 +501,25 @@ export function Today({ view }: { view: 'day' | 'week' }) {
                 <div className="o2"><RingTile plan={plan} /></div>
                 <div className="o3"><DaySummary plan={plan} /></div>
               </div>
-              {rest.length > 0 && (
+              {timeline.length > 0 && (
                 <div className="o7 bwide tile">
                   <div className="k2 row between"><span>{L("بعدها", "After that")}</span><span className="faint">{rest.length}</span></div>
-                  <div className="rows flat">{rest.map((it) => <PlanRow key={it.kind + it.id} it={it} start={startOf.get(it)} study={study} />)}</div>
+                  <div className="rows flat">
+                    {timeline.map((r) =>
+                      r.kind === 'item' ? (
+                        <PlanRow key={r.it.kind + r.it.id} it={r.it} start={r.at} study={study} />
+                      ) : (
+                        <div key={r.x.b.id} className="r class-r">
+                          <span className="class-ic">{r.x.b.kind === 'work' ? '💼' : '🎓'}</span>
+                          <div className="main-t">
+                            <div className="lbl">{r.x.b.title}</div>
+                            <div className="sub">{blockLabel(r.x.b)} · {fmtClock(r.x.b.start)}–{fmtClock(r.x.b.end)}{r.x.b.place ? ` · ${r.x.b.place}` : ''}</div>
+                          </div>
+                          <span className="faint tiny num">{fmtTime(r.x.from)}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
                 </div>
               )}
             </div>

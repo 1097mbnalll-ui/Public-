@@ -19,7 +19,8 @@ export type SheetSpec =
   | { type: 'sms' }
   | { type: 'money-settings' }
   | { type: 'sub'; id?: string }
-  | { type: 'sync' };
+  | { type: 'sync' }
+  | { type: 'block'; id?: string };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

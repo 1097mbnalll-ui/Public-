@@ -31,6 +31,15 @@ export const hasAiKey = () => !!getAiKey();
 
 /** one Claude call; `messages` alternate user/assistant and end with a user turn */
 export async function askClaude(system: string, messages: CoachMessage[], maxTokens = 2000): Promise<string> {
+  return call(system, messages.map((m) => ({ role: m.role, content: m.text })), maxTokens);
+}
+
+/** Claude looks at a picture (e.g. a timetable screenshot) and answers the prompt */
+export async function askClaudeImage(system: string, prompt: string, image: { data: string; mediaType: 'image/jpeg' | 'image/png' }, maxTokens = 4000): Promise<string> {
+  return call(system, [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } }, { type: 'text', text: prompt }] }], maxTokens);
+}
+
+async function call(system: string, messages: Anthropic.Beta.BetaMessageParam[], maxTokens: number): Promise<string> {
   const apiKey = getAiKey();
   if (!apiKey) throw new Error(L('أضف مفتاح Claude من الإعدادات أولًا.', 'Add your Claude key in settings first.'));
   const { default: SDK } = await import('@anthropic-ai/sdk');
@@ -43,7 +52,7 @@ export async function askClaude(system: string, messages: CoachMessage[], maxTok
       fallbacks: 'default',
       output_config: { effort: 'low' },
       system,
-      messages: messages.map((m) => ({ role: m.role, content: m.text })),
+      messages,
     });
     if (res.stop_reason === 'refusal') throw new Error(L('اعتذر المدرب عن هذا الطلب.', 'The coach declined this request.'));
     const text = res.content

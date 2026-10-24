@@ -276,6 +276,22 @@ export interface DayRecord {
   study: number; // study minutes
 }
 
+// ---------------- Schedule ----------------
+
+/** a weekly fixed block: a lecture or a work shift */
+export interface ClassBlock {
+  id: string;
+  title: string;
+  /** 0 = Sunday … 6 = Saturday */
+  day: number;
+  start: string; // HH:MM
+  end: string; // HH:MM
+  kind: 'class' | 'work';
+  place?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 // ---------------- Money ----------------
 
 export type ExpenseCat = 'food' | 'coffee' | 'delivery' | 'transport' | 'shopping' | 'subs' | 'bills' | 'fun' | 'study' | 'health' | 'other';
@@ -342,6 +358,8 @@ export interface AppState {
   /** brain-dump inbox from focus sessions */
   thoughts: Thought[];
   coach: CoachState;
+  /** weekly lectures / work shifts — planning works around them */
+  schedule: ClassBlock[];
   expenses: Expense[];
   subs: Subscription[];
   money: MoneyState;
