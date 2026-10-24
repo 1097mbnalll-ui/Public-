@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { NumInput, Seg, Sheet } from './kit';
+import { Collapse, NumInput, Seg, Sheet } from './kit';
 import { Icon } from './Icon';
 import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
@@ -136,48 +136,82 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
   );
 }
 
-/** paste bank SMS → pick which purchases to add */
+/** bank SMS → pick which purchases to add. Text can be pasted, or read from the file the
+ *  Shortcuts automation keeps appending to; messages imported before are skipped. */
 export function SmsSheet() {
   const s = useApp();
   const [text, setText] = useState('');
-  const found = useMemo(() => parseBankSms(text), [text]);
+  const [fromFile, setFromFile] = useState(false);
+  const seen = useMemo(() => new Set(s.money.smsSeen || []), [s.money.smsSeen]);
+  const all = useMemo(() => parseBankSms(text), [text]);
+  const found = all.filter((f) => !seen.has(f.key));
+  const old = all.length - found.length;
   // the same amount on the same day is probably already logged
   const dup = (f: (typeof found)[number]) => s.expenses.some((e) => e.day === f.day && Math.abs(e.amount - f.amount) < 0.01);
-  const [skip, setSkip] = useState<Record<number, boolean>>({});
-  const chosen = found.filter((f, i) => (skip[i] === undefined ? !dup(f) : !skip[i]));
+  const [skip, setSkip] = useState<Record<string, boolean>>({});
+  const isOn = (f: (typeof found)[number]) => (skip[f.key] === undefined ? !dup(f) : !skip[f.key]);
+  const chosen = found.filter(isOn);
+
+  const readFile = async (file?: File) => {
+    if (!file) return;
+    setText(await file.text());
+    setFromFile(true);
+    setSkip({});
+  };
 
   return (
     <Sheet
       title={L('رسائل البنك', 'Bank messages')}
       onClose={closeSheet}
       footer={
-        <button className="btn primary grow" disabled={!chosen.length} onClick={() => {
-          A.addExpenses(chosen.map((f) => ({ ...f, source: 'sms' as const })));
+        <button className="btn primary grow" disabled={!found.length} onClick={() => {
+          A.addExpenses(chosen.map(({ key: _k, ...f }) => ({ ...f, source: 'sms' as const })));
+          // everything shown counts as handled — unticked ones won't come back from the file
+          A.markSmsSeen(found.map((f) => f.key));
           closeSheet();
-          toast(chosen.length === 1 ? L('أُضيف المصروف', 'Expense added') : L(`أُضيفت ${chosen.length} مصاريف`, `Added ${chosen.length} expenses`), { undoable: true });
+          toast(chosen.length === 1 ? L('أُضيف المصروف', 'Expense added') : chosen.length ? L(`أُضيفت ${chosen.length} مصاريف`, `Added ${chosen.length} expenses`) : L('تمام — ما أضفت شي', 'Done — nothing added'), { undoable: chosen.length > 0 });
         }}>
-          {chosen.length ? L(`أضف ${chosen.length}`, `Add ${chosen.length}`) : L('أضف', 'Add')}
+          {chosen.length ? L(`أضف ${chosen.length}`, `Add ${chosen.length}`) : found.length ? L('تم', 'Done') : L('أضف', 'Add')}
         </button>
       }
     >
       <div className="fields">
-        <div className="faint small">{L('انسخ رسائل الشراء من تطبيق الرسائل (وحدة أو أكثر) والصقها هنا. الإيداعات والرواتب ما تنحسب. كل شي يصير على جهازك.', "Copy purchase messages from your Messages app (one or more) and paste them here. Deposits and salary are skipped. It all stays on your device.")}</div>
-        <textarea className="input" rows={5} dir="auto" value={text} onChange={(e) => { setText(e.target.value); setSkip({}); }} placeholder={L('الصق الرسائل هنا…', 'Paste the messages here…')} />
-        {text.trim() && !found.length && <div className="notice amber">{L('ما لقيت عمليات شراء فيها مبلغ.', "Couldn't find purchases with an amount.")}</div>}
-        {found.map((f, i) => {
-          const on = skip[i] === undefined ? !dup(f) : !skip[i];
-          return (
-            <label key={i} className="m-sms">
-              <input type="checkbox" checked={on} onChange={() => setSkip({ ...skip, [i]: on })} />
-              <span className="em">{catInfo(f.cat).emoji}</span>
-              <span className="grow">
-                <b>{f.title}</b>
-                <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${f.time}` : ''}{dup(f) ? L(' · يمكن مسجّل', ' · maybe logged') : ''}</span>
-              </span>
-              <b className="money">{fmtMoney(f.amount)}</b>
-            </label>
-          );
-        })}
+        <label className="btn block">
+          📂 {L('افتح ملف الرسائل', 'Open the messages file')}
+          <input type="file" accept=".txt,text/plain" hidden onChange={(e) => readFile(e.target.files?.[0])} />
+        </label>
+        {!fromFile && (
+          <>
+            <div className="faint small" style={{ textAlign: 'center' }}>{L('أو الصق رسالة أو أكثر هنا', 'or paste one or more messages here')}</div>
+            <textarea className="input" rows={4} dir="auto" value={text} onChange={(e) => { setText(e.target.value); setSkip({}); }} placeholder={L('الصق الرسائل هنا…', 'Paste the messages here…')} />
+          </>
+        )}
+        {text.trim() && !all.length && <div className="notice amber">{L('ما لقيت عمليات شراء فيها مبلغ.', "Couldn't find purchases with an amount.")}</div>}
+        {old > 0 && <div className="faint small">{L(`${old} رسائل استوردتها قبل — تجاهلتها.`, `${old} messages were imported before — skipped.`)}</div>}
+        {all.length > 0 && !found.length && <div className="notice">{L('ما فيه رسائل جديدة ✓', 'No new messages ✓')}</div>}
+        {found.map((f) => (
+          <label key={f.key} className="m-sms">
+            <input type="checkbox" checked={isOn(f)} onChange={() => setSkip({ ...skip, [f.key]: isOn(f) })} />
+            <span className="em">{catInfo(f.cat).emoji}</span>
+            <span className="grow">
+              <b>{f.title}</b>
+              <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${f.time}` : ''}{dup(f) ? L(' · يمكن مسجّل', ' · maybe logged') : ''}</span>
+            </span>
+            <b className="money">{fmtMoney(f.amount)}</b>
+          </label>
+        ))}
+        <Collapse title={L('خلّ رسائل البنك تنحفظ لحالها (آيفون)', 'Save bank messages automatically (iPhone)')} defaultOpen={!s.money.smsSeen?.length && !text}>
+          <ol className="m-guide">
+            <li>{L('افتح تطبيق «الاختصارات» ← «الأتمتة» ← زر +.', 'Open Shortcuts → Automation → +.')}</li>
+            <li>{L('اختر «رسالة»: في «المرسل» اختر رقم البنك، وفي «الرسالة تحتوي» اكتب: شراء — ثم «تشغيل فورًا».', 'Choose “Message”: Sender = your bank, Message Contains = Purchase — then “Run Immediately”.')}</li>
+            <li>{L('أضف إجراء «نص» واكتب فيه سطرين:', 'Add a “Text” action with these lines:')}
+              <div className="m-code">{L('«التاريخ الحالي» (اضغطه واختر تنسيق 2026-10-24 09:10)', '“Current Date” (tap it, pick format 2026-10-24 09:10)')}<br />{L('«مُدخل الاختصار» ← اضغطه واختر «المحتوى»', '“Shortcut Input” → tap it, choose “Content”')}<br />---</div>
+            </li>
+            <li>{L('أضف إجراء «إلحاق بملف نصي»: اكتب اسم الملف ', 'Add “Append to Text File”: file ')}<bdi className="m-file">masar-sms.txt</bdi>{L(' وفعّل «إنشاء سطر جديد».', ', turn on “Make New Line”.')}</li>
+            <li>{L('خلاص. كل رسالة شراء تنحفظ في iCloud Drive ← Shortcuts. هنا اضغط «افتح ملف الرسائل» واختره متى ما تبي — الجديد بس ينضاف.', "That's it. Each purchase message is saved to iCloud Drive → Shortcuts. Tap “Open the messages file” here whenever you like — only new ones are added.")}</li>
+          </ol>
+          <div className="faint tiny">{L('البنك يرسل من أكثر من رقم؟ سوّ أتمتة لكل رقم بنفس الملف. كل شي يبقى على جهازك.', 'Bank sends from several numbers? Make one automation per number, same file. It all stays on your device.')}</div>
+        </Collapse>
       </div>
     </Sheet>
   );

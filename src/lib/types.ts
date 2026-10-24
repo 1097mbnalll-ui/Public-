@@ -312,6 +312,8 @@ export interface MoneyState {
   goal?: { name: string; target: number; saved: number };
   /** savings swaps the user is trying (swap id → day started) */
   swaps: Record<string, string>;
+  /** fingerprints of bank messages already imported */
+  smsSeen?: string[];
 }
 
 export interface AppState {

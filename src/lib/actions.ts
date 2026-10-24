@@ -789,3 +789,12 @@ export function processSubs(today = todayKey()) {
     }
   });
 }
+
+/** remember imported bank messages (the newest 3000) */
+export function markSmsSeen(keys: string[]) {
+  if (!keys.length) return;
+  mutate((s) => {
+    const all = [...(s.money.smsSeen || []), ...keys.filter((k) => !s.money.smsSeen?.includes(k))];
+    s.money.smsSeen = all.slice(-3000);
+  });
+}

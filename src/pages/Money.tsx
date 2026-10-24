@@ -110,6 +110,7 @@ function DayView({ now }: { now: number }) {
 
       <div className="m-fav">
         <button className="ad" onClick={() => openSheet({ type: 'expense' })}>＋ {L('مصروف', 'Expense')}</button>
+        <button onClick={() => openSheet({ type: 'sms' })}>📩 {L('البنك', 'Bank')}</button>
         {favs.map((f) => (
           <button key={f.title + f.amount} onClick={() => {
             A.addExpense({ title: f.title, amount: f.amount, cat: f.cat, day: today, time: new Date().toTimeString().slice(0, 5) });

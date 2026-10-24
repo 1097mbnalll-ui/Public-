@@ -59,6 +59,24 @@ describe('report', () => {
 });
 
 describe('bank SMS', () => {
+  it('reads the Shortcuts file (date line + message + ---) with stable fingerprints', () => {
+    const file = `2026-10-22 13:05
+شراء انترنت
+بمبلغ 45.50 ريال
+من NOON
+---
+2026-10-23 08:00
+Purchase SAR 18 at DUNKIN
+---
+`;
+    const out = parseBankSms(file, NOW);
+    expect(out.map((o) => [o.day, o.time, o.amount, o.title, o.cat])).toEqual([
+      ['2026-10-22', '13:05', 45.5, 'NOON', 'shopping'],
+      ['2026-10-23', '08:00', 18, 'DUNKIN', 'coffee'],
+    ]);
+    expect(parseBankSms(file + '2026-10-24 10:00\nPurchase SAR 5 at X\n---', NOW)[0].key).toBe(out[0].key);
+  });
+
   it('reads purchases and skips income', () => {
     const sms = `شراء عبر نقاط البيع
 بطاقة: 1234*

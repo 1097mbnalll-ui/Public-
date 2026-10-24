@@ -478,12 +478,27 @@ const INCOME = /إيداع|ايداع|راتب|حوالة واردة|واردة|
 const SPEND = /شراء|مشتريات|purchase|pos|مدى|mada|apple ?pay|سداد|دفع|خصم|debit|صادرة|withdraw|سحب|payment|online/i;
 
 /** read purchases out of pasted bank text messages (Arabic or English); income is skipped */
+/** a short fingerprint of one message, so a file that keeps growing is never imported twice */
+export function smsKey(chunk: string): string {
+  const t = chunk.replace(/\s+/g, ' ').trim();
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    h1 = (h1 * 33) ^ c;
+    h2 = (h2 * 33) ^ c;
+  }
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + t.length.toString(36);
+}
+
 export function parseBankSms(text: string, now = Date.now()) {
   const clean = toWestern(text).replace(/٫/g, '.').replace(/\r/g, '');
-  let chunks = clean.split(/\n\s*\n/).map((c) => c.trim()).filter(Boolean);
+  // the Shortcuts automation separates messages with a «---» line; pasted ones are split on blank lines
+  let chunks = clean.split(/\n\s*-{3,}\s*(?=\n|$)/).map((c) => c.trim()).filter(Boolean);
+  if (chunks.length === 1) chunks = clean.split(/\n\s*\n/).map((c) => c.trim()).filter(Boolean);
   if (chunks.length === 1) chunks = clean.split(/(?=(?:^|\n)\s*(?:شراء|purchase|pos|مدفوعات|سداد|عملية))/i).map((c) => c.trim()).filter(Boolean);
   const today = todayKey(now);
-  const out: { title: string; amount: number; day: string; time?: string; cat: ExpenseCat }[] = [];
+  const out: { title: string; amount: number; day: string; time?: string; cat: ExpenseCat; key: string }[] = [];
   for (const c of chunks) {
     if (INCOME.test(c) && !SPEND.test(c.replace(INCOME, ''))) continue;
     const m =
@@ -512,7 +527,7 @@ export function parseBankSms(text: string, now = Date.now()) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(k) && k <= today && k >= addDays(today, -400)) day = k;
     }
     const tm = c.match(/\b(\d{1,2}):(\d{2})\b/);
-    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: `${tm[1].padStart(2, '0')}:${tm[2]}` } : {}), cat: guessCat(title) });
+    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: `${tm[1].padStart(2, '0')}:${tm[2]}` } : {}), cat: guessCat(title), key: smsKey(c) });
   }
   return out;
 }

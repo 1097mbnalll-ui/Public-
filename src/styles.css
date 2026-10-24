@@ -3209,3 +3209,7 @@ h3 {
 
 /* five tabs + the add button on a phone */
 .tabbar .tab { font-size: 10.5px; min-width: 0; }
+
+.m-guide { margin: 6px 0 8px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.75; display: grid; gap: 6px; }
+.m-code { margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: var(--hover); font-size: 12.5px; line-height: 1.7; }
+.m-file { white-space: nowrap; font-family: ui-monospace, monospace; font-size: 12.5px; background: var(--hover); padding: 1px 6px; border-radius: 6px; }
