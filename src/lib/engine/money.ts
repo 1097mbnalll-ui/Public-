@@ -3,7 +3,7 @@
 import type { AppState, Expense, ExpenseCat, Subscription } from '../types';
 import { addDays, addMonths, diffDays, parseKey, todayKey } from '../dates';
 import { L, lang } from '../i18n';
-import { toWestern } from '../parse';
+import { toWestern } from '../text';
 
 export const CAT_ORDER: ExpenseCat[] = ['coffee', 'food', 'delivery', 'transport', 'shopping', 'subs', 'bills', 'study', 'fun', 'health', 'other'];
 

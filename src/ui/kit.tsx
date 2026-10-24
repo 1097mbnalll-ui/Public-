@@ -206,10 +206,6 @@ export function useNow(interval = 30_000) {
   return now;
 }
 
-export function confirmAsk(msg: string) {
-  return window.confirm(msg);
-}
-
 export function Group({ title, action, children }: { title?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
     <section>

@@ -9,7 +9,7 @@ import { useSyncExternalStore } from 'react';
 import type { AppState } from './types';
 import { getState, mutate, replaceState, subscribe } from './store';
 import { migrate } from './defaults';
-import { fromB64url, idSnapshot, mergeSynced, toB64url, type IdSnapshot } from './transfer';
+import { fromB64url, idSnapshot, mergeSynced, pipe, toB64url, type IdSnapshot } from './transfer';
 import { parseBankSms } from './engine/money';
 import { uid } from './text';
 import { L } from './i18n';
@@ -115,13 +115,8 @@ async function aes(key: string) {
   return crypto.subtle.importKey('raw', fromB64url(key) as BufferSource, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
-async function gz(data: Uint8Array, s: CompressionStream | DecompressionStream) {
-  const out = new Blob([data as BlobPart]).stream().pipeThrough(s as unknown as ReadableWritablePair<Uint8Array, Uint8Array>);
-  return new Uint8Array(await new Response(out).arrayBuffer());
-}
-
 export async function encryptState(state: AppState, key: string): Promise<string> {
-  const body = await gz(new TextEncoder().encode(JSON.stringify(state)), new CompressionStream('gzip'));
+  const body = await pipe(new TextEncoder().encode(JSON.stringify(state)), new CompressionStream('gzip'));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aes(key), body as BufferSource));
   const out = new Uint8Array(12 + ct.length);
@@ -133,7 +128,7 @@ export async function encryptState(state: AppState, key: string): Promise<string
 export async function decryptState(data: string, key: string): Promise<AppState> {
   const raw = fromB64url(data);
   const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.subarray(0, 12) as BufferSource }, await aes(key), raw.subarray(12) as BufferSource));
-  return migrate(JSON.parse(new TextDecoder().decode(await gz(plain, new DecompressionStream('gzip')))));
+  return migrate(JSON.parse(new TextDecoder().decode(await pipe(plain, new DecompressionStream('gzip')))));
 }
 
 // ---------------- talking to the script ----------------

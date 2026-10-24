@@ -8,13 +8,14 @@ import { AREA_LABEL } from '../lib/engine/planner';
 import type { Area } from '../lib/types';
 import { L, sz } from '../lib/i18n';
 
+const areas: Area[] = ['study', 'work', 'life'];
+
 export function Insights() {
   const s = useApp();
   const today = todayKey();
   const days = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13));
   const rec = days.map((d) => s.days[d] || { done: 0, minutes: 0, study: 0 });
   const maxM = Math.max(60, ...rec.map((r) => r.minutes));
-  const areas: Area[] = ['study', 'work', 'life'];
 
   const deferStats = useMemo(() => {
     const out = areas.map((a) => {

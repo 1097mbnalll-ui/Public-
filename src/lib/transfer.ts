@@ -6,6 +6,7 @@
 import type { AppState } from './types';
 import { migrate } from './defaults';
 import { L } from './i18n';
+import { toWestern } from './text';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L
 const CODE_LEN = 12; // ≈ 59 bits
@@ -24,8 +25,7 @@ export const prettyCode = (c: string) => c.match(/.{1,4}/g)!.join('-');
 
 /** forgiving input: lowercase, spaces, dashes, Arabic-Indic digits */
 export function cleanCode(input: string): string {
-  return input
-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+  return toWestern(input)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 }
@@ -38,7 +38,7 @@ async function key(code: string, salt: Uint8Array) {
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt as BufferSource, iterations: ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
-async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+export async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
   const out = new Blob([data as BlobPart]).stream().pipeThrough(stream as unknown as ReadableWritablePair<Uint8Array, Uint8Array>);
   return new Uint8Array(await new Response(out).arrayBuffer());
 }

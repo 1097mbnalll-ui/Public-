@@ -32,7 +32,10 @@ export function CoachPage() {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), [s.coach.chat.length, busy]);
+  // braces matter: newer browsers return a Promise from scrollIntoView, which React would take as a cleanup
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, [s.coach.chat.length, busy]);
 
   const send = async (q = text) => {
     const v = q.trim();

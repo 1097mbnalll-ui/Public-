@@ -24,7 +24,9 @@ export function Money() {
   const view = route.id === 'save' ? 'save' : route.id === 'report' ? 'report' : 'day';
   const s = useApp();
   const now = useNow(60_000);
-  useEffect(() => A.processSubs(), [s.subs]);
+  useEffect(() => {
+    A.processSubs();
+  }, [s.subs]);
   const today = todayKey(now);
   const left = moneyToday(s, now).daysLeft - 1;
   const payday = !!s.money.payday;

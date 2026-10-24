@@ -333,17 +333,6 @@ export function saveTemplate(t: Omit<Template, 'id' | 'uses'> & { id?: string })
   return id;
 }
 
-export function templateFromProcedure(procId: string, name: string): string {
-  const p = getState().procedures.find((x) => x.id === procId);
-  if (!p) return '';
-  return saveTemplate({
-    name,
-    notes: p.notes,
-    fields: p.fields.map((f) => ({ key: f.key, value: '' })),
-    steps: p.steps.map((st) => ({ title: st.title, kind: st.kind, target: st.target })),
-  });
-}
-
 /** a new task from a task template: its steps, area and estimate */
 export function addTaskFromTemplate(tpl: Template, extra: Partial<Task> = {}): string {
   const id = addTask({
@@ -359,20 +348,6 @@ export function addTaskFromTemplate(tpl: Template, extra: Partial<Task> = {}): s
     if (t) t.uses += 1;
   });
   return id;
-}
-
-export function templateFromTask(taskId: string, name: string): string {
-  const t = getState().tasks.find((x) => x.id === taskId);
-  if (!t) return '';
-  return saveTemplate({
-    for: 'task',
-    name,
-    area: t.area,
-    estimate: t.estimate,
-    notes: t.notes,
-    fields: [],
-    steps: t.checklist.map((c) => ({ title: c.title, ...(c.kind ? { kind: c.kind } : {}), ...(c.target ? { target: c.target } : {}) })),
-  });
 }
 
 export function deleteTemplate(id: string) {

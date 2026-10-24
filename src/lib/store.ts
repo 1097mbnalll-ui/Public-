@@ -10,7 +10,6 @@ import { setLang } from './i18n';
 import { L } from './i18n';
 
 let state: AppState = initialState();
-let ready = false;
 const listeners = new Set<() => void>();
 const undoStack: { label: string; state: AppState }[] = [];
 
@@ -32,7 +31,6 @@ function setStatus(s: SaveStatus) {
 }
 
 export const getState = () => state;
-export const isReady = () => ready;
 
 export function subscribe(fn: () => void) {
   listeners.add(fn);
@@ -88,10 +86,6 @@ export function mutate(fn: (s: AppState) => void, undo?: string) {
   scheduleSave();
 }
 
-export function canUndo() {
-  return undoStack.length > 0;
-}
-
 export function undo(): string | null {
   const last = undoStack.pop();
   if (!last) return null;
@@ -143,7 +137,6 @@ export async function init() {
     saveBlocked = true;
   }
   state = raw ? migrate(raw) : initialState();
-  ready = true;
   rollover();
   emit();
   if (saveBlocked) setStatus('error');

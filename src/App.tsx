@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { applyTheme, AUTO } from './lib/themes';
 import { Icon } from './ui/Icon';
 import { useApp } from './lib/store';
@@ -12,14 +12,16 @@ import { Today } from './pages/Today';
 import { Tasks } from './pages/Tasks';
 import { Work } from './pages/Work';
 import { Study } from './pages/Study';
-import { Insights } from './pages/Insights';
-import { Settings } from './pages/Settings';
-import { Import } from './pages/Import';
-import { Receive } from './pages/Receive';
-import { CoachPage } from './pages/Coach';
-import { Money } from './pages/Money';
-import { SyncJoin } from './pages/SyncJoin';
 import { Schedule } from './pages/Schedule';
+
+// pages that most visits never open load on demand (the service worker still caches them for offline)
+const Insights = lazy(() => import('./pages/Insights').then((m) => ({ default: m.Insights })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const Import = lazy(() => import('./pages/Import').then((m) => ({ default: m.Import })));
+const Receive = lazy(() => import('./pages/Receive').then((m) => ({ default: m.Receive })));
+const CoachPage = lazy(() => import('./pages/Coach').then((m) => ({ default: m.CoachPage })));
+const Money = lazy(() => import('./pages/Money').then((m) => ({ default: m.Money })));
+const SyncJoin = lazy(() => import('./pages/SyncJoin').then((m) => ({ default: m.SyncJoin })));
 import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
 import { CoachFab } from './ui/Coach';
@@ -158,7 +160,7 @@ export function App() {
       </aside>
 
       <main className={`main ${wide ? 'wide' : ''}`} key={page + (id || '')}>
-        {body}
+        <Suspense fallback={null}>{body}</Suspense>
       </main>
 
       <nav className="tabbar">
