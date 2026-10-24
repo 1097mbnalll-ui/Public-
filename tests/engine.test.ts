@@ -522,6 +522,10 @@ describe('course / task packs', () => {
     expect(p.course).toBeUndefined();
     expect(p.tasks).toEqual([{ title: 'تقرير', priority: 3, steps: ['أ'] }]);
   });
+  it('reads expenses and guesses their category', () => {
+    const p = readCoursePack({ app: 'masar', expenses: [{ title: 'قهوة', amount: '18', date: '2026-10-20' }, { title: 'x', amount: 0 }] });
+    expect(p.expenses).toEqual([{ title: 'قهوة', amount: 18, day: '2026-10-20', cat: 'coffee' }]);
+  });
   it('rejects anything that is not a pack', () => {
     expect(() => readCoursePack({ app: 'masar', tasks: [] })).toThrow();
     expect(() => readCoursePack({ hello: 1 })).toThrow();

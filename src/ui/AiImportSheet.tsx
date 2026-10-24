@@ -13,23 +13,25 @@ import { L } from '../lib/i18n';
 function aiPrompt(): string {
   const today = todayKey();
   return `أنت تجهّز بيانات لتطبيق «مسار» (منظّم مهام ومذاكرة). تاريخ اليوم ${today} (${fmtDate(today)}).
-حوّل المحتوى اللي بأرسله تحت (ملخص مادة، موعد اختبار، قائمة مهام…) إلى JSON واحد فقط بهذا الشكل، داخل كتلة \`\`\`json وبدون أي كلام قبلها أو بعدها:
+حوّل المحتوى اللي بأرسله تحت (ملخص مادة، موعد اختبار، قائمة مهام، مصاريف…) إلى JSON واحد فقط بهذا الشكل، داخل كتلة \`\`\`json وبدون أي كلام قبلها أو بعدها:
 
 {
   "app": "masar",
   "course": { "name": "اسم المادة", "sizeLabel": "دقيقة", "paceGuess": 1, "difficulty": 3 },
   "units": [ { "title": "١) عنوان الدرس", "size": 40, "difficulty": 3, "notes": "## عنوان\\n- نقطة\\n- نقطة" } ],
   "exam": { "title": "الميد", "date": "YYYY-MM-DD", "time": "HH:MM", "reviewDays": 0 },
-  "tasks": [ { "title": "المهمة", "due": "YYYY-MM-DD", "dueTime": "HH:MM", "priority": 2, "area": "study", "estimate": 30, "steps": ["خطوة", "خطوة"] } ]
+  "tasks": [ { "title": "المهمة", "due": "YYYY-MM-DD", "dueTime": "HH:MM", "priority": 2, "area": "study", "estimate": 30, "steps": ["خطوة", "خطوة"] } ],
+  "expenses": [ { "title": "قهوة ستاربكس", "amount": 24, "date": "YYYY-MM-DD", "cat": "coffee" } ]
 }
 
 القواعد:
-- ما فيه مادة؟ احذف course و units و exam. ما فيه مهام؟ احذف tasks. ما فيه اختبار؟ احذف exam.
+- ما فيه مادة؟ احذف course و units و exam. ما فيه مهام؟ احذف tasks. ما فيه اختبار؟ احذف exam. ما فيه مصاريف؟ احذف expenses.
 - size: الدقائق المتوقعة لمذاكرة الدرس أول مرة (مع "sizeLabel": "دقيقة")، أو عدد صفحاته (مع "sizeLabel": "صفحة").
 - difficulty: من 1 (سهل جدًا) إلى 5 (صعب جدًا).
 - notes: ملخص منظّم للدرس؛ سطور تبدأ بـ "## " للعناوين و"- " للنقاط. لا تحذف أي قاعدة أو مثال مهم من المصدر.
 - priority: 0 غير مهم، 1 عادي، 2 مهم، 3 عاجل. area: study للدراسة، work للعمل، life للحياة.
 - حوّل الأيام النسبية (بكرة، الأحد الجاي…) إلى تواريخ فعلية من تاريخ اليوم. الوقت بنظام 24 ساعة.
+- expenses: مصاريف بالريال؛ cat واحد من: food, coffee, delivery, transport, shopping, subs, bills, fun, study, health, other.
 - reviewDays: أيام المراجعة قبل الاختبار (0 إذا الاختبار قريب).
 - الـ JSON لازم يكون كامل وصالح؛ إذا المحتوى طويل جدًا اختصر notes ولا تقطعه.
 
@@ -82,7 +84,7 @@ export function AiImportSheet() {
         <div className="ai-step">
           <b>1</b>
           <div>
-            <div>{L('انسخ الأمر، والصقه في أي ذكاء اصطناعي (ChatGPT، Claude، Gemini) ومعه ملخصك أو مهامك.', 'Copy the prompt and paste it into any AI (ChatGPT, Claude, Gemini) along with your notes or tasks.')}</div>
+            <div>{L('انسخ الأمر، والصقه في أي ذكاء اصطناعي (ChatGPT، Claude، Gemini) ومعه ملخصك أو مهامك أو مصاريفك.', 'Copy the prompt and paste it into any AI (ChatGPT, Claude, Gemini) along with your notes, tasks or spending.')}</div>
             <button className="btn sm" style={{ marginTop: 8 }} onClick={copy}><Icon name="copy" size={14} />{L(' انسخ الأمر', ' Copy prompt')}</button>
           </div>
         </div>

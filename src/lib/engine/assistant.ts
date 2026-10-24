@@ -8,12 +8,14 @@ import { L } from '../i18n';
 import { planDay, procLevel, suggestDeferrals, weekLoad, type DayPlan, type PlanItem } from './planner';
 import { calibration } from './learning';
 import { coachFacts, toneLevel } from './coach';
+import { catInfo as catInfoFn, fmtMoney, moneyToday, potential, regrets, suggestions, report } from './money';
 
-export type Intent = 'today' | 'summary' | 'defer' | 'performance' | 'now' | 'help';
+export type Intent = 'today' | 'summary' | 'defer' | 'performance' | 'now' | 'money' | 'help';
 
 /** keyword matching for Gulf/MSA Arabic and English */
 export function detectIntent(q: string): Intent {
   const t = q.toLowerCase();
+  if (/صرف|مصروف|مصاريف|فلوس|ميزاني|وفّر|وفر|توفير|ريال|spend|money|budget|saving|expense/.test(t)) return 'money';
   if (/أأجل|اأجل|أاجل|اجل|أجل|أجّل|تأجيل|يتأجل|اخليه|أخليه لبكرة|postpone|defer|wait|push/.test(t)) return 'defer';
   if (/أداء|ادائي|أدائي|مستواي|رأيك|رايك|تقييم|كيف ماشي|perform|doing|how am i|rate me/.test(t)) return 'performance';
   if (/ملخص|لخص|الأسبوع|الاسبوع|وضعي|summary|summar|week|overview/.test(t)) return 'summary';
@@ -148,6 +150,35 @@ export function answer(intent: Intent, state: AppState, tone: CoachTone, now = D
       return { text: parts.filter(Boolean).join('\n\n'), actions: [{ label: L('الأيام السبعة', 'Next 7 days'), kind: 'go', path: 'week' }] };
     }
 
+    case 'money': {
+      if (!state.expenses.length && !state.money.budget)
+        return { text: L('لسا ما سجّلت مصاريف. سجّل مصاريفك من «مصاريفي» أسبوع، وأقول لك وين تروح فلوسك وكم تقدر توفر.', "You haven't logged any spending yet. Log it in “Spending” for a week and I'll tell you where your money goes and how much you could save."), actions: [{ label: L('مصاريفي', 'Spending'), kind: 'go', path: 'money' }] };
+      const m = moneyToday(state, now);
+      const r = report(state, 'month', now);
+      const sw = suggestions(state, now);
+      const pot = potential(state, now);
+      const reg = regrets(state, now);
+      const lvl = toneLevel(facts.level, tone);
+      const over = m.allowance !== undefined && m.spentToday > m.allowance;
+      const lines = [
+        m.budget
+          ? L(`هذا الشهر صرفت ${fmtMoney(m.spentMonth)} من ${fmtMoney(m.budget)} — باقي ${fmtMoney(m.leftMonth || 0)} لـ${m.daysLeft} أيام.`, `This month: ${fmtMoney(m.spentMonth)} of ${fmtMoney(m.budget)} — ${fmtMoney(m.leftMonth || 0)} left for ${m.daysLeft} days.`)
+          : L(`هذا الشهر صرفت ${fmtMoney(m.spentMonth)}. حدد ميزانية عشان أقول لك كم تقدر تصرف كل يوم.`, `This month: ${fmtMoney(m.spentMonth)}. Set a budget so I can tell you your daily limit.`),
+        m.allowance !== undefined
+          ? over
+            ? lvl >= 2
+              ? L(`اليوم تجاوزت حدّك: ${fmtMoney(m.spentToday)} من ${fmtMoney(m.allowance)}. خلاص، ولا ريال زيادة اليوم.`, `You're over today's limit: ${fmtMoney(m.spentToday)} of ${fmtMoney(m.allowance)}. That's it — not one more riyal today.`)
+              : L(`اليوم صرفت ${fmtMoney(m.spentToday)} وحدّك ${fmtMoney(m.allowance)} — حاول توقف هنا.`, `Today: ${fmtMoney(m.spentToday)} against a ${fmtMoney(m.allowance)} limit — try to stop here.`)
+            : L(`اليوم صرفت ${fmtMoney(m.spentToday)} من ${fmtMoney(m.allowance)} — ماشي صح ✓`, `Today: ${fmtMoney(m.spentToday)} of ${fmtMoney(m.allowance)} — on track ✓`)
+          : '',
+        r.cats.length ? L(`أكثر شي تصرف عليه: ${r.cats.slice(0, 3).map((c) => `${catLabel(c.cat)} ${fmtMoney(c.total)}`).join('، ')}.`, `Biggest categories: ${r.cats.slice(0, 3).map((c) => `${catLabel(c.cat)} ${fmtMoney(c.total)}`).join(', ')}.`) : '',
+        r.change !== undefined ? L(`مقارنة بالشهر اللي قبله: ${r.change <= 0 ? 'أقل' : 'أكثر'} بـ${Math.abs(Math.round(r.change * 100))}%.`, `Compared with last month: ${Math.abs(Math.round(r.change * 100))}% ${r.change <= 0 ? 'less' : 'more'}.`) : '',
+        reg.total ? L(`صرفت ${fmtMoney(reg.total)} على أشياء قلت إنها ما تستحق.`, `${fmtMoney(reg.total)} went on things you said weren't worth it.`) : '',
+        sw.length ? L(`تقدر توفر ≈ ${fmtMoney(pot.monthly)} بالشهر. أكبرها: ${sw[0].text} — ${sw[0].options.map((o) => o.label).join(' أو ')}.`, `You could save ≈ ${fmtMoney(pot.monthly)} a month. The biggest: ${sw[0].text} — ${sw[0].options.map((o) => o.label).join(' or ')}.`) : '',
+      ];
+      return { text: lines.filter(Boolean).join('\n\n'), actions: [{ label: L('وين أوفّر؟', 'Where to save'), kind: 'go', path: 'money/save' }] };
+    }
+
     case 'performance': {
       const p = performance(state, now);
       if (!p.done7 && !p.donePrev7 && !p.onTime.total && !p.quota7 && !p.overdue)
@@ -180,8 +211,8 @@ export function answer(intent: Intent, state: AppState, tone: CoachTone, now = D
     default:
       return {
         text: L(
-          'أقدر أساعدك في:\n• «وش عندي اليوم؟»\n• «عطني ملخص»\n• «وش أأجل؟»\n• «وش رأيك في أدائي؟»\n• «وش أسوي الحين؟»\n\nوإذا أضفت مفتاح Claude من الإعدادات أقدر أجاوب أي سؤال ثاني وأقسّم لك المهام وأخطط معك.',
-          'I can help with:\n• “What do I have today?”\n• “Give me a summary”\n• “What can I postpone?”\n• “How am I doing?”\n• “What should I do now?”\n\nAdd a Claude key in settings and I can answer anything else, break tasks down and plan with you.',
+          'أقدر أساعدك في:\n• «وش عندي اليوم؟»\n• «عطني ملخص»\n• «وش أأجل؟»\n• «وش رأيك في أدائي؟»\n• «وش أسوي الحين؟»\n• «وش وضع مصاريفي؟»\n\nوإذا أضفت مفتاح Claude من الإعدادات أقدر أجاوب أي سؤال ثاني وأقسّم لك المهام وأخطط معك.',
+          'I can help with:\n• “What do I have today?”\n• “Give me a summary”\n• “What can I postpone?”\n• “How am I doing?”\n• “What should I do now?”\n• “How’s my spending?”\n\nAdd a Claude key in settings and I can answer anything else, break tasks down and plan with you.',
         ),
       };
   }
@@ -212,9 +243,30 @@ export function assistantContext(state: AppState, now = Date.now()): string {
       next7days: week.map((d) => ({ day: d.day, loadMinutes: d.study + d.tasks, capacity: d.capacity, exams: d.exams.length ? d.exams : undefined })),
       performance: { score: perf.score, doneLast7: perf.done7, donePrev7: perf.donePrev7, studyLast7: perf.study7, studyRequiredLast7: perf.quota7, onTime30d: perf.onTime, overdueNow: perf.overdue, postponedTwiceOrMore: perf.deferredOpen, estimateFactor: perf.estimateN >= 3 ? perf.estimateFactor : undefined },
       latenessLast7Days: coachFacts(state, plan, now).trend,
+      spending: spendingContext(state, now),
       daysSinceStart: diffDays(todayKey(state.meta.createdAt), today),
     },
     null,
     1,
   );
+}
+
+const catLabel = (c: Parameters<typeof catInfoFn>[0]) => catInfoFn(c).label;
+
+function spendingContext(state: AppState, now: number) {
+  if (!state.expenses.length && !state.money.budget) return undefined;
+  const m = moneyToday(state, now);
+  const r = report(state, 'month', now);
+  return {
+    currency: 'SAR',
+    monthBudget: m.budget,
+    spentThisMonth: Math.round(m.spentMonth),
+    spentToday: Math.round(m.spentToday),
+    todayAllowance: m.allowance === undefined ? undefined : Math.round(m.allowance),
+    byCategoryThisMonth: r.cats.map((c) => ({ cat: c.cat, total: Math.round(c.total), lastMonth: Math.round(c.prev) })),
+    notWorthItThisMonth: Math.round(regrets(state, now).total),
+    savingIdeas: suggestions(state, now).slice(0, 5).map((x) => ({ idea: x.text, alternatives: x.options.map((o) => o.label), monthlySaving: Math.round(x.monthly) })),
+    subscriptions: state.subs.map((x) => ({ name: x.name, amount: x.amount, cycle: x.cycle, renews: x.next, lastUsed: x.lastUsed })),
+    goal: state.money.goal,
+  };
 }

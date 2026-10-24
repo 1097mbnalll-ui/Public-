@@ -18,6 +18,7 @@ import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
 import { isNight, workStart } from '../lib/engine/capacity';
 import { InstallCard } from '../ui/InstallCard';
+import { MoneyTile } from './Money';
 
 function greeting(h: number) {
   if (h < 5) return L('ليلة هادئة', "Quiet night");
@@ -455,6 +456,8 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       {view === 'week' ? (
         <WeekView />
       ) : empty ? (
+        <div className="stack">
+        <MoneyTile now={now} />
         <div className="card">
           <Empty icon="today" title={L("ابدأ بإضافة ما يشغلك", "Start by adding what's on your mind")}>{L("أضف مهمة، أو إجراء عمل بخطواته، أو مادة واختبارها — وسأرتب لك يومك حسب وقتك المتاح.", "Add a task, a work procedure with its steps, or a course and its exam — and I'll arrange your day around your available time.")}<div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
               <button className="btn primary sm" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>
@@ -462,6 +465,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
               <button className="btn sm" onClick={() => openSheet({ type: 'course' })}>{L("مادة دراسية", "Course")}</button>
             </div>
           </Empty>
+        </div>
         </div>
       ) : (
         <div className="stack">
@@ -489,6 +493,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
             <div className="bcol">
               {insights.length > 0 && <div className="o4 bwide"><Alerts list={insights} /></div>}
               <div className="o6 bwide"><StudyTile study={study} /></div>
+              <MoneyTile now={now} />
               <div className="o8 bwide"><WeekTile study={study} /></div>
             </div>
           </div>

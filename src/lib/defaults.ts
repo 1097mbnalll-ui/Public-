@@ -83,6 +83,9 @@ export function initialState(): AppState {
     missed: [],
     thoughts: [],
     coach: { history: {}, chat: [] },
+    expenses: [],
+    subs: [],
+    money: { swaps: {} },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -96,9 +99,10 @@ export function migrate(raw: any): AppState {
     ...raw,
     settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}), coach: { ...DEFAULT_SETTINGS.coach, ...(raw.settings?.coach || {}) } },
     coach: { history: {}, chat: [], ...(raw.coach || {}) },
+    money: { swaps: {}, ...(raw.money || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
-  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts'] as const) {
+  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs'] as const) {
     if (!Array.isArray(s[k])) (s as any)[k] = [];
   }
   for (const k of ['dayOverrides', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {

@@ -14,7 +14,11 @@ export type SheetSpec =
   | { type: 'goal'; id: string }
   | { type: 'onboarding' }
   | { type: 'transfer' }
-  | { type: 'ai-import' };
+  | { type: 'ai-import' }
+  | { type: 'expense'; id?: string; text?: string }
+  | { type: 'sms' }
+  | { type: 'money-settings' }
+  | { type: 'sub'; id?: string };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

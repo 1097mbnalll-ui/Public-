@@ -32,7 +32,7 @@ const DAYS: [RegExp, number][] = [
   [/السبت/, 6],
 ];
 
-const toWestern = (s: string) => s.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+export const toWestern = (s: string) => s.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
 
 export function parseQuick(input: string, templates: Template[] = [], now = Date.now()): Parsed {
   let s = ' ' + toWestern(input) + ' ';

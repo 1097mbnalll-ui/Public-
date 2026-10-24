@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, Course, Exam, Priority, Procedure, Step, StepKind, Task, Template, Unit } from './types';
+import type { AppState, Area, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -8,6 +8,7 @@ import { taskTime } from './engine/learning';
 import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
 import { L } from './i18n';
+import { CAT_ORDER, guessCat } from './engine/money';
 
 const now = () => Date.now();
 
@@ -592,8 +593,16 @@ export interface PackTask {
 }
 
 /** a course (lessons + exam) and/or a list of tasks, from a link or an AI's reply */
+export interface PackExpense {
+  title: string;
+  amount: number;
+  day: string;
+  cat: ExpenseCat;
+}
+
 export interface CoursePack {
   tasks?: PackTask[];
+  expenses?: PackExpense[];
   course?: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
   units: { title: string; size: number; difficulty?: number; notes?: string }[];
   exam?: { title: string; date: string; time?: string; reviewDays?: number };
@@ -614,21 +623,30 @@ export function readCoursePack(raw: any): CoursePack {
       ...(typeof t.notes === 'string' ? { notes: t.notes.slice(0, 5000) } : {}),
       ...(Array.isArray(t.steps) ? { steps: t.steps.filter((x: any) => typeof x === 'string' && x.trim()).slice(0, 50) } : {}),
     }));
+  const expenses: PackExpense[] = (Array.isArray(raw?.expenses) ? raw.expenses : [])
+    .filter((e: any) => e && Number(e.amount) > 0)
+    .slice(0, 1000)
+    .map((e: any) => {
+      const title = typeof e.title === 'string' ? e.title.trim().slice(0, 100) : '';
+      return { title, amount: Math.round(Number(e.amount) * 100) / 100, day: day.test(e.date || e.day) ? e.date || e.day : todayKey(), cat: CAT_ORDER.includes(e.cat) ? e.cat : guessCat(title) };
+    });
   const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
-  if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length))
+  if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length && !expenses.length))
     throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
-  if (!hasCourse) return { tasks, units: [] };
+  const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}) };
+  if (!hasCourse) return { ...extra, units: [] };
   const units = raw.units
     .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
     .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty, ...(typeof u.notes === 'string' && u.notes.trim() ? { notes: u.notes.slice(0, 40_000) } : {}) }));
   const exam = raw.exam && day.test(raw.exam.date) ? raw.exam : undefined;
-  return { course: raw.course, units, exam, ...(tasks.length ? { tasks } : {}) };
+  return { course: raw.course, units, exam, ...extra };
 }
 
 /** adds a course with its units (and exam) without touching anything else */
 export function importCoursePack(p: CoursePack): string {
   for (const { steps, ...t } of p.tasks || [])
     addTask({ ...t, notes: t.notes || '', checklist: (steps || []).map((title) => ({ id: uid(), title, done: false })) });
+  if (p.expenses?.length) addExpenses(p.expenses.map((e) => ({ ...e, source: 'import' as const })));
   if (!p.course) return '';
   const { name, difficulty, sizeLabel, paceGuess, notes, color } = p.course;
   const cid = addCourse({ name, difficulty: difficulty || 3, sizeLabel: sizeLabel || 'صفحة', paceGuess, notes: notes || '', ...(color ? { color } : {}) });
@@ -676,4 +694,98 @@ export function clearCoachChat() {
 
 export function updateCoach(patch: Partial<AppState['settings']['coach']>) {
   mutate((s) => Object.assign(s.settings.coach, patch));
+}
+
+// ---------------- Money ----------------
+
+export function addExpense(e: Omit<Expense, 'id' | 'createdAt'>): string {
+  const id = uid();
+  mutate((s) => {
+    s.expenses.push({ ...e, amount: Math.round(e.amount * 100) / 100, id, createdAt: now() });
+  });
+  return id;
+}
+
+export function addExpenses(list: Omit<Expense, 'id' | 'createdAt'>[]) {
+  if (!list.length) return;
+  mutate((s) => {
+    for (const e of list) s.expenses.push({ ...e, id: uid(), createdAt: now() });
+  });
+}
+
+export function updateExpense(id: string, patch: Partial<Expense>) {
+  mutate((s) => {
+    const e = s.expenses.find((x) => x.id === id);
+    if (e) Object.assign(e, patch);
+  });
+}
+
+export function deleteExpense(id: string) {
+  mutate((s) => {
+    s.expenses = s.expenses.filter((x) => x.id !== id);
+  });
+}
+
+export function setBudget(budget: number | undefined) {
+  mutate((s) => {
+    s.money.budget = budget && budget > 0 ? budget : undefined;
+  });
+}
+
+export function setGoal(goal: MoneyState['goal']) {
+  mutate((s) => {
+    s.money.goal = goal && goal.name.trim() && goal.target > 0 ? goal : undefined;
+  });
+}
+
+export function addToGoal(amount: number) {
+  mutate((s) => {
+    if (s.money.goal) s.money.goal.saved = Math.max(0, s.money.goal.saved + amount);
+  });
+}
+
+/** start / stop trying a savings swap */
+export function toggleSwap(id: string) {
+  mutate((s) => {
+    if (s.money.swaps[id]) delete s.money.swaps[id];
+    else s.money.swaps[id] = todayKey();
+  });
+}
+
+export function saveSub(sub: Omit<Subscription, 'id' | 'createdAt'> & { id?: string }): string {
+  const id = sub.id || uid();
+  mutate((s) => {
+    const cur = s.subs.find((x) => x.id === id);
+    if (cur) Object.assign(cur, sub);
+    else s.subs.push({ ...sub, id, createdAt: now() });
+  });
+  return id;
+}
+
+export function deleteSub(id: string) {
+  mutate((s) => {
+    s.subs = s.subs.filter((x) => x.id !== id);
+    delete s.money.swaps['sub:' + id];
+  });
+}
+
+export function markSubUsed(id: string) {
+  mutate((s) => {
+    const sub = s.subs.find((x) => x.id === id);
+    if (sub) sub.lastUsed = todayKey();
+  });
+}
+
+/** renewals that came due are logged as expenses and the next date moves on */
+export function processSubs(today = todayKey()) {
+  if (!getState().subs.some((x) => x.next <= today)) return;
+  mutate((s) => {
+    for (const sub of s.subs) {
+      let guard = 0;
+      while (sub.next <= today && guard++ < 36) {
+        s.expenses.push({ id: uid(), title: sub.name, amount: sub.amount, cat: 'subs', day: sub.next, source: 'sub', createdAt: now() });
+        sub.next = sub.cycle === 'year' ? addMonths(sub.next, 12) : addMonths(sub.next, 1);
+      }
+    }
+  });
 }

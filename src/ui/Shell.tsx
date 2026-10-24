@@ -17,6 +17,7 @@ import { StepConfirm, TemplateEditor } from './WorkSheets';
 import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
+import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
 export function SheetHost() {
@@ -51,6 +52,14 @@ export function SheetHost() {
       return <TransferSheet />;
     case 'ai-import':
       return <AiImportSheet />;
+    case 'expense':
+      return <ExpenseSheet key={sh.id || sh.text || 'new'} id={sh.id} text={sh.text} />;
+    case 'sms':
+      return <SmsSheet />;
+    case 'money-settings':
+      return <MoneySettingsSheet />;
+    case 'sub':
+      return <SubSheet key={sh.id || 'new'} id={sh.id} />;
   }
 }
 

@@ -276,6 +276,44 @@ export interface DayRecord {
   study: number; // study minutes
 }
 
+// ---------------- Money ----------------
+
+export type ExpenseCat = 'food' | 'coffee' | 'delivery' | 'transport' | 'shopping' | 'subs' | 'bills' | 'fun' | 'study' | 'health' | 'other';
+/** «يستحق؟» — the user's own verdict on a purchase */
+export type Worth = 'yes' | 'meh' | 'no';
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  cat: ExpenseCat;
+  day: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  worth?: Worth;
+  source?: 'sms' | 'sub' | 'import';
+  createdAt: number;
+}
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  cycle: 'month' | 'year';
+  /** next renewal day — on that day the charge is logged as an expense */
+  next: string;
+  /** last day the user said they used it */
+  lastUsed?: string;
+  createdAt: number;
+}
+
+export interface MoneyState {
+  /** monthly budget */
+  budget?: number;
+  goal?: { name: string; target: number; saved: number };
+  /** savings swaps the user is trying (swap id → day started) */
+  swaps: Record<string, string>;
+}
+
 export interface AppState {
   version: number;
   tasks: Task[];
@@ -300,6 +338,9 @@ export interface AppState {
   /** brain-dump inbox from focus sessions */
   thoughts: Thought[];
   coach: CoachState;
+  expenses: Expense[];
+  subs: Subscription[];
+  money: MoneyState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

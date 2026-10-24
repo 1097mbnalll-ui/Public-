@@ -16,17 +16,19 @@ import { Settings } from './pages/Settings';
 import { Import } from './pages/Import';
 import { Receive } from './pages/Receive';
 import { CoachPage } from './pages/Coach';
+import { Money } from './pages/Money';
 import { CoachFab } from './ui/Coach';
 import { todayKey } from './lib/dates';
 import { L } from './lib/i18n';
 
-// Four places, each answering one question:
-// اليوم: what do I do now? · المهام: what's on my list? · العمل: where is each procedure? · الدراسة: am I ready?
+// Five places, each answering one question:
+// اليوم: what do I do now? · المهام: what's on my list? · العمل: where is each procedure? · الدراسة: am I ready? · مصاريفي: where does my money go?
 const NAV = [
   { id: 'today', get label() { return L('اليوم', "Today"); }, icon: 'today' },
   { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
+  { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
 ];
 
 /** old links keep working */
@@ -106,6 +108,9 @@ export function App() {
     case 'coach':
       body = <CoachPage />;
       break;
+    case 'money':
+      body = <Money />;
+      break;
   }
 
   return (
@@ -113,7 +118,7 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
-        <button className="btn primary block side-add" onClick={() => openSheet({ type: 'quick' })}>
+        <button className="btn primary block side-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })}>
           <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(255,255,255,.4)', color: 'rgba(255,255,255,.85)' }}>N</span>
         </button>
         {NAV.map((n) => (
@@ -140,7 +145,7 @@ export function App() {
             <Icon name={n.icon} size={22} /> {n.label}
           </button>
         ))}
-        <button className="tab-add" onClick={() => openSheet({ type: 'quick' })} aria-label={L("إضافة", "Add")}>
+        <button className="tab-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
         {NAV.slice(2).map((n) => (

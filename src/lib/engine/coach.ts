@@ -6,6 +6,7 @@ import { addDays, diffDays, todayKey } from '../dates';
 import { L } from '../i18n';
 import type { DayPlan } from './planner';
 import { calibration } from './learning';
+import { moneyToday, regrets } from './money';
 
 export interface LateItem {
   title: string;
@@ -29,6 +30,8 @@ export interface CoachFacts {
   score: number;
   /** 0 on track · 1 slipping · 2 behind · 3 well behind · 4 seriously behind */
   level: number;
+  /** spending, when the user tracks it */
+  money?: { spentToday: number; allowance?: number; spentMonth: number; budget?: number; regretMonth: number };
 }
 
 // low-priority items never drive the scolding — they're allowed to wait
@@ -111,12 +114,35 @@ export function coachFacts(state: AppState, plan: DayPlan, now = Date.now()): Co
     trend: week.map((d) => (d === today ? score : state.coach.history[d] ?? 0)),
     score,
     level: levelOf(score),
+    money: moneyFacts(state, now),
   };
+}
+
+function moneyFacts(state: AppState, now: number): CoachFacts['money'] {
+  if (!state.money.budget && !state.expenses.length) return undefined;
+  const m = moneyToday(state, now);
+  return { spentToday: Math.round(m.spentToday), allowance: m.allowance === undefined ? undefined : Math.round(m.allowance), spentMonth: Math.round(m.spentMonth), budget: m.budget, regretMonth: Math.round(regrets(state, now).total) };
+}
+
+/** one line about today's spending, as strong as the tone allows */
+function moneyLine(f: CoachFacts, lvl: number): string {
+  const m = f.money;
+  if (!m || m.allowance === undefined) return '';
+  const over = m.spentToday - m.allowance;
+  if (over > 0) {
+    const ratio = over / Math.max(1, m.allowance);
+    if (lvl >= 3 || ratio >= 0.5)
+      return L(` وفوق هذا فلوسك: صرفت ${m.spentToday} ر.س اليوم وحدّك ${m.allowance} — تجاوزته بـ${over}. وقّف الصرف لين بكرة، ولا تفتح تطبيق توصيل.`, ` And your money: you spent ${m.spentToday} SAR today against ${m.allowance} — ${over} over. No more spending until tomorrow, and don't open a delivery app.`);
+    return L(` انتبه لفلوسك: صرفت ${m.spentToday} من ${m.allowance} ر.س المسموحة اليوم.`, ` Watch your money: ${m.spentToday} of today's ${m.allowance} SAR spent.`);
+  }
+  if (f.hour >= 20 && m.spentToday <= m.allowance * 0.6) return L(' ومصاريفك اليوم تحت السيطرة 👏', ' And your spending today is under control 👏');
+  return '';
 }
 
 /** a stable fingerprint: the cached message is reused until something that matters changes */
 export function factsKey(f: CoachFacts, tone: CoachTone, lang: string): string {
-  return [f.today, tone, lang, f.level, f.overdue.length, f.leftToday.length, f.doneToday.length, Math.floor(f.hour / 6)].join('|');
+  const over = f.money?.allowance !== undefined && f.money.spentToday > f.money.allowance;
+  return [f.today, tone, lang, f.level, f.overdue.length, f.leftToday.length, f.doneToday.length, Math.floor(f.hour / 6), over ? 'm' : ''].join('|');
 }
 
 /** «شيء واحد / شيئين / 3 أشياء» — Arabic counted nouns */
@@ -178,7 +204,7 @@ export function offlineMessage(f: CoachFacts, tone: CoachTone): string {
       L(`كفاية. الأرقام واضحة: ${late}، وأقدمها ${days}. أنت مو مشغول، أنت تهرب. اليوم تخلّص ${w} أول شيء — بدون نقاش.`, `Enough. The numbers are clear: ${f.overdue.length} overdue, the oldest ${d} day${d === 1 ? '' : 's'}. You're not busy — you're avoiding. Today you finish ${w} first. No discussion.`),
     ],
   };
-  return pick(lines[lvl], f.today + f.overdue.length);
+  return pick(lines[lvl], f.today + f.overdue.length) + moneyLine(f, lvl);
 }
 
 const TONE_RULES: Record<CoachTone, string> = {
@@ -214,6 +240,7 @@ export function factsText(f: CoachFacts): string {
       overdue: f.overdue,
       postponedOften: f.postponedOften,
       exams: f.study,
+      ...(f.money ? { spending: { todaySAR: f.money.spentToday, todayAllowanceSAR: f.money.allowance, monthSAR: f.money.spentMonth, monthBudgetSAR: f.money.budget, notWorthItThisMonthSAR: f.money.regretMonth } } : {}),
       learnedAboutUser: {
         estimateAccuracy: f.learned.estimateN >= 3 ? `real time ≈ ${f.learned.estimateFactor}× own estimates` : 'not enough data yet',
         tasksDoneLast7Days: f.learned.doneLast7,
