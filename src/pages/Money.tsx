@@ -10,7 +10,7 @@ import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
 import {
-  catInfo, cutHabit, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
+  catInfo, catLimits, cutHabit, noSpend, suggestBudget, upcomingBills, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
   subIdle, subMonthly, suggestions, upcomingSubs, weekStrip, type Period,
 } from '../lib/engine/money';
 import type { Expense } from '../lib/types';
@@ -27,12 +27,13 @@ export function Money() {
   useEffect(() => A.processSubs(), [s.subs]);
   const today = todayKey(now);
   const left = moneyToday(s, now).daysLeft - 1;
+  const payday = !!s.money.payday;
 
   return (
     <div>
       <PageTop
         title={L('مصاريفي', 'My spending')}
-        sub={`${monthNames()[parseKey(today).getMonth()]} · ${left ? L(`باقي ${left} أيام`, `${left} days left`) : L('آخر يوم بالشهر', 'last day of the month')}`}
+        sub={payday ? (left ? L(`باقي ${left + 1} أيام على الراتب 💰`, `${left + 1} days to payday 💰`) : L('الراتب بكرة 💰', 'Payday tomorrow 💰')) : `${monthNames()[parseKey(today).getMonth()]} · ${left ? L(`باقي ${left} أيام`, `${left} days left`) : L('آخر يوم بالشهر', 'last day of the month')}`}
         actions={<button className="icon-btn" onClick={() => openSheet({ type: 'money-settings' })} aria-label={L('الميزانية والهدف', 'Budget & goal')}><Icon name="settings" /></button>}
       />
       <div style={{ marginBottom: 14 }}>
@@ -78,12 +79,16 @@ function DayView({ now }: { now: number }) {
   }, [s.expenses, today]);
 
   const over = m.allowance !== undefined && m.spentToday > m.allowance;
+  const sug = m.budget ? undefined : suggestBudget(s, now);
+  const ns = noSpend(s, now);
+  const bills = upcomingBills(s, now);
+  const limits = catLimits(s, now);
   return (
     <div className="stack">
       <div className="m-card">
         {m.budget ? (
           <>
-            <div className="k">{L('باقي من ميزانية الشهر', "Left of this month's budget")}</div>
+            <div className="k">{s.money.payday ? L('باقي لين الراتب', 'Left until payday') : L('باقي من ميزانية الشهر', "Left of this month's budget")}</div>
             <div className="big"><span className="money">{fmtNum(m.leftMonth || 0)}</span> <small>{L(`من ${fmtNum(m.budget)} ر.س`, `of ${fmtNum(m.budget)} SAR`)}</small></div>
             <div className="ln"><i style={{ width: `${Math.max(0, Math.min(100, ((m.leftMonth || 0) / m.budget) * 100))}%` }} /></div>
             <div className="ft">
@@ -95,7 +100,13 @@ function DayView({ now }: { now: number }) {
           <>
             <div className="k">{L('صرفت هذا الشهر', 'Spent this month')}</div>
             <div className="big"><span className="money">{fmtNum(m.spentMonth)}</span> <small>{L('ر.س', 'SAR')}</small></div>
-            <button className="m-card-btn" onClick={() => openSheet({ type: 'money-settings' })}>{L('حدد ميزانية الشهر ←', 'Set a monthly budget →')}</button>
+            {sug ? (
+              <div className="m-sug">🤖 {L(`متوسط صرفك ${fmtNum(sug.avg)} — أقترح ميزانية ${fmtNum(sug.suggest)} ر.س`, `You average ${fmtNum(sug.avg)} — try a ${fmtNum(sug.suggest)} SAR budget`)}
+                <button className="m-card-btn" onClick={() => { A.setBudget(sug.suggest); toast(L('تم — حدّك اليومي صار ينحسب', 'Done — your daily limit is on'), { undoable: true }); }}>{L('استخدمه', 'Use it')}</button>
+              </div>
+            ) : (
+              <button className="m-card-btn" onClick={() => openSheet({ type: 'money-settings' })}>{L('حدد ميزانية الشهر ←', 'Set a monthly budget →')}</button>
+            )}
           </>
         )}
       </div>
@@ -107,6 +118,29 @@ function DayView({ now }: { now: number }) {
           </div>
         ))}
       </div>
+
+      {(ns.days > 0 || bills.length > 0) && (
+        <div className="m-badges">
+          {ns.streak >= 1 ? <span>🔥 {L(`${ns.streak} ${ns.streak === 1 ? 'يوم' : 'أيام'} ورا بعض بدون صرف`, `${ns.streak}-day no-spend run`)}</span> : ns.days > 0 ? <span>🌱 {L(`${ns.days} أيام بدون صرف هالشهر`, `${ns.days} no-spend days this month`)}</span> : null}
+          {bills.slice(0, 2).map((b) => (
+            <button key={b.id} onClick={() => openSheet({ type: 'sub', id: b.id })}>📆 {b.name} {fmtNum(b.amount)} · {fmtRenew(b.next, now)}</button>
+          ))}
+        </div>
+      )}
+
+      {limits.length > 0 && (
+        <button className="card m-limits" onClick={() => openSheet({ type: 'money-settings' })}>
+          {limits.map((l) => {
+            const info = catInfo(l.cat);
+            return (
+              <div key={l.cat} className="lr">
+                <div className="h"><b>{info.emoji} {info.label}</b><span className={l.used > l.limit ? 'bad' : ''}>{L(`${fmtNum(l.used)} من ${fmtNum(l.limit)}`, `${fmtNum(l.used)} of ${fmtNum(l.limit)}`)}{l.used > l.limit ? L(' — تجاوزت!', ' — over!') : ''}</span></div>
+                <div className="bar"><i style={{ width: `${Math.min(100, l.pct * 100)}%`, background: l.used > l.limit ? 'var(--red)' : l.pct >= 0.8 ? 'var(--amber)' : info.color }} /></div>
+              </div>
+            );
+          })}
+        </button>
+      )}
 
       <div className="m-fav">
         <button className="ad" onClick={() => openSheet({ type: 'expense' })}>＋ {L('مصروف', 'Expense')}</button>

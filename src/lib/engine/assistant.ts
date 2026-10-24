@@ -8,6 +8,7 @@ import { L } from '../i18n';
 import { planDay, procLevel, suggestDeferrals, weekLoad, type DayPlan, type PlanItem } from './planner';
 import { calibration } from './learning';
 import { coachFacts, toneLevel } from './coach';
+import { blocksOn } from './schedule';
 import { catInfo as catInfoFn, fmtMoney, moneyToday, potential, regrets, suggestions, report } from './money';
 
 export type Intent = 'today' | 'summary' | 'defer' | 'performance' | 'now' | 'money' | 'help';
@@ -244,6 +245,7 @@ export function assistantContext(state: AppState, now = Date.now()): string {
       performance: { score: perf.score, doneLast7: perf.done7, donePrev7: perf.donePrev7, studyLast7: perf.study7, studyRequiredLast7: perf.quota7, onTime30d: perf.onTime, overdueNow: perf.overdue, postponedTwiceOrMore: perf.deferredOpen, estimateFactor: perf.estimateN >= 3 ? perf.estimateFactor : undefined },
       latenessLast7Days: coachFacts(state, plan, now).trend,
       spending: spendingContext(state, now),
+      timetableToday: blocksOn(state, today).map((x) => ({ title: x.b.title, kind: x.b.kind, from: x.b.start, to: x.b.end })),
       daysSinceStart: diffDays(todayKey(state.meta.createdAt), today),
     },
     null,

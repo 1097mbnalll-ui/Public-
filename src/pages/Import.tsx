@@ -4,13 +4,14 @@ import { Icon } from '../ui/Icon';
 import { getState, useApp } from '../lib/store';
 import { quotaMessage } from '../ui/StudySheets';
 import { deleteCourse, importCoursePack, readCoursePack, type CoursePack } from '../lib/actions';
-import { daysWord, fmtDate, fmtMinutes, todayKey } from '../lib/dates';
+import { daysWord, fmtClock, fmtDate, fmtMinutes, todayKey } from '../lib/dates';
 import { go, useRoute } from '../ui/router';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
 import { L, sz } from '../lib/i18n';
 import { unpackLinkPack } from '../lib/transfer';
 import { catInfo, fmtMoney } from '../lib/engine/money';
+import { DAY_NAMES } from '../lib/engine/schedule';
 
 /** #/import?src=courses/xxx.json or ?pack=… — preview a ready-made course and/or tasks and add them */
 export function Import() {
@@ -25,6 +26,7 @@ export function Import() {
   const [examDate, setExamDate] = useState('');
   const [reviewDays, setReviewDays] = useState(2);
   const [examTime, setExamTime] = useState<string | undefined>();
+  const [replaceSched, setReplaceSched] = useState(true);
 
   useEffect(() => {
     // the pack can live inside the link itself (private: no file on the server) or in a file on the site
@@ -52,18 +54,19 @@ export function Import() {
   const course = pack.course;
   const tasks = pack.tasks || [];
   const expenses = pack.expenses || [];
-  const kinds = [course, tasks.length, expenses.length].filter(Boolean).length;
-  const home = course ? 'study' : tasks.length ? 'tasks' : 'money';
-  const homeLabel = course ? L('الدراسة', 'Study') : tasks.length ? L('المهام', 'Tasks') : L('مصاريفي', 'Spending');
+  const schedule = pack.schedule || [];
+  const kinds = [course, tasks.length, expenses.length, schedule.length].filter(Boolean).length;
+  const home = course ? 'study' : tasks.length ? 'tasks' : expenses.length ? 'money' : 'schedule';
+  const homeLabel = course ? L('الدراسة', 'Study') : tasks.length ? L('المهام', 'Tasks') : expenses.length ? L('مصاريفي', 'Spending') : L('جدولي', 'Timetable');
   const total = pack.units.reduce((a, u) => a + u.size, 0);
   const existing = course && s.courses.find((c) => c.name.trim() === course.name.trim());
   const pastDate = !!examDate && examDate < todayKey();
   const add = (replace = false) => {
     if (replace && existing) deleteCourse(existing.id);
     const exam = course && examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, time: examTime, reviewDays } : undefined;
-    const id = importCoursePack({ ...pack, exam });
+    const id = importCoursePack({ ...pack, exam }, replaceSched);
     const examId = id && getState().exams.find((e) => e.courseId === id)?.id;
-    const tasksMsg = [tasks.length ? L(`${tasks.length} مهام`, `${tasks.length} tasks`) : '', expenses.length ? L(`${expenses.length} مصاريف`, `${expenses.length} expenses`) : ''].filter(Boolean).join(L(' و', ' and '));
+    const tasksMsg = [schedule.length ? L(`جدولك (${schedule.length} محاضرات)`, `your timetable (${schedule.length} blocks)`) : '', tasks.length ? L(`${tasks.length} مهام`, `${tasks.length} tasks`) : '', expenses.length ? L(`${expenses.length} مصاريف`, `${expenses.length} expenses`) : ''].filter(Boolean).join(L(' و', ' and '));
     toast((examId && quotaMessage(examId)) || (course ? L(`أُضيفت ${course.name}`, `Added ${course.name}`) : L(`أُضيفت ${tasksMsg}`, `Added ${tasksMsg}`)), { ms: 8000 });
     go(id ? `study/${id}` : home);
   };
@@ -73,10 +76,10 @@ export function Import() {
     <div>
       <PageTop
         back={{ label: homeLabel, to: home }}
-        title={course ? course.name : tasks.length ? L('مهام جديدة', 'New tasks') : L('مصاريف', 'Expenses')}
+        title={course ? course.name : tasks.length ? L('مهام جديدة', 'New tasks') : expenses.length ? L('مصاريف', 'Expenses') : L('جدولك', 'Your timetable')}
         sub={course
           ? L(`${pack.units.length} دروس · ${total} ${sz(course.sizeLabel)} ≈ ${fmtMinutes(total * (course.paceGuess || 1))}`, `${pack.units.length} lessons · ${total} ${course.sizeLabel || 'pages'} ≈ ${fmtMinutes(total * (course.paceGuess || 1))}`) + (tasks.length ? L(` · ${tasks.length} مهام`, ` · ${tasks.length} tasks`) : '')
-          : [tasks.length ? L(`${tasks.length} مهام`, `${tasks.length} tasks`) : '', expenses.length ? L(`${expenses.length} مصاريف · ${fmtMoney(expenses.reduce((a, e) => a + e.amount, 0))}`, `${expenses.length} expenses · ${fmtMoney(expenses.reduce((a, e) => a + e.amount, 0))}`) : ''].filter(Boolean).join(' · ')}
+          : [schedule.length ? L(`${schedule.length} محاضرات بالأسبوع`, `${schedule.length} weekly blocks`) : '', tasks.length ? L(`${tasks.length} مهام`, `${tasks.length} tasks`) : '', expenses.length ? L(`${expenses.length} مصاريف · ${fmtMoney(expenses.reduce((a, e) => a + e.amount, 0))}`, `${expenses.length} expenses · ${fmtMoney(expenses.reduce((a, e) => a + e.amount, 0))}`) : ''].filter(Boolean).join(' · ')}
       />
       <div className="stack">
         {course?.notes && <p className="muted small" style={{ margin: 0 }}>{course.notes}</p>}
@@ -115,7 +118,7 @@ export function Import() {
               <button className="btn" onClick={() => add()}>{L("أضف كنسخة جديدة", "Add as a new copy")}</button>
             </>
           ) : (
-            <button className="btn primary" onClick={() => add()}><Icon name="plus" size={16} />{kinds > 1 ? L(" أضف الكل", " Add all") : course ? L(" أضف المادة", " Add course") : tasks.length ? L(" أضف المهام", " Add tasks") : L(" أضف المصاريف", " Add expenses")}</button>
+            <button className="btn primary" onClick={() => add()}><Icon name="plus" size={16} />{kinds > 1 ? L(" أضف الكل", " Add all") : course ? L(" أضف المادة", " Add course") : tasks.length ? L(" أضف المهام", " Add tasks") : expenses.length ? L(" أضف المصاريف", " Add expenses") : L(" اعتمد الجدول", " Use this timetable")}</button>
           )}
           <button className="btn ghost" onClick={() => go(home)}>{L("إلغاء", "Cancel")}</button>
         </div>
@@ -131,6 +134,19 @@ export function Import() {
           <Group title={L("المهام", "Tasks")}>
             {tasks.map((t, i) => (
               <Row key={i} label={t.title} sub={t.steps?.length ? L(`${t.steps.length} خطوات`, `${t.steps.length} steps`) : undefined} value={t.due ? fmtDate(t.due) + (t.dueTime ? ` ${t.dueTime}` : '') : ''} />
+            ))}
+          </Group>
+        )}
+        {schedule.length > 0 && (
+          <Group title={L("الجدول", "Timetable")}>
+            {s.schedule.length > 0 && (
+              <label className="row" style={{ gap: 8, padding: '10px 14px', fontSize: 14 }}>
+                <input type="checkbox" checked={replaceSched} onChange={(e) => setReplaceSched(e.target.checked)} />
+                {L('استبدل جدولي الحالي', 'Replace my current timetable')}
+              </label>
+            )}
+            {[...schedule].sort((a, b) => a.day - b.day || a.start.localeCompare(b.start)).map((b, i) => (
+              <Row key={i} label={b.title} sub={`${DAY_NAMES()[b.day]} · ${fmtClock(b.start)}–${fmtClock(b.end)}`} />
             ))}
           </Group>
         )}

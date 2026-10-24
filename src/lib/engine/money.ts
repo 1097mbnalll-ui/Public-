@@ -108,12 +108,24 @@ export interface MoneyToday {
   dailyLine?: number;
 }
 
+/** the budget month: payday to the day before the next payday, or the calendar month */
+export function cycle(state: AppState, today: string): { from: string; to: string; days: number; payday?: number } {
+  const p = state.money.payday;
+  if (!p || p < 1 || p > 31) return { from: monthStart(today), to: monthEnd(today), days: daysInMonth(today) };
+  const at = (ref: string) => ref.slice(0, 8) + String(Math.min(p, daysInMonth(ref))).padStart(2, '0');
+  const thisOne = at(today);
+  const from = today >= thisOne ? thisOne : at(addMonths(monthStart(today), -1));
+  const to = addDays(at(addMonths(monthStart(from), 1)), -1);
+  return { from, to, days: diffDays(from, to) + 1, payday: p };
+}
+
 export function moneyToday(state: AppState, now = Date.now()): MoneyToday {
   const today = todayKey(now);
-  const from = monthStart(today);
+  const cyc = cycle(state, today);
+  const from = cyc.from;
   const spentMonth = sumRange(state.expenses, from, today);
   const spentToday = sumRange(state.expenses, today, today);
-  const daysLeft = diffDays(today, monthEnd(today)) + 1;
+  const daysLeft = diffDays(today, cyc.to) + 1;
   const budget = state.money.budget && state.money.budget > 0 ? state.money.budget : undefined;
   if (!budget) return { spentMonth, spentToday, daysLeft };
   const before = spentMonth - spentToday;
@@ -124,7 +136,7 @@ export function moneyToday(state: AppState, now = Date.now()): MoneyToday {
     daysLeft,
     leftMonth: budget - spentMonth,
     allowance: Math.max(0, (budget - before) / daysLeft),
-    dailyLine: budget / daysInMonth(today),
+    dailyLine: budget / cyc.days,
   };
 }
 
@@ -190,6 +202,7 @@ const stats = (list: Expense[]) => ({ n: list.length, sum: list.reduce((a, e) =>
 /** idle = not marked as used for 30 days (or never, once it's a month old) */
 export function subIdle(sub: Subscription, now = Date.now()): number | undefined {
   const today = todayKey(now);
+  if (sub.kind === 'bill') return undefined;
   const ref = sub.lastUsed || todayKey(sub.createdAt);
   const d = diffDays(ref, today);
   return d >= 30 ? d : undefined;
@@ -305,7 +318,7 @@ export function fmtRenew(day: string, now = Date.now()): string {
 /** this month's «ما يستحق» spending, grouped by what was bought */
 export function regrets(state: AppState, now = Date.now()) {
   const today = todayKey(now);
-  const list = state.expenses.filter((e) => e.worth === 'no' && e.day >= monthStart(today) && e.day <= today);
+  const list = state.expenses.filter((e) => e.worth === 'no' && e.day >= cycle(state, today).from && e.day <= today);
   const map = new Map<string, { title: string; n: number; sum: number }>();
   for (const e of list) {
     const k = keyOf(e.title || catInfo(e.cat).label);
@@ -586,4 +599,68 @@ export function parseBankSms(text: string, now = Date.now()) {
     out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: tm } : {}), cat: guessCat(title), key: smsKey(c) });
   }
   return out;
+}
+
+// ---------------- limits, no-spend days, bills, a budget to suggest ----------------
+
+/** each category limit against this budget month */
+export function catLimits(state: AppState, now = Date.now()) {
+  const today = todayKey(now);
+  const { from } = cycle(state, today);
+  return CAT_ORDER.filter((c) => (state.money.limits?.[c] || 0) > 0).map((cat) => {
+    const limit = state.money.limits![cat]!;
+    const used = state.expenses.filter((e) => e.cat === cat && e.day >= from && e.day <= today).reduce((a, e) => a + e.amount, 0);
+    return { cat, limit, used, pct: used / limit };
+  });
+}
+
+/** what crossing a limit with a new expense means — for the toast right after logging it */
+export function limitNote(state: AppState, cat: ExpenseCat, amount: number, now = Date.now()): string | undefined {
+  const l = catLimits(state, now).find((x) => x.cat === cat);
+  if (!l) return undefined;
+  const before = l.used - amount;
+  const name = catInfo(cat).label;
+  if (l.used > l.limit && before <= l.limit) return L(`⚠️ تجاوزت حد ${name} (${fmtMoney(l.limit)}) هالشهر`, `⚠️ Over your ${name} limit (${fmtMoney(l.limit)}) this month`);
+  if (l.used > l.limit) return L(`⚠️ أنت فوق حد ${name} بـ${fmtMoney(l.used - l.limit)}`, `⚠️ ${fmtMoney(l.used - l.limit)} over your ${name} limit`);
+  if (l.pct >= 0.8 && before / l.limit < 0.8) return L(`قربت من حد ${name}: باقي ${fmtMoney(Math.max(0, l.limit - l.used))}`, `Close to your ${name} limit: ${fmtMoney(Math.max(0, l.limit - l.used))} left`);
+  return undefined;
+}
+
+/** days without spending this budget month (today not counted until it's over), and the current run */
+export function noSpend(state: AppState, now = Date.now()) {
+  const today = todayKey(now);
+  const { from } = cycle(state, today);
+  const spent = new Set(state.expenses.filter((e) => e.source !== 'sub').map((e) => e.day));
+  // only count from the first day anything was logged — before that it's "no data", not "no spending"
+  const first = state.expenses.reduce((m, e) => (e.day < m ? e.day : m), today);
+  let days = 0;
+  for (let d = from > first ? from : first; d < today; d = addDays(d, 1)) if (!spent.has(d)) days++;
+  let streak = 0;
+  for (let d = addDays(today, -1); d >= first && !spent.has(d); d = addDays(d, -1)) streak++;
+  return { days, streak };
+}
+
+/** bills and subscriptions renewing within `within` days */
+export function upcomingBills(state: AppState, now = Date.now(), within = 7) {
+  const today = todayKey(now);
+  const end = addDays(today, within);
+  return [...state.subs].filter((x) => x.next >= today && x.next <= end).sort((a, b) => a.next.localeCompare(b.next));
+}
+
+/** a realistic budget from the last three budget months: their average, trimmed a little */
+export function suggestBudget(state: AppState, now = Date.now()) {
+  const today = todayKey(now);
+  const totals: number[] = [];
+  // a month only counts if logging had started by its first few days — a half-logged month looks cheap
+  const first = state.expenses.reduce((m, e) => (e.day < m ? e.day : m), today);
+  let ref = addDays(cycle(state, today).from, -1);
+  for (let i = 0; i < 3; i++) {
+    const c = cycle(state, ref);
+    const t = sumRange(state.expenses, c.from, c.to);
+    if (t > 0 && first <= addDays(c.from, 3)) totals.push(t);
+    ref = addDays(c.from, -1);
+  }
+  if (!totals.length) return undefined;
+  const avg = totals.reduce((a, x) => a + x, 0) / totals.length;
+  return { avg, suggest: Math.max(50, Math.round((avg * 0.92) / 50) * 50) };
 }

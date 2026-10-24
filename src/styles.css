@@ -3248,3 +3248,21 @@ h3 {
 .sg-b b { font-size: 10.5px; line-height: 1.2; }
 .sg-b span { font-size: 9.5px; opacity: .85; }
 @media (min-width: 900px) { .sg-b b { font-size: 12.5px; } .sg-b span { font-size: 11px; } .sg-head span { font-size: 13px; } }
+
+/* spending: badges, limits, suggestion */
+.m-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.m-badges > * { padding: 7px 12px; border-radius: 14px; font-size: 12.5px; font-weight: 700; background: var(--surface); border: 1px solid var(--glass-border); color: var(--text); }
+.m-limits { display: block; padding: 8px 16px; width: 100%; text-align: start; color: inherit; }
+.m-limits .lr { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.m-limits .lr:last-child { border-bottom: 0; }
+.m-limits .h { display: flex; justify-content: space-between; font-size: 13.5px; }
+.m-limits .h span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.m-limits .h span.bad { color: var(--red); }
+.m-limits .bar { height: 8px; border-radius: 4px; background: var(--track); margin-top: 6px; overflow: hidden; }
+.m-limits .bar i { display: block; height: 100%; border-radius: 4px; }
+.m-sug { position: relative; z-index: 1; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.m-lim-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.m-lim-grid label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.m-lim-grid label span { flex: 1; white-space: nowrap; }
+.m-lim-grid .input { width: 76px; height: 36px; padding: 0 8px; text-align: center; }
+.toast > span:first-child, .toast .grow { white-space: pre-line; }

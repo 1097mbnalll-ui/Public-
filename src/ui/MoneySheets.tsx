@@ -6,7 +6,8 @@ import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, addMonths, fmtDate, todayKey } from '../lib/dates';
-import { CAT_ORDER, catInfo, fmtMoney, guessCat, parseBankSms, parseExpense } from '../lib/engine/money';
+import { CAT_ORDER, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, suggestBudget } from '../lib/engine/money';
+import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
 import { L } from '../lib/i18n';
 
@@ -68,7 +69,8 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
     }
     A.addExpense({ ...data, ...(day === today ? { time: nowTime() } : {}) });
     closeSheet();
-    toast(L(`سُجّل ${fmtMoney(amount)} · ${catInfo(cat).label}`, `Logged ${fmtMoney(amount)} · ${catInfo(cat).label}`), { undoable: true });
+    const warn = limitNote(getState(), cat, amount);
+    toast(L(`سُجّل ${fmtMoney(amount)} · ${catInfo(cat).label}`, `Logged ${fmtMoney(amount)} · ${catInfo(cat).label}`) + (warn ? `\n${warn}` : ''), { undoable: true, ms: warn ? 7000 : undefined });
   };
 
   return (
@@ -218,28 +220,64 @@ export function SmsSheet() {
   );
 }
 
-/** monthly budget + savings goal */
+/** monthly budget, payday, category limits + savings goal */
 export function MoneySettingsSheet() {
   const s = useApp();
   const [budget, setBudget] = useState<number | undefined>(s.money.budget);
+  const [payday, setPayday] = useState<number | undefined>(s.money.payday);
+  const [limits, setLimits] = useState<Partial<Record<ExpenseCat, number>>>(s.money.limits || {});
   const [goalName, setGoalName] = useState(s.money.goal?.name || '');
   const [target, setTarget] = useState<number | undefined>(s.money.goal?.target);
   const [saved, setSaved] = useState<number | undefined>(s.money.goal?.saved);
+  const sug = suggestBudget(s);
+  // the categories you actually spend on come first
+  const spent = new Map<ExpenseCat, number>();
+  for (const e of s.expenses) spent.set(e.cat, (spent.get(e.cat) || 0) + e.amount);
+  const cats = [...CAT_ORDER].filter((c) => c !== 'other').sort((x, y) => (spent.get(y) || 0) - (spent.get(x) || 0));
   return (
     <Sheet
       title={L('الميزانية والهدف', 'Budget & goal')}
       onClose={closeSheet}
       footer={<button className="btn primary grow" onClick={() => {
         A.setBudget(budget);
+        const clean = Object.fromEntries(Object.entries(limits).filter(([, v]) => v && v > 0));
+        A.updateMoney({ payday: payday && payday >= 1 && payday <= 31 ? payday : undefined, limits: Object.keys(clean).length ? clean : undefined });
         A.setGoal(goalName.trim() && target ? { name: goalName.trim(), target, saved: saved || 0 } : undefined);
         closeSheet();
       }}>{L('حفظ', 'Save')}</button>}
     >
       <div className="fields">
+        <div className="fields two">
+          <div className="field">
+            <label>{L('ميزانية الشهر', 'Monthly budget')}</label>
+            <NumInput value={budget} min={0} onChange={setBudget} suffix={L('ر.س', 'SAR')} placeholder={L('مثلًا 4500', 'e.g. 4500')} />
+          </div>
+          <div className="field">
+            <label>💰 {L('يوم الراتب', 'Payday')}</label>
+            <NumInput value={payday} min={1} onChange={setPayday} placeholder={L('مثلًا 27', 'e.g. 27')} />
+          </div>
+        </div>
+        {sug && budget !== sug.suggest && (
+          <div className="m-tip">🤖 {L(`متوسط صرفك ${fmtNum(sug.avg)} بالشهر — أقترح ${fmtNum(sug.suggest)} وتوفر ${fmtNum(Math.max(0, sug.avg - sug.suggest))}.`, `You average ${fmtNum(sug.avg)} a month — try ${fmtNum(sug.suggest)} and save ${fmtNum(Math.max(0, sug.avg - sug.suggest))}.`)}{' '}
+            <button className="m-link" style={{ padding: 0 }} onClick={() => setBudget(sug.suggest)}>{L('استخدمه', 'Use it')}</button>
+          </div>
+        )}
+        <div className="faint tiny">{L('مع يوم الراتب، شهرك يبدأ يوم الراتب ويخلص قبل الراتب الجاي، وحدّ اليوم ينحسب على الأيام الباقية له.', 'With a payday, your month runs from one payday to the next and the daily limit spreads over the days left.')}</div>
+        <div className="divider" />
         <div className="field">
-          <label>{L('ميزانية الشهر', 'Monthly budget')}</label>
-          <NumInput value={budget} min={0} onChange={setBudget} suffix={L('ر.س', 'SAR')} placeholder={L('مثلًا 4500', 'e.g. 4500')} />
-          <div className="faint tiny">{L('منها أحسب كم تقدر تصرف كل يوم.', "I use it to work out what you can spend each day.")}</div>
+          <label>{L('حد لكل تصنيف بالشهر (اختياري)', 'Monthly limit per category (optional)')}</label>
+          <div className="m-lim-grid">
+            {cats.map((c) => (
+              <label key={c}>
+                <span>{catInfo(c).emoji} {catInfo(c).label}</span>
+                <input className="input" inputMode="numeric" value={limits[c] ?? ''} placeholder="—" onChange={(e) => {
+                  const v = Number(e.target.value.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))));
+                  setLimits({ ...limits, [c]: e.target.value === '' || isNaN(v) ? undefined : v });
+                }} />
+              </label>
+            ))}
+          </div>
+          <div className="faint tiny">{L('أنبهك لما تقرب (80%) ولما تتجاوز.', "I'll warn you at 80% and when you go over.")}</div>
         </div>
         <div className="divider" />
         <div className="field">
@@ -268,15 +306,16 @@ export function SubSheet({ id }: { id?: string }) {
   const [name, setName] = useState(existing?.name || '');
   const [amount, setAmount] = useState<number | undefined>(existing?.amount);
   const [cycle, setCycle] = useState<'month' | 'year'>(existing?.cycle || 'month');
+  const [kind, setKind] = useState<'sub' | 'bill'>(existing?.kind || 'sub');
   const [next, setNext] = useState(existing?.next || addMonths(today, 1));
   return (
     <Sheet
-      title={existing ? existing.name : L('اشتراك جديد', 'New subscription')}
+      title={existing ? existing.name : L('اشتراك أو فاتورة', 'Subscription or bill')}
       onClose={closeSheet}
       footer={
         <>
           <button className="btn primary grow" disabled={!name.trim() || !amount} onClick={() => {
-            A.saveSub({ id, name: name.trim(), amount: amount || 0, cycle, next, lastUsed: existing?.lastUsed ?? today });
+            A.saveSub({ id, name: name.trim(), amount: amount || 0, cycle, next, kind, lastUsed: existing?.lastUsed ?? today });
             closeSheet();
           }}>{L('حفظ', 'Save')}</button>
           {existing && <button className="btn danger" onClick={() => { A.deleteSub(existing.id); closeSheet(); toast(L('حُذف الاشتراك', 'Subscription removed'), { undoable: true }); }}><Icon name="trash" size={15} /></button>}
@@ -284,7 +323,8 @@ export function SubSheet({ id }: { id?: string }) {
       }
     >
       <div className="fields">
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={L('شاهد، سبوتيفاي، iCloud…', 'Netflix, Spotify, iCloud…')} autoFocus />
+        <Seg value={kind} onChange={setKind} options={[{ v: 'sub', l: L('📺 اشتراك', '📺 Subscription') }, { v: 'bill', l: L('💡 فاتورة', '💡 Bill') }]} />
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === 'bill' ? L('الجوال، الإيجار، الكهرباء…', 'Phone, rent, electricity…') : L('شاهد، سبوتيفاي، iCloud…', 'Netflix, Spotify, iCloud…')} autoFocus />
         <div className="fields two">
           <div className="field">
             <label>{L('المبلغ', 'Amount')}</label>
@@ -297,7 +337,7 @@ export function SubSheet({ id }: { id?: string }) {
         </div>
         <Seg value={cycle} onChange={setCycle} options={[{ v: 'month', l: L('شهري', 'Monthly') }, { v: 'year', l: L('سنوي', 'Yearly') }]} />
         <div className="faint tiny">{L('يوم التجديد يتسجّل المبلغ تلقائيًا في مصاريفك.', 'On renewal day the charge is logged in your expenses automatically.')}</div>
-        {existing && (
+        {existing && kind === 'sub' && (
           <button className="btn" onClick={() => { A.markSubUsed(existing.id); closeSheet(); toast(L('تمام — سجّلت إنك تستخدمه', "Got it — marked as used")); }}>
             <Icon name="check" size={15} /> {L('استخدمته مؤخرًا', 'I used it recently')}
           </button>

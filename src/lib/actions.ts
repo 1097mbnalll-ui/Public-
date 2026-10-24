@@ -9,6 +9,7 @@ import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
 import { L } from './i18n';
 import { CAT_ORDER, guessCat } from './engine/money';
+import { readSchedule } from './engine/schedule';
 
 const now = () => Date.now();
 
@@ -601,6 +602,8 @@ export interface PackExpense {
 }
 
 export interface CoursePack {
+  /** weekly lectures / shifts */
+  schedule?: Omit<ClassBlock, 'id' | 'createdAt'>[];
   tasks?: PackTask[];
   expenses?: PackExpense[];
   course?: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
@@ -630,10 +633,11 @@ export function readCoursePack(raw: any): CoursePack {
       const title = typeof e.title === 'string' ? e.title.trim().slice(0, 100) : '';
       return { title, amount: Math.round(Number(e.amount) * 100) / 100, day: day.test(e.date || e.day) ? e.date || e.day : todayKey(), cat: CAT_ORDER.includes(e.cat) ? e.cat : guessCat(title) };
     });
+  const schedule = readSchedule(raw?.schedule || []);
   const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
-  if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length && !expenses.length))
+  if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length && !expenses.length && !schedule.length))
     throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
-  const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}) };
+  const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}), ...(schedule.length ? { schedule } : {}) };
   if (!hasCourse) return { ...extra, units: [] };
   const units = raw.units
     .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
@@ -643,7 +647,8 @@ export function readCoursePack(raw: any): CoursePack {
 }
 
 /** adds a course with its units (and exam) without touching anything else */
-export function importCoursePack(p: CoursePack): string {
+export function importCoursePack(p: CoursePack, replaceSchedule = true): string {
+  if (p.schedule?.length) setSchedule(p.schedule, replaceSchedule);
   for (const { steps, ...t } of p.tasks || [])
     addTask({ ...t, notes: t.notes || '', checklist: (steps || []).map((title) => ({ id: uid(), title, done: false })) });
   if (p.expenses?.length) addExpenses(p.expenses.map((e) => ({ ...e, source: 'import' as const })));
@@ -732,6 +737,12 @@ export function setBudget(budget: number | undefined) {
   });
 }
 
+export function updateMoney(patch: Partial<MoneyState>) {
+  mutate((s) => {
+    Object.assign(s.money, patch);
+  });
+}
+
 export function setGoal(goal: MoneyState['goal']) {
   mutate((s) => {
     s.money.goal = goal && goal.name.trim() && goal.target > 0 ? goal : undefined;
@@ -783,7 +794,7 @@ export function processSubs(today = todayKey()) {
     for (const sub of s.subs) {
       let guard = 0;
       while (sub.next <= today && guard++ < 36) {
-        s.expenses.push({ id: uid(), title: sub.name, amount: sub.amount, cat: 'subs', day: sub.next, source: 'sub', createdAt: now() });
+        s.expenses.push({ id: uid(), title: sub.name, amount: sub.amount, cat: sub.kind === 'bill' ? 'bills' : 'subs', day: sub.next, source: 'sub', createdAt: now() });
         sub.next = sub.cycle === 'year' ? addMonths(sub.next, 12) : addMonths(sub.next, 1);
       }
     }

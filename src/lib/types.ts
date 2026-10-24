@@ -318,6 +318,8 @@ export interface Subscription {
   cycle: 'month' | 'year';
   /** next renewal day — on that day the charge is logged as an expense */
   next: string;
+  /** a bill (phone, rent…) is never “unused” */
+  kind?: 'sub' | 'bill';
   /** last day the user said they used it */
   lastUsed?: string;
   createdAt: number;
@@ -332,6 +334,10 @@ export interface MoneyState {
   swaps: Record<string, string>;
   /** fingerprints of bank messages already imported */
   smsSeen?: string[];
+  /** day of the month the salary comes in — the budget month runs payday to payday */
+  payday?: number;
+  /** monthly limit per category */
+  limits?: Partial<Record<ExpenseCat, number>>;
 }
 
 export interface AppState {

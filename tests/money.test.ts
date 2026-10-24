@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
 import { atTime } from '../src/lib/dates';
-import { guessCat, moneyToday, parseBankSms, parseExpense, report, suggestions, weekStrip } from '../src/lib/engine/money';
+import { catLimits, cycle, guessCat, limitNote, moneyToday, noSpend, suggestBudget, parseBankSms, parseExpense, report, suggestions, weekStrip } from '../src/lib/engine/money';
 import type { AppState, Expense } from '../src/lib/types';
 
 // Saturday 2026-10-24, 12:00 local
@@ -112,5 +112,47 @@ On: 2026-10-23 07:30`;
     expect(out).toHaveLength(2);
     expect(out[0]).toMatchObject({ amount: 24, title: 'STARBUCKS', day: '2026-10-24', time: '09:10', cat: 'coffee' });
     expect(out[1]).toMatchObject({ amount: 60.5, title: 'ALDREES', day: '2026-10-23', cat: 'transport' });
+  });
+});
+
+describe('budget month, limits and habits', () => {
+  it('runs payday to payday', () => {
+    const s: AppState = initialState();
+    s.money.payday = 27;
+    expect(cycle(s, '2026-10-24')).toMatchObject({ from: '2026-09-27', to: '2026-10-26', days: 30 });
+    expect(cycle(s, '2026-10-27')).toMatchObject({ from: '2026-10-27', to: '2026-11-26' });
+    s.money.payday = 31; // short months use their last day
+    expect(cycle(s, '2026-10-24')).toMatchObject({ from: '2026-09-30', to: '2026-10-30' });
+    s.money.budget = 3000;
+    s.money.payday = 27;
+    const m = moneyToday(s, NOW);
+    expect(m.daysLeft).toBe(3); // 24, 25, 26
+    expect(m.dailyLine).toBe(100);
+  });
+
+  it('warns when a category limit is near or crossed', () => {
+    const s: AppState = initialState();
+    s.money.limits = { coffee: 100 };
+    s.expenses.push(ex({ cat: 'coffee', amount: 70 }));
+    expect(limitNote(s, 'coffee', 70, NOW)).toBeUndefined();
+    s.expenses.push(ex({ cat: 'coffee', amount: 15 }));
+    expect(limitNote(s, 'coffee', 15, NOW)).toContain('قربت');
+    s.expenses.push(ex({ cat: 'coffee', amount: 20 }));
+    expect(limitNote(s, 'coffee', 20, NOW)).toContain('تجاوزت');
+    expect(catLimits(s, NOW)[0]).toMatchObject({ cat: 'coffee', used: 105, limit: 100 });
+  });
+
+  it('counts days without spending and the current run', () => {
+    const s: AppState = initialState();
+    s.expenses.push(ex({ day: '2026-10-18' }), ex({ day: '2026-10-21' }));
+    // 19, 20, 22, 23 had nothing; the run is 22–23
+    expect(noSpend(s, NOW)).toEqual({ days: 4, streak: 2 });
+  });
+
+  it('suggests a budget from the last months', () => {
+    const s: AppState = initialState();
+    s.expenses.push(ex({ amount: 4000, day: '2026-09-10' }), ex({ amount: 3600, day: '2026-08-01' }), ex({ amount: 500, day: '2026-07-20' }));
+    // July was only half logged, so it doesn't count
+    expect(suggestBudget(s, NOW)).toEqual({ avg: 3800, suggest: 3500 });
   });
 });
