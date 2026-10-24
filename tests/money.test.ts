@@ -75,6 +75,9 @@ Purchase SAR 18 at DUNKIN
       ['2026-10-23', '08:00', 18, 'DUNKIN', 'coffee'],
     ]);
     expect(parseBankSms(file + '2026-10-24 10:00\nPurchase SAR 5 at X\n---', NOW)[0].key).toBe(out[0].key);
+    // the same file without the «---» lines
+    const bare = parseBankSms(file.replace(/---\n/g, ''), NOW);
+    expect(bare.map((o) => [o.day, o.amount])).toEqual([['2026-10-22', 45.5], ['2026-10-23', 18]]);
   });
 
   it('reads purchases and skips income', () => {

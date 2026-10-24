@@ -495,6 +495,8 @@ export function parseBankSms(text: string, now = Date.now()) {
   const clean = toWestern(text).replace(/٫/g, '.').replace(/\r/g, '');
   // the Shortcuts automation separates messages with a «---» line; pasted ones are split on blank lines
   let chunks = clean.split(/\n\s*-{3,}\s*(?=\n|$)/).map((c) => c.trim()).filter(Boolean);
+  // no «---»? each saved message still starts with its own date line (2026-10-24 17:26)
+  if (chunks.length === 1) chunks = clean.split(/\n(?=\s*\d{4}-\d{1,2}-\d{1,2}[ T]\d{1,2}:\d{2}\s*\n)/).map((c) => c.trim()).filter(Boolean);
   if (chunks.length === 1) chunks = clean.split(/\n\s*\n/).map((c) => c.trim()).filter(Boolean);
   if (chunks.length === 1) chunks = clean.split(/(?=(?:^|\n)\s*(?:شراء|purchase|pos|مدفوعات|سداد|عملية))/i).map((c) => c.trim()).filter(Boolean);
   const today = todayKey(now);
