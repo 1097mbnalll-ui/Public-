@@ -3062,3 +3062,6 @@ h3 {
 .lesson-notes p { margin: 2px 0; }
 .lesson-notes .ln-b { position: relative; padding-inline-start: 14px; margin: 2px 0; }
 .lesson-notes .ln-b::before { content: '•'; position: absolute; inset-inline-start: 0; opacity: .6; }
+
+.group-title .paste-link { margin-inline-start: auto; margin-inline-end: 14px; opacity: .75; }
+.empty .paste-link { display: block; margin: 10px auto 0; background: none; border: 0; color: inherit; text-decoration: underline; }

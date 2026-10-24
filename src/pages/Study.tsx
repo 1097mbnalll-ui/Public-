@@ -8,7 +8,7 @@ import { planStudy, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/en
 import { studyCapFor } from '../lib/engine/capacity';
 import { coursePace } from '../lib/engine/learning';
 import { openSheet } from '../ui/sheets';
-import { go, useRoute } from '../ui/router';
+import { go, openPastedLink, useRoute } from '../ui/router';
 import { LessonRow, examSentence, parseUnitLines } from '../ui/StudySheets';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
@@ -60,6 +60,7 @@ function StudyOverview() {
         <div className="card">
           <Empty icon="study" title={L("أضف موادك واختباراتك", "Add your courses and exams")}>{L("أدخل المادة ودروسها وحجم كل درس، ثم موعد الاختبار. سأحسب كم تذاكر يوميًا، ومتى تبدأ، وأنبهك مبكرًا إن لم يكفِ الوقت.", "Enter the course, its lessons and their size, then the exam date. I'll work out how much to study each day, when to start, and warn you early if time runs short.")}<div style={{ marginTop: 14 }}>
               <button className="btn primary" onClick={() => openSheet({ type: 'course' })}><Icon name="plus" size={16} />{L(" أول مادة", " First course")}</button>
+              <PasteLink />
             </div>
           </Empty>
         </div>
@@ -75,7 +76,7 @@ function StudyOverview() {
             <div className="card"><Empty icon="flag" title={L("لا اختبارات قادمة", "No upcoming exams")}>{L("أضف موعد اختبار وستظهر حصتك اليومية فورًا.", "Add an exam date and your daily quota appears right away.")}<div style={{ marginTop: 12 }}><button className="btn sm" onClick={() => openSheet({ type: 'exam' })}>{L("أضف اختبار", "Add exam")}</button></div></Empty></div>
           )}
 
-          <Group title={L("المواد", "Courses")} action={<button onClick={() => openSheet({ type: 'course' })}>{L("+ مادة", "+ Course")}</button>}>
+          <Group title={L("المواد", "Courses")} action={<><PasteLink /><button onClick={() => openSheet({ type: 'course' })}>{L("+ مادة", "+ Course")}</button></>}>
             {courses.map((c) => {
               const units = s.units.filter((u) => u.courseId === c.id);
               const total = units.reduce((a, u) => a + u.size, 0);
@@ -316,5 +317,14 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
       )}
       <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L("الحصة = المتبقي ÷ الأيام الباقية قبل أيام المراجعة. إذا ذاكرت أقل من حصتك، يتوزع الباقي على الأيام التالية فتكبر حصتها.", "Quota = what's left ÷ days left before the review days. Study less than your quota and the rest spreads over the following days, making them bigger.")}</p>
     </section>
+  );
+}
+
+/** paste a course link inside the installed app (iPhone opens tapped links in Safari, with separate data) */
+function PasteLink() {
+  return (
+    <button className="paste-link" onClick={async () => { if (!(await openPastedLink())) toast(L('ما لقيت رابط مادة صالح.', "That isn't a valid course link.")); }}>
+      {L('لصق رابط', 'Paste link')}
+    </button>
   );
 }
