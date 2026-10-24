@@ -17,7 +17,7 @@ import { initialState } from '../lib/defaults';
 import { exportUI } from '../ui/ops';
 import { toast } from '../ui/toast';
 import { L } from '../lib/i18n';
-import { THEMES } from '../lib/themes';
+import { AUTO, THEMES } from '../lib/themes';
 import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
 import { useSyncConf } from '../lib/sync';
 
@@ -91,6 +91,12 @@ export function Settings() {
 
       <Section title={L("الألوان", "Colours")} desc={L("اختر الألوان اللي ترتاح لها — تتغير فورًا وتنحفظ مع بياناتك.", "Pick the colours you like — they change instantly and are saved with your data.")}>
         <div className="themes">
+          <button className={`theme-opt ${st.theme === AUTO ? 'on' : ''}`} onClick={() => A.updateSettings({ theme: AUTO })} aria-pressed={st.theme === AUTO}>
+            <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${THEMES[0].bg[0]} 50%, ${THEMES[6].bg[0]} 50%)` }}>
+              <Icon name="moon" size={16} style={{ color: THEMES[0].accent }} />
+            </span>
+            {L('حسب الجهاز', 'Match device')}
+          </button>
           {THEMES.map((t) => (
             <button key={t.id} className={`theme-opt ${st.theme === t.id ? 'on' : ''}`} onClick={() => A.updateSettings({ theme: t.id })} aria-pressed={st.theme === t.id}>
               <span className="theme-swatch" style={{ background: `linear-gradient(150deg, ${t.bg[0]}, ${t.bg[1]} 55%, ${t.bg[2]})` }}>

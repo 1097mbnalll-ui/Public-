@@ -4,7 +4,7 @@ const CACHE = 'masar-' + '__VERSION__';
 const BUILT = [] /* __PRECACHE__ */;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', ...BUILT])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './theme-boot.js', ...BUILT])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -18,10 +18,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const sameOrigin = url.origin === location.origin;
-  const isFont = url.hostname.includes('fonts.g');
-  if (!sameOrigin && !isFont) return;
+  if (!sameOrigin) return;
   // data files (course packages…) must always be fresh: network only
-  if (sameOrigin && url.pathname.endsWith('.json')) return;
+  if (url.pathname.endsWith('.json')) return;
 
   // pages: the network when online; offline, the index.html cached with this version's own files
   // (never one written by an older worker, which would point at files it doesn't have)

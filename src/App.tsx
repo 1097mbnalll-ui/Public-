@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { applyTheme } from './lib/themes';
+import { applyTheme, AUTO } from './lib/themes';
 import { Icon } from './ui/Icon';
 import { useApp } from './lib/store';
 import { useRoute, go } from './ui/router';
@@ -56,6 +56,13 @@ export function App() {
   const lng = s.settings.lang;
   const theme = s.settings.theme;
   useLayoutEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => {
+    if (theme !== AUTO) return;
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => applyTheme(theme);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [theme]);
   useEffect(() => {
     document.documentElement.lang = lng === 'en' ? 'en' : 'ar';
     document.documentElement.dir = lng === 'en' ? 'ltr' : 'rtl';
@@ -134,7 +141,7 @@ export function App() {
         <div className="brand">
           <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
         <button className="btn primary block side-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })}>
-          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(255,255,255,.4)', color: 'rgba(255,255,255,.85)' }}>N</span>
+          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'currentColor', color: 'inherit', opacity: 0.8 }}>N</span>
         </button>
         {NAV.map((n) => (
           <button key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>

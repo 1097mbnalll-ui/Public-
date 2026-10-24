@@ -31,20 +31,45 @@ export const THEMES: Theme[] = [
   { id: 'ocean', dark: true, get name() { return L('بحري', 'Ocean'); }, bg: ['#0E1A2A', '#14223D', '#0C2A2C'], blobs: ['#2A6FD6', '#1FA59A'], accent: '#4FC7D9', accent2: '#6F95FF', pop: '#5EE0B4', text: '#E6F1F5', sheet: '#14202F' },
 ];
 
-export const DEFAULT_THEME = 'lavender';
-export const getTheme = (id?: string) => THEMES.find((t) => t.id === id) || THEMES[0];
+/** 'auto' follows the device: Lavender by day, Night when the system is dark */
+export const AUTO = 'auto';
+const systemDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
+export const getTheme = (id?: string) => (id === AUTO ? THEMES.find((t) => t.id === (systemDark() ? 'night' : 'lavender'))! : THEMES.find((t) => t.id === id) || THEMES[0]);
 
-const rgb = (hex: string) => {
+const channels = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
+const rgb = (hex: string) => channels(hex).join(', ');
 const a = (hex: string, alpha: number) => `rgba(${rgb(hex)}, ${alpha})`;
 
-export function themeVars(t: Theme): Record<string, string> {
-  const d = !!t.dark;
+const luminance = (hex: string) => {
+  const [r, g, b] = channels(hex).map((c) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+export const contrast = (x: string, y: string) => {
+  const [hi, lo] = [luminance(x), luminance(y)].sort((p, q) => q - p);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** darkens a colour just enough for white text on it (or it on white) to reach the 4.5:1 reading minimum */
+export function readable(hex: string, min = 4.5): string {
+  let c = channels(hex);
+  const hexOf = (v: number[]) => '#' + v.map((x) => Math.round(x).toString(16).padStart(2, '0')).join('');
+  for (let i = 0; i < 40 && contrast(hexOf(c), '#FFFFFF') < min; i++) c = c.map((x) => x * 0.96);
+  return hexOf(c).toUpperCase();
+}
+
+export function themeVars(theme: Theme): Record<string, string> {
+  const d = !!theme.dark;
+  // light themes: accents dark enough for white button text and for accent-coloured text
+  const t = d ? theme : { ...theme, accent: readable(theme.accent), accent2: readable(theme.accent2) };
   const status = d
     ? { green: '#52D396', amber: '#FFB547', red: '#FF6B81', violet: '#B892FF' }
-    : { green: '#14A06B', amber: '#C27A06', red: '#DD3D5C', violet: '#8656E8' };
+    : { green: readable('#14A06B'), amber: readable('#C27A06'), red: readable('#DD3D5C'), violet: readable('#8656E8') };
   const white = '#FFFFFF';
   return {
     '--g1': t.bg[0],
@@ -65,7 +90,7 @@ export function themeVars(t: Theme): Record<string, string> {
     '--track': a(t.text, d ? 0.1 : 0.08),
     '--text': t.text,
     '--muted': a(t.text, d ? 0.72 : 0.68),
-    '--faint': a(t.text, d ? 0.48 : 0.46),
+    '--faint': a(t.text, d ? 0.6 : 0.6),
     '--accent': t.accent,
     '--accent-2': t.accent2,
     '--accent-soft': a(t.accent, d ? 0.18 : 0.11),
@@ -74,7 +99,8 @@ export function themeVars(t: Theme): Record<string, string> {
     '--grad': `linear-gradient(135deg, ${t.accent}, ${t.accent2})`,
     '--grad-pop': `linear-gradient(135deg, ${t.accent}, ${t.pop})`,
     '--glow': `0 8px 22px ${a(t.accent, d ? 0.4 : 0.32)}`,
-    '--on-accent': white,
+    // dark themes have light accents: dark text reads on them, white doesn't
+    '--on-accent': d ? t.sheet || t.bg[0] : white,
     '--green': status.green,
     '--green-soft': a(status.green, 0.14),
     '--amber': status.amber,
@@ -92,7 +118,7 @@ export function themeVars(t: Theme): Record<string, string> {
     '--backdrop': d ? 'rgba(0, 0, 0, 0.5)' : a(t.text, 0.22),
     '--shadow': d ? '0 20px 60px rgba(0, 0, 0, 0.5)' : `0 20px 50px ${a(t.text, 0.14)}`,
     '--shadow-soft': d ? '0 8px 24px rgba(0, 0, 0, 0.25)' : `0 10px 30px ${a(t.accent, 0.08)}`,
-    '--focus-bg': d ? t.bg[0] : t.bg[0],
+    '--focus-bg': t.bg[0],
     'color-scheme': d ? 'dark' : 'light',
   };
 }
@@ -104,4 +130,10 @@ export function applyTheme(id?: string) {
   root.dataset.theme = t.id;
   root.dataset.dark = t.dark ? '1' : '0';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.bg[0]);
+  // read by theme-boot.js on the next load, so a dark theme doesn't flash light first
+  try {
+    localStorage.setItem('masar.themeBoot', JSON.stringify({ bg: t.bg[0], text: t.text, dark: !!t.dark }));
+  } catch {
+    /* ignore */
+  }
 }
