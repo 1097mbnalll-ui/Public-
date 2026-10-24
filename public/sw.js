@@ -23,23 +23,14 @@ self.addEventListener('fetch', (e) => {
   // data files (course packages…) must always be fresh: network only
   if (sameOrigin && url.pathname.endsWith('.json')) return;
 
+  // pages: the network when online; offline, the index.html cached with this version's own files
+  // (never one written by an older worker, which would point at files it doesn't have)
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          // never let an error page become the offline copy of the app
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put('./index.html', copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match('./index.html')),
-    );
+    e.respondWith(fetch(req).catch(() => caches.open(CACHE).then((c) => c.match('./index.html'))));
     return;
   }
   e.respondWith(
-    caches.match(req).then(
+    caches.match(req, { cacheName: CACHE, ignoreVary: true }).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {

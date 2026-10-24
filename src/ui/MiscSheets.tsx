@@ -12,6 +12,7 @@ import { go } from './router';
 import { completeTaskUI, exportUI } from './ops';
 import type { Area } from '../lib/types';
 import { L } from '../lib/i18n';
+import { shortcutList } from './shortcuts';
 
 export function ReplanSheet() {
   const s = useApp();
@@ -86,6 +87,24 @@ interface PItem {
   run: () => void;
 }
 
+export function ShortcutsSheet() {
+  const touch = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
+  return (
+    <Sheet title={L('اختصارات لوحة المفاتيح', 'Keyboard shortcuts')} onClose={closeSheet}>
+      {touch && <p className="muted small">{L('تعمل مع لوحة مفاتيح موصولة بالجهاز.', 'These work with a keyboard connected to the device.')}</p>}
+      <div className="list">
+        {shortcutList().map((k) => (
+          <div key={k.label} className="item small">
+            <span className="grow">{k.label}</span>
+            <span className="row" style={{ gap: 4 }} dir="ltr">{k.keys.map((x) => <span key={x} className="kbd">{x}</span>)}</span>
+          </div>
+        ))}
+      </div>
+      <p className="faint tiny">{L('تعمل الحروف على لوحة المفاتيح العربية أيضًا: N هي «ى» و/ هي «ظ».', 'Letters work on an Arabic keyboard too: N is «ى» and / is «ظ».')}</p>
+    </Sheet>
+  );
+}
+
 export function Palette() {
   const s = useApp();
   const [q, setQ] = useState('');
@@ -100,8 +119,12 @@ export function Palette() {
       { key: 'c-exam', icon: 'flag', title: L('إضافة اختبار', "Add exam"), run: () => openSheet({ type: 'exam' }) },
       { key: 'c-today', icon: 'today', title: L('اليوم', "Today"), run: () => go('today') },
       { key: 'c-week', icon: 'week', title: L('الأسبوع', "Week"), run: () => go('week') },
-      { key: 'c-ins', icon: 'insights', title: L('ما تعلمته عنك', "What I've learned about you"), run: () => go('insights') },
-      { key: 'c-set', icon: 'settings', title: L('الإعدادات', "Settings"), run: () => go('settings') },
+      { key: 'c-ins', icon: 'insights', title: L('ما تعلمته عنك', "What I've learned about you"), run: () => go('me/insights') },
+      { key: 'c-set', icon: 'settings', title: L('الإعدادات', "Settings"), run: () => go('me') },
+      { key: 'c-tt', icon: 'cal', title: L('جدولي', "My timetable"), run: () => go('schedule') },
+      { key: 'c-sync', icon: 'repeat', title: L('المزامنة بين أجهزتك', "Sync across devices"), run: () => openSheet({ type: 'sync' }) },
+      { key: 'c-move', icon: 'share', title: L('نقل بياناتي لجهاز آخر', "Move my data to another device"), run: () => openSheet({ type: 'transfer' }) },
+      { key: 'c-keys', icon: 'question', title: L('اختصارات لوحة المفاتيح', "Keyboard shortcuts"), sub: '?', run: () => openSheet({ type: 'shortcuts' }) },
       { key: 'c-exp', icon: 'download', title: L('تنزيل نسخة احتياطية', "Download backup"), run: exportUI },
     ];
     if (!q.trim()) return cmds;

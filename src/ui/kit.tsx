@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { L } from '../lib/i18n';
@@ -19,29 +19,50 @@ export function Sheet({
   headExtra?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // Escape while picking an IME suggestion cancels the suggestion, not the sheet
+      if (e.key === 'Escape' && !e.isComposing) {
         e.stopPropagation();
-        onClose();
+        closeRef.current();
+      } else if (e.key === 'Tab' && ref.current) {
+        // keep keyboard focus inside the sheet
+        const els = [...ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.hasAttribute('disabled') && x.offsetParent !== null);
+        if (!els.length) return;
+        const [first, last] = [els[0], els[els.length - 1]];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        } else if (!ref.current.contains(document.activeElement)) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
+    const opener = document.activeElement as HTMLElement | null;
     document.body.style.overflow = 'hidden';
     const first = ref.current?.querySelector<HTMLElement>('[autofocus], input, textarea');
     if (first && matchMedia('(pointer: fine)').matches) first.focus();
     return () => {
       removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
+      opener?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
   return createPortal(
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`sheet ${wide ? 'wide' : ''}`} ref={ref} role="dialog" aria-modal="true">
+      <div className={`sheet ${wide ? 'wide' : ''}`} ref={ref} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1}>
         <div className="sheet-grip" />
         <div className="sheet-head">
-          <h2 className="grow">{title}</h2>
+          <h2 className="grow" id={titleId}>{title}</h2>
           {headExtra}
           <button className="icon-btn" onClick={onClose} aria-label={L("إغلاق", "Close")}>
             <Icon name="x" />
@@ -55,11 +76,11 @@ export function Sheet({
   );
 }
 
-export function Seg<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; l: ReactNode }[]; onChange: (v: T) => void }) {
+export function Seg<T extends string | number>({ value, options, onChange, label }: { value: T; options: { v: T; l: ReactNode }[]; onChange: (v: T) => void; label?: string }) {
   return (
-    <div className="seg" role="tablist">
+    <div className="seg" role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={String(o.v)} className={o.v === value ? 'on' : ''} onClick={() => onChange(o.v)} role="tab" aria-selected={o.v === value}>
+        <button key={String(o.v)} className={o.v === value ? 'on' : ''} onClick={() => onChange(o.v)} role="radio" aria-checked={o.v === value}>
           {o.l}
         </button>
       ))}

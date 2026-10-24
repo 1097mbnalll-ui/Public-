@@ -14,7 +14,7 @@ import { QuickAdd } from './QuickAdd';
 import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
-import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
+import { GoalSheet, Palette, ReplanSheet, ShortcutsSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
@@ -38,6 +38,8 @@ export function SheetHost() {
       return <CourseEditor id={sh.id} />;
     case 'unit':
       return <LessonSheet key={sh.id} id={sh.id} />;
+    case 'shortcuts':
+      return <ShortcutsSheet />;
     case 'palette':
       return <Palette />;
     case 'replan':
@@ -149,30 +151,6 @@ export function openRef(ref: string) {
   const [kind, id] = ref.split('/');
   if (kind === 'task' && id) openSheet({ type: 'task', id });
   else go(ref);
-}
-
-export function useShortcuts() {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        openSheet({ type: 'palette' });
-        return;
-      }
-      const el = e.target as HTMLElement;
-      if (el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector('.sheet')) return;
-      if (e.key === 'n' || e.key === 'ى' || e.key === '+') {
-        e.preventDefault();
-        openSheet({ type: 'quick' });
-      } else if (e.key === '/') {
-        e.preventDefault();
-        openSheet({ type: 'palette' });
-      }
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  }, []);
 }
 
 function Onboarding() {
