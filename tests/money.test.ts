@@ -59,6 +59,20 @@ describe('report', () => {
 });
 
 describe('bank SMS', () => {
+  it('understands the date however the phone formatted it', () => {
+    const msg = 'شراء بمبلغ 10 ريال لدى تجربة';
+    const cases: [string, string, string][] = [
+      ['السبت، ٢٤ أكتوبر ٢٠٢٦ في ٥:٢٦ م', '2026-10-24', '17:26'],
+      ['23 Oct 2026 at 9:05 AM', '2026-10-23', '09:05'],
+      ['October 22, 2026 at 12:10 PM', '2026-10-22', '12:10'],
+      ['21/10/2026, 18:40', '2026-10-21', '18:40'],
+    ];
+    const file = cases.map(([d]) => `${d}\n${msg}`).join('\n');
+    const out = parseBankSms(file, NOW);
+    expect(out.map((o) => [o.day, o.time])).toEqual(cases.map(([, d, t]) => [d, t]));
+    expect(out.every((o) => o.amount === 10 && o.title === 'تجربة')).toBe(true);
+  });
+
   it('reads the Shortcuts file (date line + message + ---) with stable fingerprints', () => {
     const file = `2026-10-22 13:05
 شراء انترنت

@@ -491,12 +491,72 @@ export function smsKey(chunk: string): string {
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + t.length.toString(36);
 }
 
+const MONTHS: [RegExp, number][] = [
+  [/يناير|كانون الثاني|jan(uary)?/i, 1], [/فبراير|شباط|feb(ruary)?/i, 2], [/مارس|آذار|mar(ch)?/i, 3], [/أبريل|ابريل|نيسان|apr(il)?/i, 4],
+  [/مايو|أيار|ايار|may/i, 5], [/يونيو|حزيران|jun(e)?/i, 6], [/يوليو|تموز|jul(y)?/i, 7], [/أغسطس|اغسطس|آب|aug(ust)?/i, 8],
+  [/سبتمبر|أيلول|ايلول|sep(t|tember)?/i, 9], [/أكتوبر|اكتوبر|تشرين الأول|oct(ober)?/i, 10], [/نوفمبر|تشرين الثاني|nov(ember)?/i, 11], [/ديسمبر|كانون الأول|dec(ember)?/i, 12],
+];
+const MONTH_WORD = /(يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر|jan\w*|feb\w*|mar\w*|apr\w*|may|jun\w*|jul\w*|aug\w*|sep\w*|oct\w*|nov\w*|dec\w*)/i;
+
+/** a line that is only a date and a time — how the automation stamps each saved message */
+function isDateLine(ln: string): boolean {
+  const t = ln.trim();
+  if (!t || t.length > 45 || /SAR|ريال|ر\.س|مبلغ|شراء|purchase/i.test(t)) return false;
+  // it must open with the date itself (or a weekday / month name) — «في: 24/10/26 09:10» inside a message doesn't count
+  if (!new RegExp(`^(\\d|السبت|الأحد|الاحد|الإثنين|الاثنين|الثلاثاء|الأربعاء|الاربعاء|الخميس|الجمعة|mon|tue|wed|thu|fri|sat|sun|${MONTH_WORD.source})`, 'i').test(t)) return false;
+  return /\d{1,2}:\d{2}/.test(t) && (/\b20\d{2}\b/.test(t) || /\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/.test(t));
+}
+
+/** the first date and time in a message, in any of the usual phone / bank formats */
+function readWhen(c: string, today: string): { day: string; time?: string } {
+  let day = today;
+  const ok = (y: string, mo: number, d: number) => {
+    const yy = y.length === 2 ? '20' + y : y;
+    const k = `${yy}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return /^\d{4}-\d{2}-\d{2}$/.test(k) && mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && k <= today && k >= addDays(today, -400) ? k : undefined;
+  };
+  const num = c.match(/(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})/);
+  const named = c.match(new RegExp(`(\\d{1,2})\\s+${MONTH_WORD.source}\\s*,?\\s*(\\d{4})|${MONTH_WORD.source}\\s+(\\d{1,2}),?\\s+(\\d{4})`, 'i'));
+  const at = (m: RegExpMatchArray | null) => (m && m.index !== undefined ? m.index : Infinity);
+  if (num && at(num) <= at(named)) {
+    const [y, mo, d] = num[1].length === 4 ? [num[1], num[2], num[3]] : [num[3], num[2], num[1]];
+    day = ok(y, Number(mo), Number(d)) || day;
+  } else if (named) {
+    // «24 أكتوبر 2026» → groups 1-3 · «October 24, 2026» → groups 4-6
+    const d = named[1] || named[5];
+    const word = named[2] || named[4];
+    const y = named[3] || named[6];
+    const mo = MONTHS.find(([re]) => re.test(word))?.[1];
+    if (mo && y) day = ok(y, mo, Number(d)) || day;
+  }
+  const tm = c.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s*(ص|م|صباحًا|صباحا|مساءً|مساء|am|pm)?/i);
+  let time: string | undefined;
+  if (tm) {
+    let h = Number(tm[1]);
+    const ap = (tm[3] || '').toLowerCase();
+    if (/^(م|مساءً|مساء|pm)$/.test(ap) && h < 12) h += 12;
+    if (/^(ص|صباحًا|صباحا|am)$/.test(ap) && h === 12) h = 0;
+    if (h < 24) time = `${String(h).padStart(2, '0')}:${tm[2]}`;
+  }
+  return { day, time };
+}
+
 export function parseBankSms(text: string, now = Date.now()) {
-  const clean = toWestern(text).replace(/٫/g, '.').replace(/\r/g, '');
+  const clean = toWestern(text).replace(/[\u200e\u200f\u061c\u202a-\u202e]/g, '').replace(/٫/g, '.').replace(/\r/g, '');
   // the Shortcuts automation separates messages with a «---» line; pasted ones are split on blank lines
   let chunks = clean.split(/\n\s*-{3,}\s*(?=\n|$)/).map((c) => c.trim()).filter(Boolean);
   // no «---»? each saved message still starts with its own date line (2026-10-24 17:26)
-  if (chunks.length === 1) chunks = clean.split(/\n(?=\s*\d{4}-\d{1,2}-\d{1,2}[ T]\d{1,2}:\d{2}\s*\n)/).map((c) => c.trim()).filter(Boolean);
+  if (chunks.length === 1) {
+    // a line holding only a date + time (in whatever format the phone used) starts a new message
+    const lines = clean.split('\n');
+    const parts: string[] = [];
+    for (const ln of lines) {
+      if (isDateLine(ln) && parts.length && parts[parts.length - 1].trim()) parts.push(ln);
+      else if (parts.length) parts[parts.length - 1] += '\n' + ln;
+      else parts.push(ln);
+    }
+    chunks = parts.map((c) => c.trim()).filter(Boolean);
+  }
   if (chunks.length === 1) chunks = clean.split(/\n\s*\n/).map((c) => c.trim()).filter(Boolean);
   if (chunks.length === 1) chunks = clean.split(/(?=(?:^|\n)\s*(?:شراء|purchase|pos|مدفوعات|سداد|عملية))/i).map((c) => c.trim()).filter(Boolean);
   const today = todayKey(now);
@@ -520,16 +580,10 @@ export function parseBankSms(text: string, now = Date.now()) {
       }
     }
     title = title.replace(/(?:SAR|ر\.?\s?س|ريال|SR)\s*[\d,.]+/gi, '').replace(/\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}.*$/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
-    let day = today;
-    const dm = c.match(/(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})/);
-    if (dm) {
-      let [y, mo, d] = dm[1].length === 4 ? [dm[1], dm[2], dm[3]] : [dm[3], dm[2], dm[1]];
-      if (y.length === 2) y = '20' + y;
-      const k = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(k) && k <= today && k >= addDays(today, -400)) day = k;
-    }
-    const tm = c.match(/\b(\d{1,2}):(\d{2})\b/);
-    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: `${tm[1].padStart(2, '0')}:${tm[2]}` } : {}), cat: guessCat(title), key: smsKey(c) });
+    const when = readWhen(c, today);
+    const day = when.day;
+    const tm = when.time;
+    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: tm } : {}), cat: guessCat(title), key: smsKey(c) });
   }
   return out;
 }
