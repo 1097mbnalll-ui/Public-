@@ -178,7 +178,7 @@ export function SmsSheet() {
       <div className="fields">
         <label className="btn block">
           📂 {L('افتح ملف الرسائل', 'Open the messages file')}
-          <input type="file" accept=".txt,text/plain" hidden onChange={(e) => readFile(e.target.files?.[0])} />
+          <input type="file" hidden onChange={(e) => readFile(e.target.files?.[0])} />
         </label>
         {!fromFile && (
           <>
