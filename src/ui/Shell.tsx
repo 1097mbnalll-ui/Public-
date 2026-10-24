@@ -16,6 +16,7 @@ import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
 import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
+import { AiImportSheet } from './AiImportSheet';
 import { L } from '../lib/i18n';
 
 export function SheetHost() {
@@ -48,6 +49,8 @@ export function SheetHost() {
       return <Onboarding />;
     case 'transfer':
       return <TransferSheet />;
+    case 'ai-import':
+      return <AiImportSheet />;
   }
 }
 

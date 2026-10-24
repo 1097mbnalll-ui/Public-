@@ -100,7 +100,10 @@ export function Tasks() {
       <PageTop
         title={L("المهام", "Tasks")}
         sub={openCount ? L(`${openCount} مفتوحة`, `${openCount} open`) : L('كل ما تريد إنجازه، مرتب حسب الموعد والأهمية', "Everything you want to get done, sorted by date and importance")}
-        actions={<button className="btn sm primary" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>}
+        actions={<>
+          <button className="btn sm ghost" onClick={() => openSheet({ type: 'ai-import' })}>{L('استيراد', 'Import')}</button>
+          <button className="btn sm primary" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>
+        </>}
       />
 
       <div className="col" style={{ gap: 12, marginBottom: 18 }}>

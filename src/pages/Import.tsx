@@ -11,7 +11,7 @@ import { PageTop } from '../ui/PageTop';
 import { L, sz } from '../lib/i18n';
 import { unpackLinkPack } from '../lib/transfer';
 
-/** #/import?src=courses/xxx.json — preview a ready-made course and add it */
+/** #/import?src=courses/xxx.json or ?pack=… — preview a ready-made course and/or tasks and add them */
 export function Import() {
   const s = useApp();
   const route = useRoute();
@@ -48,50 +48,58 @@ export function Import() {
   if (err) return <div><PageTop title={L("استيراد مادة", "Import course")} back={{ label: L('الدراسة', "Study"), to: 'study' }} /><div className="card"><Empty icon="alert" title={err} /></div></div>;
   if (!pack) return <div className="card"><Empty icon="study" title={L("جارٍ التحميل…", "Loading…")} /></div>;
 
+  const course = pack.course;
+  const tasks = pack.tasks || [];
   const total = pack.units.reduce((a, u) => a + u.size, 0);
-  const existing = s.courses.find((c) => c.name.trim() === pack.course.name.trim());
+  const existing = course && s.courses.find((c) => c.name.trim() === course.name.trim());
   const pastDate = !!examDate && examDate < todayKey();
   const add = (replace = false) => {
     if (replace && existing) deleteCourse(existing.id);
-    const exam = examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, time: examTime, reviewDays } : undefined;
+    const exam = course && examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, time: examTime, reviewDays } : undefined;
     const id = importCoursePack({ ...pack, exam });
-    const examId = getState().exams.find((e) => e.courseId === id)?.id;
-    toast((examId && quotaMessage(examId)) || L(`أُضيفت ${pack.course.name}`, `Added ${pack.course.name}`), { ms: 8000 });
-    go(`study/${id}`);
+    const examId = id && getState().exams.find((e) => e.courseId === id)?.id;
+    const tasksMsg = tasks.length ? L(`أُضيفت ${tasks.length} مهام`, `Added ${tasks.length} tasks`) : '';
+    toast((examId && quotaMessage(examId)) || (course ? L(`أُضيفت ${course.name}`, `Added ${course.name}`) : tasksMsg), { ms: 8000 });
+    go(id ? `study/${id}` : 'tasks');
   };
+  const unitWord = course?.sizeLabel === 'دقيقة فيديو' || course?.sizeLabel === 'دقيقة';
 
   return (
     <div>
       <PageTop
-        back={{ label: L('الدراسة', "Study"), to: 'study' }}
-        title={pack.course.name}
-        sub={L(`${pack.units.length} دروس · ${total} ${sz(pack.course.sizeLabel)} ≈ ${fmtMinutes(total * (pack.course.paceGuess || 1))}`, `${pack.units.length} lessons · ${total} ${pack.course.sizeLabel || 'pages'} ≈ ${fmtMinutes(total * (pack.course.paceGuess || 1))}`)}
+        back={{ label: course ? L('الدراسة', "Study") : L('المهام', 'Tasks'), to: course ? 'study' : 'tasks' }}
+        title={course ? course.name : L('مهام جديدة', 'New tasks')}
+        sub={course
+          ? L(`${pack.units.length} دروس · ${total} ${sz(course.sizeLabel)} ≈ ${fmtMinutes(total * (course.paceGuess || 1))}`, `${pack.units.length} lessons · ${total} ${course.sizeLabel || 'pages'} ≈ ${fmtMinutes(total * (course.paceGuess || 1))}`) + (tasks.length ? L(` · ${tasks.length} مهام`, ` · ${tasks.length} tasks`) : '')
+          : L(`${tasks.length} مهام`, `${tasks.length} tasks`)}
       />
       <div className="stack">
-        {pack.course.notes && <p className="muted small" style={{ margin: 0 }}>{pack.course.notes}</p>}
+        {course?.notes && <p className="muted small" style={{ margin: 0 }}>{course.notes}</p>}
 
-        <section>
-          <div className="group-title"><span>{L("الاختبار", "The exam")}</span></div>
-          <div className="card fields">
-            <div className="fields two">
-              <div className="field">
-                <label>{L("اسمه", "Name")}</label>
-                <input className="input" value={examTitle} onChange={(e) => setExamTitle(e.target.value)} />
+        {course && (
+          <section>
+            <div className="group-title"><span>{L("الاختبار", "The exam")}</span></div>
+            <div className="card fields">
+              <div className="fields two">
+                <div className="field">
+                  <label>{L("اسمه", "Name")}</label>
+                  <input className="input" value={examTitle} onChange={(e) => setExamTitle(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>{L("متى؟", "When?")}</label>
+                  <input type="date" className="input" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+                </div>
               </div>
               <div className="field">
-                <label>{L("متى؟", "When?")}</label>
-                <input type="date" className="input" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+                <label>{L("أيام للمراجعة قبله", "Review days before it")}</label>
+                <Seg value={reviewDays} onChange={setReviewDays} options={[0, 1, 2, 3].map((n) => ({ v: n, l: n ? daysWord(n) : L('بدون', "None") }))} />
+              </div>
+              <div className="faint tiny">
+                {pastDate ? L('هذا التاريخ مضى — لن يُضاف الاختبار.', "That date has passed — the exam won't be added.") : examDate ? L(`${fmtDate(examDate)}${examTime ? ` الساعة ${examTime}` : ''} — الخطة اليومية تُحسب على هذا الموعد.`, `${fmtDate(examDate)}${examTime ? ` at ${examTime}` : ''} — the daily plan is built around this date.`) : L('تقدر تتركه فارغًا وتضيف الموعد لاحقًا من صفحة المادة، لكن بدونه لا توجد خطة يومية.', "You can leave it empty and add the date later from the course page, but without it there's no daily plan.")}
               </div>
             </div>
-            <div className="field">
-              <label>{L("أيام للمراجعة قبله", "Review days before it")}</label>
-              <Seg value={reviewDays} onChange={setReviewDays} options={[0, 1, 2, 3].map((n) => ({ v: n, l: n ? daysWord(n) : L('بدون', "None") }))} />
-            </div>
-            <div className="faint tiny">
-              {pastDate ? L('هذا التاريخ مضى — لن يُضاف الاختبار.', "That date has passed — the exam won't be added.") : examDate ? L(`${fmtDate(examDate)} — الخطة اليومية تُحسب على هذا الموعد.`, `${fmtDate(examDate)} — the daily plan is built around this date.`) : L('تقدر تتركه فارغًا وتضيف الموعد لاحقًا من صفحة المادة، لكن بدونه لا توجد خطة يومية.', "You can leave it empty and add the date later from the course page, but without it there's no daily plan.")}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {existing && <div className="notice amber">{L("عندك مادة بنفس الاسم. «استبدل الموجودة» يحذفها مع دروسها واختبارها وجلساتها ويضع هذه مكانها.", "You already have a course with this name. “Replace existing” deletes it with its lessons, exam and sessions and puts this one in its place.")}</div>}
 
@@ -102,17 +110,26 @@ export function Import() {
               <button className="btn" onClick={() => add()}>{L("أضف كنسخة جديدة", "Add as a new copy")}</button>
             </>
           ) : (
-            <button className="btn primary" onClick={() => add()}><Icon name="plus" size={16} />{L(" أضف المادة", " Add course")}</button>
+            <button className="btn primary" onClick={() => add()}><Icon name="plus" size={16} />{course && tasks.length ? L(" أضف الكل", " Add all") : course ? L(" أضف المادة", " Add course") : L(" أضف المهام", " Add tasks")}</button>
           )}
-          <button className="btn ghost" onClick={() => go('study')}>{L("إلغاء", "Cancel")}</button>
+          <button className="btn ghost" onClick={() => go(course ? 'study' : 'tasks')}>{L("إلغاء", "Cancel")}</button>
         </div>
 
-        <Group title={L("الدروس", "Lessons")}>
-          {pack.units.map((u, i) => (
-            <Row key={i} label={u.title} value={L(`${u.size} ${pack.course.sizeLabel === 'دقيقة فيديو' || pack.course.sizeLabel === 'دقيقة' ? 'د' : pack.course.sizeLabel || ''}`, `${u.size} ${pack.course.sizeLabel === 'دقيقة فيديو' || pack.course.sizeLabel === 'دقيقة' ? 'min' : sz(pack.course.sizeLabel)}`)} />
-          ))}
-        </Group>
-        <p className="faint tiny" style={{ margin: 0 }}>{L("لا يُمسح شيء من بياناتك الأخرى. تقدر تعدّل أو تحذف أي درس بعد الإضافة.", "Nothing else in your data is removed. You can edit or delete any lesson after adding.")}</p>
+        {course && (
+          <Group title={L("الدروس", "Lessons")}>
+            {pack.units.map((u, i) => (
+              <Row key={i} label={u.title} value={L(`${u.size} ${unitWord ? 'د' : course.sizeLabel || ''}`, `${u.size} ${unitWord ? 'min' : sz(course.sizeLabel)}`)} />
+            ))}
+          </Group>
+        )}
+        {tasks.length > 0 && (
+          <Group title={L("المهام", "Tasks")}>
+            {tasks.map((t, i) => (
+              <Row key={i} label={t.title} sub={t.steps?.length ? L(`${t.steps.length} خطوات`, `${t.steps.length} steps`) : undefined} value={t.due ? fmtDate(t.due) + (t.dueTime ? ` ${t.dueTime}` : '') : ''} />
+            ))}
+          </Group>
+        )}
+        <p className="faint tiny" style={{ margin: 0 }}>{L("لا يُمسح شيء من بياناتك الأخرى. تقدر تعدّل أو تحذف أي شيء بعد الإضافة.", "Nothing else in your data is removed. You can edit or delete anything after adding.")}</p>
       </div>
     </div>
   );

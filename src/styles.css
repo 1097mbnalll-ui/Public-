@@ -3065,3 +3065,5 @@ h3 {
 
 .group-title .paste-link { margin-inline-start: auto; margin-inline-end: 14px; opacity: .75; }
 .empty .paste-link { display: block; margin: 10px auto 0; background: none; border: 0; color: inherit; text-decoration: underline; }
+.ai-step { display: flex; gap: 10px; align-items: flex-start; }
+.ai-step > b { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--grad); color: #fff; font-size: 13px; }

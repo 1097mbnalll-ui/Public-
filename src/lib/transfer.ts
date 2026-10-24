@@ -51,6 +51,11 @@ export async function unpackLinkPack(s: string): Promise<unknown> {
   return JSON.parse(new TextDecoder().decode(raw));
 }
 
+/** the reverse: put a pack inside a link */
+export async function packLinkPack(data: unknown): Promise<string> {
+  return toB64url(await pipe(new TextEncoder().encode(JSON.stringify(data)), new CompressionStream('gzip')));
+}
+
 export function toB64url(b: Uint8Array): string {
   let s = '';
   for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));

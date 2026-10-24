@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Course, Exam, Procedure, Step, StepKind, Task, Template, Unit } from './types';
+import type { AppState, Area, Course, Exam, Priority, Procedure, Step, StepKind, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -580,24 +580,56 @@ export function clearMissed() {
 
 // ---------------- Course packages ----------------
 
+export interface PackTask {
+  title: string;
+  due?: string;
+  dueTime?: string;
+  priority?: Priority;
+  area?: Area;
+  estimate?: number;
+  notes?: string;
+  steps?: string[];
+}
+
+/** a course (lessons + exam) and/or a list of tasks, from a link or an AI's reply */
 export interface CoursePack {
-  course: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
+  tasks?: PackTask[];
+  course?: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
   units: { title: string; size: number; difficulty?: number; notes?: string }[];
   exam?: { title: string; date: string; time?: string; reviewDays?: number };
 }
 
 export function readCoursePack(raw: any): CoursePack {
-  if (!raw || raw.app !== 'masar-course' || !raw.course?.name || !Array.isArray(raw.units))
-    throw new Error(L('هذا الملف ليس ملف مادة من «مسار».', "This file is not a Masar course file."));
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  const tasks: PackTask[] = (Array.isArray(raw?.tasks) ? raw.tasks : [])
+    .filter((t: any) => t && typeof t.title === 'string' && t.title.trim())
+    .slice(0, 300)
+    .map((t: any) => ({
+      title: t.title.trim().slice(0, 300),
+      ...(day.test(t.due) ? { due: t.due } : {}),
+      ...(/^\d{2}:\d{2}$/.test(t.dueTime) ? { dueTime: t.dueTime } : {}),
+      ...([0, 1, 2, 3].includes(t.priority) ? { priority: t.priority } : {}),
+      ...(['study', 'work', 'life'].includes(t.area) ? { area: t.area } : {}),
+      ...(Number(t.estimate) > 0 ? { estimate: Math.round(Number(t.estimate)) } : {}),
+      ...(typeof t.notes === 'string' ? { notes: t.notes.slice(0, 5000) } : {}),
+      ...(Array.isArray(t.steps) ? { steps: t.steps.filter((x: any) => typeof x === 'string' && x.trim()).slice(0, 50) } : {}),
+    }));
+  const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
+  if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length))
+    throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
+  if (!hasCourse) return { tasks, units: [] };
   const units = raw.units
     .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
     .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty, ...(typeof u.notes === 'string' && u.notes.trim() ? { notes: u.notes.slice(0, 40_000) } : {}) }));
-  const exam = raw.exam && /^\d{4}-\d{2}-\d{2}$/.test(raw.exam.date) ? raw.exam : undefined;
-  return { course: raw.course, units, exam };
+  const exam = raw.exam && day.test(raw.exam.date) ? raw.exam : undefined;
+  return { course: raw.course, units, exam, ...(tasks.length ? { tasks } : {}) };
 }
 
 /** adds a course with its units (and exam) without touching anything else */
 export function importCoursePack(p: CoursePack): string {
+  for (const { steps, ...t } of p.tasks || [])
+    addTask({ ...t, notes: t.notes || '', checklist: (steps || []).map((title) => ({ id: uid(), title, done: false })) });
+  if (!p.course) return '';
   const { name, difficulty, sizeLabel, paceGuess, notes, color } = p.course;
   const cid = addCourse({ name, difficulty: difficulty || 3, sizeLabel: sizeLabel || 'صفحة', paceGuess, notes: notes || '', ...(color ? { color } : {}) });
   const ids = addUnits(cid, p.units);

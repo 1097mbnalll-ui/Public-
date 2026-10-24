@@ -1,4 +1,3 @@
-import { lang } from '../lib/i18n';
 import { useSyncExternalStore } from 'react';
 
 export interface Route {
@@ -35,21 +34,6 @@ export function useRoute(): Route {
 
 export function go(path: string) {
   location.hash = '#/' + path.replace(/^#?\/?/, '');
-}
-
-/**
- * open a Masar link (course pack / device transfer) inside the app. On iPhone the
- * Home Screen app keeps its data apart from Safari, so a tapped link would land in
- * Safari — pasting it here keeps everything in the installed app.
- */
-export async function openPastedLink(): Promise<boolean> {
-  let text = '';
-  try { text = await navigator.clipboard.readText(); } catch { /* permission refused — ask instead */ }
-  if (!/#\/(import|receive)\?/.test(text)) text = prompt(lang() === 'en' ? 'Paste the link here' : 'الصق الرابط هنا') || '';
-  const m = text.trim().match(/#\/((?:import|receive)\?\S+)/);
-  if (!m) return false;
-  go(m[1]);
-  return true;
 }
 
 export function back(fallback: string) {

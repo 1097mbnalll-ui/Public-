@@ -13,7 +13,8 @@ export type SheetSpec =
   | { type: 'template'; id?: string; fromProc?: string; fromTask?: string; forTask?: boolean }
   | { type: 'goal'; id: string }
   | { type: 'onboarding' }
-  | { type: 'transfer' };
+  | { type: 'transfer' }
+  | { type: 'ai-import' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

@@ -8,6 +8,7 @@ import { calibration, coursePace } from '../src/lib/engine/learning';
 import { buildInsights } from '../src/lib/engine/insights';
 import { procStage } from '../src/lib/engine/procedures';
 import { pomodoro } from '../src/lib/engine/focus';
+import { readCoursePack } from '../src/lib/actions';
 import type { AppState, Task } from '../src/lib/types';
 
 // Fixed "now": Tuesday 2026-10-20, 9:00 local
@@ -512,5 +513,17 @@ describe('assistant — answers from your data', () => {
     const p = performance(s, NOW);
     expect(p.done7).toBe(4);
     expect(p.donePrev7).toBe(1);
+  });
+});
+
+describe('course / task packs', () => {
+  it('reads tasks without a course and drops invalid fields', () => {
+    const p = readCoursePack({ app: 'masar', tasks: [{ title: ' تقرير ', due: 'بكرة', priority: 3, area: 'x', steps: ['أ', 2, ''] }, { title: '' }] });
+    expect(p.course).toBeUndefined();
+    expect(p.tasks).toEqual([{ title: 'تقرير', priority: 3, steps: ['أ'] }]);
+  });
+  it('rejects anything that is not a pack', () => {
+    expect(() => readCoursePack({ app: 'masar', tasks: [] })).toThrow();
+    expect(() => readCoursePack({ hello: 1 })).toThrow();
   });
 });

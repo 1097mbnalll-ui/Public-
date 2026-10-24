@@ -8,7 +8,7 @@ import { planStudy, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/en
 import { studyCapFor } from '../lib/engine/capacity';
 import { coursePace } from '../lib/engine/learning';
 import { openSheet } from '../ui/sheets';
-import { go, openPastedLink, useRoute } from '../ui/router';
+import { go, useRoute } from '../ui/router';
 import { LessonRow, examSentence, parseUnitLines } from '../ui/StudySheets';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
@@ -320,11 +320,7 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
   );
 }
 
-/** paste a course link inside the installed app (iPhone opens tapped links in Safari, with separate data) */
+/** import a course or tasks: a Masar link or an AI's reply (iPhone opens tapped links in Safari, with separate data) */
 function PasteLink() {
-  return (
-    <button className="paste-link" onClick={async () => { if (!(await openPastedLink())) toast(L('ما لقيت رابط مادة صالح.', "That isn't a valid course link.")); }}>
-      {L('لصق رابط', 'Paste link')}
-    </button>
-  );
+  return <button className="paste-link" onClick={() => openSheet({ type: 'ai-import' })}>{L('استيراد', 'Import')}</button>;
 }
