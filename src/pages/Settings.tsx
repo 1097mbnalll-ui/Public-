@@ -1,4 +1,4 @@
-import { InstallCard } from '../ui/InstallCard';
+import { InstallCard, installEnv } from '../ui/InstallCard';
 import { useEffect, useRef, useState } from 'react';
 import { Collapse, Group, Row, Seg, Stepper, Switch } from '../ui/kit';
 import type { CoachTone } from '../lib/types';
@@ -19,7 +19,7 @@ import { toast } from '../ui/toast';
 import { L } from '../lib/i18n';
 import { THEMES } from '../lib/themes';
 import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
-import { getSync } from '../lib/sync';
+import { useSyncConf } from '../lib/sync';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -40,6 +40,7 @@ export function Settings() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const xferRef = useRef<HTMLInputElement>(null);
+  const sc = useSyncConf();
 
   useEffect(() => {
     isPersisted().then(setPersisted);
@@ -65,8 +66,9 @@ export function Settings() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+  const env = installEnv();
+  const isIOS = env === 'ios';
+  const standalone = env === 'standalone';
 
   return (
     <div>
@@ -76,12 +78,12 @@ export function Settings() {
         <Group>
           <div className="r">
             <span className="ic"><Icon name="user" size={16} /></span>
-            <input className="input bare grow" style={{ padding: 0 }} value={st.name} onChange={(e) => A.updateSettings({ name: e.target.value })} placeholder={L("اسمك (اختياري)", "Your name (optional)")} aria-label={L("الاسم", "Name")} />
+            <input key={st.name} className="input bare grow" style={{ padding: 0 }} defaultValue={st.name} onBlur={(e) => e.target.value !== st.name && A.updateSettings({ name: e.target.value })} placeholder={L("اسمك (اختياري)", "Your name (optional)")} aria-label={L("الاسم", "Name")} />
           </div>
           <div className="r">
             <span className="ic"><Icon name="globe" size={16} /></span>
             <span className="grow">{L("اللغة", "Language")}</span>
-            <Seg value={st.lang} options={[{ v: 'ar', l: 'العربية' }, { v: 'en', l: 'English' }]} onChange={(v) => A.updateSettings({ lang: v })} />
+            <Seg label={L("اللغة", "Language")} value={st.lang} options={[{ v: 'ar', l: 'العربية' }, { v: 'en', l: 'English' }]} onChange={(v) => A.updateSettings({ lang: v })} />
           </div>
           <Row icon="insights" iconColor="var(--accent)" label={L("ما تعلمته عنك", "What I've learned about you")} sub={L("دقة تقديراتك، سرعة مذاكرتك، أنماط التأجيل", "Estimate accuracy, study speed, postponing patterns")} chevron onClick={() => go('me/insights')} />
         </Group>
@@ -100,12 +102,10 @@ export function Settings() {
         </div>
       </Section>
 
-      <Section title={L("المدرب الذكي", "Smart coach")} desc={L("يتابع تأخيرك ويكلمك كل يوم: يحفّزك وأنت ماشي صح، ويشد عليك كل ما زاد تأخيرك.", "Watches your delays and talks to you daily: encourages you when you're on track, and gets tougher the more you fall behind.")}>
-        <CoachSettings />
-      </Section>
-
-      <Section title={L("وقتك المتاح", "Your available time")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
+      <Section title={L("وقتك وجدولك", "Your time & timetable")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
         <AvailabilityEditor />
+        <div className="divider" />
+        <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => go('schedule')}><Icon name="week" size={16} />{L(" جدولي — محاضراتك أو دوامك", " My timetable — lectures or shifts")}<Icon name="chevron" size={14} /></button>
       </Section>
 
       <Section title={L("التذكيرات والتنبيهات", "Reminders & notifications")}>
@@ -143,24 +143,31 @@ export function Settings() {
           <Switch on={st.nudges} onChange={(v) => A.updateSettings({ nudges: v })} label={L("تذكيرات تلقائية", "Automatic reminders")} />
         </div>
         <div className="field">
-          <label>{L("ملخص الصباح", "Morning summary")}</label>
-          <input type="time" className="input" style={{ width: 160 }} value={st.morningBrief} onChange={(e) => A.updateSettings({ morningBrief: e.target.value })} />
+          <label htmlFor="morning-brief">{L("ملخص الصباح", "Morning summary")}</label>
+          <input id="morning-brief" type="time" disabled={!st.nudges} className="input" style={{ width: 160 }} value={st.morningBrief} onChange={(e) => A.updateSettings({ morningBrief: e.target.value })} />
+          <div className="faint tiny">{L("امسح الوقت لإيقاف ملخص الصباح.", "Clear the time to turn the morning summary off.")}</div>
         </div>
       </Section>
 
-      <Section title={L("ثبّت التطبيق", "Install the app")}>
-        <InstallCard always />
+      <Section title={L("المدرب الذكي", "Smart coach")} desc={L("يتابع تأخيرك ويكلمك كل يوم: يحفّزك وأنت ماشي صح، ويشد عليك كل ما زاد تأخيرك.", "Watches your delays and talks to you daily: encourages you when you're on track, and gets tougher the more you fall behind.")}>
+        <CoachSettings />
       </Section>
 
-      <Section title={L("جدولي", "My timetable")} desc={L("محاضراتك أو دوامك — المهام والمذاكرة تنحط في وقتك الفاضي بس.", "Your lectures or shifts — tasks and study go only into your free time.")}>
-        <button className="btn primary" onClick={() => go('schedule')}><Icon name="week" size={16} />{L(" جدولي", " My timetable")}</button>
-      </Section>
-
-      <Section title={L("المزامنة بين أجهزتك", "Sync across your devices")} desc={L("جوالك والتابلت يشوفون نفس البيانات تلقائيًا، ورسائل البنك تدخل مصاريفك لحالها — عن طريق حساب قوقل حقك.", "Your phone and tablet see the same data automatically, and bank messages land in your spending — through your own Google account.")}>
-        <button className="btn primary" onClick={() => openSheet({ type: 'sync' })}><Icon name="repeat" size={16} />{L(" المزامنة", " Sync")}</button>
-      </Section>
-
-      <Section title={L("جهاز آخر", "Another device")} desc={L("انقل كل بياناتك لجوال أو كمبيوتر آخر بدون حساب: تُشفّر بكود، وترسل الرابط لنفسك، وتفتحه هناك.", "Move all your data to another phone or computer without an account: it's encrypted with a code, you send yourself the link, and open it there.")}>
+      <Section title={L("أجهزتك وبياناتك", "Your devices & data")} desc={L("المزامنة تبقي أجهزتك متطابقة دائمًا · النقل ينسخ كل شيء لجهاز جديد مرة واحدة · النسخة الاحتياطية ملف تحفظه عندك.", "Sync keeps your devices the same all the time · Transfer copies everything to a new device once · A backup is a file you keep.")}>
+        <div className="notice">
+          <Icon name="shield" size={18} />
+          <div>{sc ? L("بياناتك محفوظة في هذا المتصفح، ونسخة مشفّرة منها في سكربت قوقل الخاص بك للمزامنة (لا يقرؤها أحد بدون أجهزتك). نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser, with an encrypted copy in your own Google script for sync (unreadable without your devices). Download a backup regularly.") : L("بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser on this device only. Clearing browser data erases it, so download a backup regularly.")}{s.meta.lastExportAt ? L(` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.`, ` Last backup: ${timeAgo(s.meta.lastExportAt)}.`) : L(' لم تنزّل نسخة بعد.', " No backup downloaded yet.")}
+          </div>
+        </div>
+        <div className="row between">
+          <div>
+            <div style={{ fontWeight: 500 }}>{L("المزامنة بين أجهزتك", "Sync across your devices")}</div>
+            <div className="faint tiny">{sc ? (sc.error ? L(`متوقفة: ${sc.error}`, `Stopped: ${sc.error}`) : sc.last ? L(`مفعّلة · آخر مزامنة ${timeAgo(sc.last)}`, `On · last synced ${timeAgo(sc.last)}`) : L('مفعّلة', 'On')) : L('عبر حساب قوقل حقك، ورسائل البنك تدخل مصاريفك لحالها', 'Through your own Google account; bank messages land in your spending')}</div>
+          </div>
+          <button className="btn sm" onClick={() => openSheet({ type: 'sync' })}><Icon name="repeat" size={15} />{sc ? L(' إدارة', ' Manage') : L(' إعداد', ' Set up')}</button>
+        </div>
+        <div className="divider" />
+        <div style={{ fontWeight: 500 }}>{L("جهاز آخر بدون حساب", "Another device, no account")}</div>
         <div className="row wrap" style={{ gap: 8 }}>
           <button className="btn primary" onClick={() => openSheet({ type: 'transfer' })}><Icon name="share" size={16} />{L(" انقل بياناتي لجهاز آخر", " Move my data to another device")}</button>
           <button className="btn" onClick={() => xferRef.current?.click()}><Icon name="download" size={16} />{L(" استقبل من ملف", " Receive from file")}</button>
@@ -177,14 +184,8 @@ export function Settings() {
           />
         </div>
         <div className="faint tiny">{L("وصلك رابط؟ افتحه فقط على الجهاز الآخر وسيطلب الكود.", "Got a link? Just open it on the other device and it will ask for the code.")}</div>
-      </Section>
-
-      <Section title={L("بياناتك والنسخ الاحتياطي", "Your data & backups")}>
-        <div className="notice">
-          <Icon name="shield" size={18} />
-          <div>{getSync() ? L("بياناتك محفوظة في هذا المتصفح، ونسخة مشفّرة منها في سكربت قوقل الخاص بك للمزامنة (لا يقرؤها أحد بدون أجهزتك). نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser, with an encrypted copy in your own Google script for sync (unreadable without your devices). Download a backup regularly.") : L("بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser on this device only. Clearing browser data erases it, so download a backup regularly.")}{s.meta.lastExportAt ? L(` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.`, ` Last backup: ${timeAgo(s.meta.lastExportAt)}.`) : L(' لم تنزّل نسخة بعد.', " No backup downloaded yet.")}
-          </div>
-        </div>
+        <div className="divider" />
+        <div style={{ fontWeight: 500 }}>{L("نسخة احتياطية", "Backup")}</div>
         <div className="row wrap" style={{ gap: 8 }}>
           <button className="btn primary" onClick={exportUI}><Icon name="download" size={16} />{L(" نزّل نسخة احتياطية", " Download backup")}</button>
           <button className="btn" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} />{L(" استعادة من ملف", " Restore from file")}</button>
@@ -194,7 +195,7 @@ export function Settings() {
           <div className="notice amber" style={{ flexDirection: 'column' }}>
             <div>
               <b>{L("ستُستبدل بياناتك الحالية بمحتوى الملف", "Your current data will be replaced with the file's contents")}</b>{preview.exportedAt ? L(` (نسخة ${new Date(preview.exportedAt).toLocaleString('ar')})`, ` (backup from ${new Date(preview.exportedAt).toLocaleString('en')})`) : ''}:{' '}
-              {preview.counts.map((c) => `${c.n} ${c.label}`).join(L('، ', ", "))}{L(". تُستبدل الإعدادات أيضًا (اللغة، الألوان، وقتك المتاح). يمكنك التراجع فورًا من الإشعار.", ". Settings are replaced too (language, colours, available time). You can undo right away from the notice.")}{getSync() && L(" المزامنة مفعّلة: ما ليس في الملف سيُحذف من أجهزتك الأخرى أيضًا.", " Sync is on: anything not in the file will be removed from your other devices too.")}</div>
+              {preview.counts.map((c) => `${c.n} ${c.label}`).join(L('، ', ", "))}{L(". تُستبدل الإعدادات أيضًا (اللغة، الألوان، وقتك المتاح). يمكنك التراجع فورًا من الإشعار.", ". Settings are replaced too (language, colours, available time). You can undo right away from the notice.")}{sc && L(" المزامنة مفعّلة: ما ليس في الملف سيُحذف من أجهزتك الأخرى أيضًا.", " Sync is on: anything not in the file will be removed from your other devices too.")}</div>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn sm primary" onClick={async () => {
                 await replaceState(preview.state, L('استعادة نسخة', "Restore backup"));
@@ -217,7 +218,7 @@ export function Settings() {
             <label>{L("لقطات يومية تلقائية (آخر 14 يومًا)", "Automatic daily snapshots (last 14 days)")}</label>
             <div className="row wrap" style={{ gap: 6 }}>
               {snaps.map((d) => (
-                <button key={d} className="chip btnish" onClick={async () => {
+                <button key={d} className="chip btnish" aria-label={L(`استرجاع لقطة ${fmtDate(d)}`, `Restore snapshot from ${fmtDate(d)}`)} onClick={async () => {
                   if (!confirm(L(`استرجاع بياناتك كما كانت ${fmtDate(d)}؟ يمكنك التراجع بعدها.`, `Restore your data as it was on ${fmtDate(d)}? You can undo afterwards.`))) return;
                   const snap = await getSnapshot(d);
                   if (snap) {
@@ -233,7 +234,7 @@ export function Settings() {
         )}
         <div className="divider" />
         <button className="btn sm danger" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-          if (!confirm(L('مسح كل البيانات والبدء من جديد؟', "Erase all data and start over?") + (getSync() ? L('\n\nالمزامنة مفعّلة: ستُمسح البيانات من أجهزتك الأخرى أيضًا. لإيقافها أولًا: «المزامنة» ← «إيقاف».', '\n\nSync is on: your other devices will be erased too. To stop it first: “Sync” → “Stop”.') : ''))) return;
+          if (!confirm(L('مسح كل البيانات والبدء من جديد؟', "Erase all data and start over?") + (sc ? L('\n\nالمزامنة مفعّلة: ستُمسح البيانات من أجهزتك الأخرى أيضًا. لإيقافها أولًا: «المزامنة» ← «إيقاف».', '\n\nSync is on: your other devices will be erased too. To stop it first: “Sync” → “Stop”.') : ''))) return;
           if (!confirm(L('متأكد؟ نزّل نسخة احتياطية أولًا إن احتجتها.', "Are you sure? Download a backup first if you need it."))) return;
           await replaceState({ ...initialState(), meta: { ...initialState().meta, onboarded: true }, settings: getState().settings }, L('مسح الكل', "Erase all"));
           toast(L('مُسحت البيانات', "Data erased"), { undoable: true });
@@ -241,14 +242,23 @@ export function Settings() {
           <Icon name="trash" size={15} />{L(" مسح كل البيانات", " Erase all data")}</button>
       </Section>
 
-      <Section title={L("كيف يعمل «مسار»؟", "How does Masar work?")}>
-        <div className="small muted col" style={{ gap: 8 }}>
+      {!standalone && (
+        <Section title={L("ثبّت التطبيق", "Install the app")}>
+          <InstallCard always />
+        </Section>
+      )}
+
+      <Section title={L("حول «مسار»", "About Masar")}>
+        <Collapse title={L("كيف يعمل «مسار»؟", "How does Masar work?")}>
+          <div className="small muted col" style={{ gap: 8 }}>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("تقدير المذاكرة:", "Study estimates:")}</b>{L(" حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.", " chapter size × difficulty × your speed measured from your sessions + review time. Shown as a range (low–high) that narrows as you log more sessions. Then I simulate the days until the exam against your study time and split it between exams.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("التعلم منك:", "Learning from you:")}</b>{L(" أقارن تقديراتك بالوقت الفعلي (المؤقت أو إجابتك بعد الإنجاز) وأصحح التقديرات القادمة. المهام التي لم تُنجز في يومها تعود مؤجلة ويُحسب تأجيلها.", " I compare your estimates with the real time (timer or your answer after finishing) and correct future estimates. Tasks not done on their day come back as postponed, and the postponement is counted.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يعرف إلا ما أدخلته. يخرج من جهازك فقط: نسخة مشفّرة لسكربت قوقل الخاص بك إذا فعّلت المزامنة، وما يحتاجه Claude إذا أضفت مفتاحك (خطتك، مصاريفك المختصرة، نبذتك، المحادثة، وصورة الجدول إن أرسلتها) — لـAnthropic فقط لكتابة الرد.", " it never sends messages or files to anyone and knows only what you entered. All that leaves your device: an encrypted copy to your own Google script if you turn on sync, and what Claude needs if you add your key (your plan, a spending summary, your about-me, the chat, and a timetable photo if you send one) — to Anthropic only, to write the reply.")}</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("اختصارات:", "Shortcuts:")}</b> <span className="kbd">N</span>{L(" إضافة سريعة · ", " quick add · ")}<span className="kbd">/</span>{L(" بحث · ", " search · ")}<span className="kbd">G</span> <span className="kbd">T</span>{L(" للتنقل · ", " to move around · ")}<button className="btn sm ghost" onClick={() => openSheet({ type: 'shortcuts' })}><span className="kbd">?</span>{L(" كل الاختصارات", " All shortcuts")}</button></p>
-        </div>
+                  </div>
+        </Collapse>
+        <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet({ type: 'shortcuts' })}><Icon name="question" size={15} />{L(" اختصارات لوحة المفاتيح", " Keyboard shortcuts")}<span className="kbd">?</span></button>
+        <div className="faint tiny" dir="ltr" style={{ textAlign: 'end' }}>Masar · {__BUILD__}</div>
       </Section>
     </div>
   );
@@ -305,13 +315,13 @@ function AvailabilityEditor() {
       </Collapse>
       <div className="fields two">
         <div className="field">
-          <label>{L("ينتهي يومك عادةً", "Your day usually ends at")}</label>
-          <input type="time" className="input" value={st.dayEnd} onChange={(e) => A.updateSettings({ dayEnd: e.target.value || '23:30' })} />
+          <label htmlFor="day-end">{L("ينتهي يومك عادةً", "Your day usually ends at")}</label>
+          <input id="day-end" type="time" className="input" value={st.dayEnd} onChange={(e) => A.updateSettings({ dayEnd: e.target.value || '23:30' })} />
         </div>
         <div className="field">
-          <label>{L("وقت المراجعة فوق المذاكرة", "Review time on top of study")}</label>
-          <select className="select" value={st.reviewFactor} onChange={(e) => A.updateSettings({ reviewFactor: +e.target.value })}>
-            {[0, 0.1, 0.2, 0.3, 0.5].map((x) => <option key={x} value={x}>{Math.round(x * 100)}%</option>)}
+          <label htmlFor="review-factor">{L("وقت المراجعة فوق المذاكرة", "Review time on top of study")}</label>
+          <select id="review-factor" className="select" value={st.reviewFactor} onChange={(e) => A.updateSettings({ reviewFactor: +e.target.value })}>
+            {[...new Set([0, 0.1, 0.2, 0.3, 0.5, st.reviewFactor])].sort((a, b) => a - b).map((x) => <option key={x} value={x}>{Math.round(x * 100)}%</option>)}
           </select>
         </div>
       </div>
@@ -364,15 +374,17 @@ function CoachSettings() {
       </div>
       <div className="field">
         <label>{L("أسلوب المدرب", "Coach style")}</label>
-        <Seg value={c.tone} options={tones.map((t) => ({ v: t.v, l: t.l }))} onChange={(v) => A.updateCoach({ tone: v })} />
+        <Seg label={L("أسلوب المدرب", "Coach style")} value={c.tone} options={tones.map((t) => ({ v: t.v, l: t.l }))} onChange={(v) => A.updateCoach({ tone: v })} />
         <div className="faint tiny">{tones.find((t) => t.v === c.tone)?.d}</div>
       </div>
       <div className="field">
-        <label>{L("عرّف المدرب عليك", "Tell the coach about you")}</label>
+        <label htmlFor="coach-about">{L("عرّف المدرب عليك", "Tell the coach about you")}</label>
         <textarea
           className="textarea"
-          value={c.about}
-          onChange={(e) => A.updateCoach({ about: e.target.value })}
+          id="coach-about"
+          key={c.about}
+          defaultValue={c.about}
+          onBlur={(e) => e.target.value !== c.about && A.updateCoach({ about: e.target.value })}
           placeholder={L("مثال: أشتغل الصبح وأدرس بالليل، أأجل لما أتعب، يحمسني الكلام المباشر…", "e.g. I work mornings and study at night, I postpone when tired, direct talk motivates me…")}
         />
       </div>

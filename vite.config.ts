@@ -50,5 +50,6 @@ const csp = (): Plugin => ({
 export default defineConfig({
   base: './',
   plugins: [react(), csp(), precache()],
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 10)) },
   test: { environment: 'node', include: ['tests/**/*.test.ts'], env: { TZ: 'Asia/Riyadh' } },
 });
