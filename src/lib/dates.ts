@@ -116,10 +116,6 @@ export function atTime(k: string, hhmm: string): number {
   return d.getTime();
 }
 
-export function minutesUntil(hhmm: string, now = Date.now()): number {
-  return Math.round((atTime(todayKey(now), hhmm) - now) / 60000);
-}
-
 export function timeAgo(ms: number, now = Date.now()): string {
   const min = Math.round((now - ms) / 60000);
   if (min < 1) return L('الآن', 'just now');

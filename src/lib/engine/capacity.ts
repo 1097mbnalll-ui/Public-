@@ -1,5 +1,5 @@
 import type { AppState } from '../types';
-import { atTime, minutesUntil, todayKey, weekday } from '../dates';
+import { addDays, atTime, todayKey, weekday } from '../dates';
 import { blocksOn, busyBetween, freeMinutes } from './schedule';
 
 /** free minutes you said you have for planned work on a day */
@@ -17,8 +17,11 @@ export function studyCapFor(state: AppState, day: string): number {
 /** minutes left before your day ends */
 export function minutesLeftToday(state: AppState, now: number): number {
   const end = state.settings.dayEnd || '23:30';
-  const left = minutesUntil(end, now);
-  return Math.max(0, left - busyBetween(state, todayKey(now), now, atTime(todayKey(now), end)));
+  let endAt = atTime(todayKey(now), end);
+  // a day that ends after midnight (e.g. 01:00) ends tomorrow — unless it's already past midnight
+  if (+end.slice(0, 2) < 5 && !isNight(now)) endAt = atTime(addDays(todayKey(now), 1), end);
+  const left = Math.round((endAt - now) / 60000);
+  return Math.max(0, left - busyBetween(state, todayKey(now), now, endAt));
 }
 
 /** between midnight and 5am: time to sleep, not to plan work until dawn */

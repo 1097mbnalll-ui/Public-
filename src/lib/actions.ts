@@ -63,10 +63,15 @@ export function completeTask(id: string) {
     if (t.recurrence) {
       const base = t.due || todayKey();
       const { every, unit } = t.recurrence;
-      const next = unit === 'month' ? addMonths(base, every) : addDays(base, unit === 'week' ? every * 7 : every);
+      const step = (k: string) => (unit === 'month' ? addMonths(k, every) : addDays(k, unit === 'week' ? every * 7 : every));
+      // an overdue repeat comes back on its next date from today, not already late
+      let next = step(base);
+      for (let i = 0; next < todayKey() && i < 10_000; i++) next = step(next);
+      t.nextId = uid();
       s.tasks.push({
         ...structuredClone(t),
-        id: uid(),
+        id: t.nextId,
+        nextId: undefined,
         status: 'open',
         due: next,
         plannedFor: undefined,
@@ -95,7 +100,15 @@ export function setActual(id: string, minutes: number) {
 }
 
 export function reopenTask(id: string) {
-  updateTask(id, { status: 'open', completedAt: undefined });
+  mutate((s) => {
+    const t = s.tasks.find((x) => x.id === id);
+    if (!t) return;
+    // undo what completing did: the day's count and the next occurrence (if it wasn't touched yet)
+    if (t.status === 'done' && t.completedAt) bumpDay(s, { done: -1 }, todayKey(t.completedAt));
+    const next = t.nextId ? s.tasks.find((x) => x.id === t.nextId) : undefined;
+    if (next && next.status === 'open' && !next.spent) s.tasks = s.tasks.filter((x) => x !== next);
+    Object.assign(t, { status: 'open', completedAt: undefined, nextId: undefined, updatedAt: now() });
+  });
 }
 
 export function dropTask(id: string) {

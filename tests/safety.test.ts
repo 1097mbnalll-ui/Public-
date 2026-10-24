@@ -47,3 +47,45 @@ describe('course pack from an untrusted link', () => {
     expect(() => readCoursePack({ app: 'masar-course', course: { name: { x: 1 } }, units: [] })).toThrow();
   });
 });
+
+import { addTask, completeTask, reopenTask } from '../src/lib/actions';
+import { getState } from '../src/lib/store';
+import { minutesLeftToday } from '../src/lib/engine/capacity';
+import { parseExpense } from '../src/lib/engine/money';
+import { atTime, todayKey } from '../src/lib/dates';
+import { initialState } from '../src/lib/defaults';
+
+describe('recurring tasks', () => {
+  it('complete → reopen → complete leaves exactly one next occurrence', () => {
+    const id = addTask({ title: 'weekly report', due: todayKey(), recurrence: { every: 1, unit: 'week' } });
+    completeTask(id);
+    reopenTask(id);
+    completeTask(id);
+    expect(getState().tasks.filter((t) => t.title === 'weekly report' && t.status === 'open')).toHaveLength(1);
+    expect(getState().days[todayKey()].done).toBe(1);
+  });
+
+  it('an overdue repeat comes back on a date that is not already late', () => {
+    const id = addTask({ title: 'daily pill', due: '2020-01-01', recurrence: { every: 1, unit: 'day' } });
+    completeTask(id);
+    const next = getState().tasks.find((t) => t.title === 'daily pill' && t.status === 'open')!;
+    expect(next.due! >= todayKey()).toBe(true);
+  });
+});
+
+describe('day end after midnight', () => {
+  it('still leaves time in the evening', () => {
+    const s = initialState();
+    s.settings.dayEnd = '01:00';
+    const now = atTime(todayKey(), '22:00');
+    expect(minutesLeftToday(s, now)).toBe(180);
+  });
+});
+
+describe('expense amounts', () => {
+  it('reads thousands separators', () => {
+    expect(parseExpense('لابتوب 1,500').amount).toBe(1500);
+    expect(parseExpense('سيارة 120,000').amount).toBe(120000);
+    expect(parseExpense('قهوة 12,50').amount).toBe(12.5);
+  });
+});

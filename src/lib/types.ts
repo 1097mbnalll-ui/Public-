@@ -52,6 +52,8 @@ export interface Task {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
+  /** the next occurrence created when this recurring task was completed (removed again if it's reopened) */
+  nextId?: string;
 }
 
 export interface Goal {
@@ -107,6 +109,8 @@ export interface Procedure {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
+  /** the next occurrence created when this recurring task was completed (removed again if it's reopened) */
+  nextId?: string;
 }
 
 export interface TemplateStep {
