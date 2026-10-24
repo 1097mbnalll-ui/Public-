@@ -1,8 +1,10 @@
-// Offline support: app shell cached, network-first for navigation, cache-first for assets.
-const CACHE = 'masar-v3';
+// Offline support: app shell + every built file cached on install, network-first for navigation,
+// cache-first for assets. The build fills in the file list and version (see vite.config.ts).
+const CACHE = 'masar-' + '__VERSION__';
+const BUILT = [] /* __PRECACHE__ */;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', ...BUILT])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -25,8 +27,11 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          // never let an error page become the offline copy of the app
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          }
           return res;
         })
         .catch(() => caches.match('./index.html')),
@@ -55,8 +60,7 @@ self.addEventListener('notificationclick', (e) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if ('focus' in c) {
-          c.navigate ? c.focus().then(() => c.postMessage({ type: 'open', url: target })) : c.focus();
-          return;
+          return c.focus().then(() => c.postMessage({ type: 'open', url: target }));
         }
       }
       return self.clients.openWindow('./' + target);

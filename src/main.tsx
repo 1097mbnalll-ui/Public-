@@ -14,18 +14,28 @@ init().then(() => {
 });
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  // a new version took over → reload once so the page runs the new code
+  // a new version took over → reload once so the page runs the new code, but only while the page
+  // is out of sight, so nothing being typed is lost
   const hadController = !!navigator.serviceWorker.controller;
   let reloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloaded) return;
+  const reload = () => {
+    if (reloaded || document.visibilityState !== 'hidden') return;
     reloaded = true;
     location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    reload();
+    document.addEventListener('visibilitychange', reload);
   });
   addEventListener('load', () => {
     navigator.serviceWorker
       .register('./sw.js')
-      .then((reg) => setServiceWorker(reg))
+      .then((reg) => {
+        setServiceWorker(reg);
+        // an installed app rarely navigates, so look for a new version whenever it comes back
+        document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reg.update().catch(() => {}));
+      })
       .catch(() => setServiceWorker(null));
   });
 }

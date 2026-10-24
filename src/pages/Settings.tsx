@@ -18,7 +18,8 @@ import { exportUI } from '../ui/ops';
 import { toast } from '../ui/toast';
 import { L } from '../lib/i18n';
 import { THEMES } from '../lib/themes';
-import { getAiKey, hasAiKey, setAiKey, askClaude } from '../lib/ai';
+import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
+import { getSync } from '../lib/sync';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -34,7 +35,7 @@ export function Settings() {
   const s = useApp();
   const st = s.settings;
   const [perm, setPerm] = useState(notificationSupport());
-  const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [persisted, setPersisted] = useState<boolean | null | undefined>(undefined);
   const [snaps, setSnaps] = useState<string[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -181,7 +182,7 @@ export function Settings() {
       <Section title={L("بياناتك والنسخ الاحتياطي", "Your data & backups")}>
         <div className="notice">
           <Icon name="shield" size={18} />
-          <div>{L("كل بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط — لا تُرسل لأي خادم. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.", "All your data is stored in this browser on this device only — never sent to a server. Clearing browser data erases it, so download a backup regularly.")}{s.meta.lastExportAt ? L(` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.`, ` Last backup: ${timeAgo(s.meta.lastExportAt)}.`) : L(' لم تنزّل نسخة بعد.', " No backup downloaded yet.")}
+          <div>{getSync() ? L("بياناتك محفوظة في هذا المتصفح، ونسخة مشفّرة منها في سكربت قوقل الخاص بك للمزامنة (لا يقرؤها أحد بدون أجهزتك). نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser, with an encrypted copy in your own Google script for sync (unreadable without your devices). Download a backup regularly.") : L("بياناتك محفوظة في هذا المتصفح على هذا الجهاز فقط. مسح بيانات المتصفح يمسحها، لذلك نزّل نسخة احتياطية دوريًا.", "Your data is stored in this browser on this device only. Clearing browser data erases it, so download a backup regularly.")}{s.meta.lastExportAt ? L(` آخر نسخة: ${timeAgo(s.meta.lastExportAt)}.`, ` Last backup: ${timeAgo(s.meta.lastExportAt)}.`) : L(' لم تنزّل نسخة بعد.', " No backup downloaded yet.")}
           </div>
         </div>
         <div className="row wrap" style={{ gap: 8 }}>
@@ -193,7 +194,7 @@ export function Settings() {
           <div className="notice amber" style={{ flexDirection: 'column' }}>
             <div>
               <b>{L("ستُستبدل بياناتك الحالية بمحتوى الملف", "Your current data will be replaced with the file's contents")}</b>{preview.exportedAt ? L(` (نسخة ${new Date(preview.exportedAt).toLocaleString('ar')})`, ` (backup from ${new Date(preview.exportedAt).toLocaleString('en')})`) : ''}:{' '}
-              {preview.counts.map((c) => `${c.n} ${c.label}`).join(L('، ', ", "))}{L(". تبقى نسخة من الحالية في «لقطات يومية» ويمكنك التراجع فورًا.", ". A copy of the current data stays in “Daily snapshots” and you can undo right away.")}</div>
+              {preview.counts.map((c) => `${c.n} ${c.label}`).join(L('، ', ", "))}{L(". تُستبدل الإعدادات أيضًا (اللغة، الألوان، وقتك المتاح). يمكنك التراجع فورًا من الإشعار.", ". Settings are replaced too (language, colours, available time). You can undo right away from the notice.")}{getSync() && L(" المزامنة مفعّلة: ما ليس في الملف سيُحذف من أجهزتك الأخرى أيضًا.", " Sync is on: anything not in the file will be removed from your other devices too.")}</div>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn sm primary" onClick={async () => {
                 await replaceState(preview.state, L('استعادة نسخة', "Restore backup"));
@@ -207,7 +208,7 @@ export function Settings() {
         <div className="row between">
           <div>
             <div style={{ fontWeight: 500 }}>{L("تخزين دائم", "Persistent storage")}</div>
-            <div className="faint tiny">{persisted === true ? L('مفعل — المتصفح لن يحذف بياناتك تلقائيًا عند امتلاء المساحة', "On — the browser won't delete your data automatically when space runs low") : persisted === false ? L('غير مفعل — قد يحذف المتصفح البيانات عند ضيق المساحة', "Off — the browser may delete data when space runs low") : L('غير مدعوم في هذا المتصفح', "Not supported in this browser")}</div>
+            <div className="faint tiny">{persisted === true ? L('مفعل — المتصفح لن يحذف بياناتك تلقائيًا عند امتلاء المساحة', "On — the browser won't delete your data automatically when space runs low") : persisted === false ? L('غير مفعل — قد يحذف المتصفح البيانات عند ضيق المساحة', "Off — the browser may delete data when space runs low") : persisted === null ? L('غير مدعوم في هذا المتصفح', "Not supported in this browser") : '…'}</div>
           </div>
           {persisted === false && <button className="btn sm" onClick={async () => { const r = await requestPersistence(); setPersisted(r); toast(r ? L('فُعّل التخزين الدائم', "Persistent storage enabled") : L('رفض المتصفح الطلب — ثبّت الموقع كتطبيق ليزيد احتمال القبول', "The browser refused — installing the site as an app makes approval more likely")); }}>{L("طلب", "Request")}</button>}
         </div>
@@ -232,7 +233,7 @@ export function Settings() {
         )}
         <div className="divider" />
         <button className="btn sm danger" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-          if (!confirm(L('مسح كل البيانات والبدء من جديد؟', "Erase all data and start over?"))) return;
+          if (!confirm(L('مسح كل البيانات والبدء من جديد؟', "Erase all data and start over?") + (getSync() ? L('\n\nالمزامنة مفعّلة: ستُمسح البيانات من أجهزتك الأخرى أيضًا. لإيقافها أولًا: «المزامنة» ← «إيقاف».', '\n\nSync is on: your other devices will be erased too. To stop it first: “Sync” → “Stop”.') : ''))) return;
           if (!confirm(L('متأكد؟ نزّل نسخة احتياطية أولًا إن احتجتها.', "Are you sure? Download a backup first if you need it."))) return;
           await replaceState({ ...initialState(), meta: { ...initialState().meta, onboarded: true }, settings: getState().settings }, L('مسح الكل', "Erase all"));
           toast(L('مُسحت البيانات', "Data erased"), { undoable: true });
@@ -245,7 +246,7 @@ export function Settings() {
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("تقدير المذاكرة:", "Study estimates:")}</b>{L(" حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.", " chapter size × difficulty × your speed measured from your sessions + review time. Shown as a range (low–high) that narrows as you log more sessions. Then I simulate the days until the exam against your study time and split it between exams.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("التعلم منك:", "Learning from you:")}</b>{L(" أقارن تقديراتك بالوقت الفعلي (المؤقت أو إجابتك بعد الإنجاز) وأصحح التقديرات القادمة. المهام التي لم تُنجز في يومها تعود مؤجلة ويُحسب تأجيلها.", " I compare your estimates with the real time (timer or your answer after finishing) and correct future estimates. Tasks not done on their day come back as postponed, and the postponement is counted.")}</p>
-          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يعرف إلا ما أدخلته. الذكاء الاصطناعي (Claude) لا يعمل إلا إذا أضفت مفتاحك في «المدرب الذكي»، وعندها تُرسل خطتك لـAnthropic لكتابة الرسالة فقط.", " it never sends messages or files to anyone and knows only what you entered. AI (Claude) only runs if you add your key under “Smart coach” — then your plan is sent to Anthropic just to write the message.")}</p>
+          <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ما لا يفعله:", "What it doesn't do:")}</b>{L(" لا يرسل رسائل ولا ملفات لأحد، ولا يعرف إلا ما أدخلته. يخرج من جهازك فقط: نسخة مشفّرة لسكربت قوقل الخاص بك إذا فعّلت المزامنة، وما يحتاجه Claude إذا أضفت مفتاحك (خطتك، مصاريفك المختصرة، نبذتك، المحادثة، وصورة الجدول إن أرسلتها) — لـAnthropic فقط لكتابة الرد.", " it never sends messages or files to anyone and knows only what you entered. All that leaves your device: an encrypted copy to your own Google script if you turn on sync, and what Claude needs if you add your key (your plan, a spending summary, your about-me, the chat, and a timetable photo if you send one) — to Anthropic only, to write the reply.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("اختصارات:", "Shortcuts:")}</b> <span className="kbd">N</span>{L(" إضافة سريعة · ", " quick add · ")}<span className="kbd">/</span>{L(" أو ", " or ")}<span className="kbd">Ctrl K</span>{L(" بحث.", " search.")}</p>
         </div>
       </Section>
@@ -259,9 +260,11 @@ const WEEKEND = [5, 6];
 /** two simple groups (study days / weekend) + per-day fine-tuning tucked away */
 function AvailabilityEditor() {
   const st = useApp().settings;
+  // moves every day in the group by the same amount, so per-day tweaks survive
   const setGroup = (key: 'available' | 'studyCap', days: number[], v: number) => {
     const arr = [...st[key]];
-    for (const d of days) arr[d] = v;
+    const delta = v - avg(key, days);
+    for (const d of days) arr[d] = Math.max(0, arr[d] + delta);
     A.updateSettings({ [key]: arr } as never);
   };
   const setDay = (key: 'available' | 'studyCap', i: number, v: number) => {
@@ -319,7 +322,7 @@ function AvailabilityEditor() {
 function CoachSettings() {
   const st = useApp().settings;
   const c = st.coach;
-  const [key, setKey] = useState(getAiKey());
+  const [key, setKey] = useState('');
   const [saved, setSaved] = useState(hasAiKey());
   const [testing, setTesting] = useState(false);
   const tones: { v: CoachTone; l: string; d: string }[] = [
@@ -327,13 +330,15 @@ function CoachSettings() {
     { v: 'firm', l: L('حازم', 'Firm'), d: L('صريح ويشد عليك إذا تأخرت.', 'Honest, and firm when you fall behind.') },
     { v: 'harsh', l: L('شديد', 'Harsh'), d: L('توبيخ قاسٍ بقدر تأخيرك — بدون مجاملة.', 'Harsh scolding in proportion to your delay — no sugar-coating.') },
   ];
+  // the key is kept only after Claude accepts it
   const save = async () => {
-    setAiKey(key);
-    setSaved(!!key.trim());
-    if (!key.trim()) return toast(L('حُذف المفتاح من هذا الجهاز', 'Key removed from this device'));
+    if (!key.trim()) return;
     setTesting(true);
     try {
-      await askClaude('Reply with one short word.', [{ role: 'user', text: 'ping', at: Date.now() }], 200);
+      await testAiKey(key);
+      setAiKey(key);
+      setSaved(true);
+      setKey('');
       toast(L('تم الاتصال بـClaude ✓', 'Connected to Claude ✓'));
     } catch (e: any) {
       toast(e?.message || String(e));
@@ -341,6 +346,13 @@ function CoachSettings() {
       setTesting(false);
     }
   };
+  const remove = () => {
+    if (!confirm(L('حذف مفتاح Claude من هذا الجهاز؟', 'Remove the Claude key from this device?'))) return;
+    setAiKey('');
+    setSaved(false);
+    toast(L('حُذف المفتاح من هذا الجهاز', 'Key removed from this device'));
+  };
+  const masked = (k: string) => `${k.slice(0, 7)}…${k.slice(-4)}`;
   return (
     <>
       <div className="row between">
@@ -365,14 +377,21 @@ function CoachSettings() {
         />
       </div>
       <div className="field">
-        <label>{L("مفتاح Claude (اختياري)", "Claude key (optional)")}</label>
-        <div className="row" style={{ gap: 8 }}>
-          <input className="input" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" dir="ltr" />
-          <button className="btn primary" onClick={save} disabled={testing}>{testing ? L('يتحقق…', 'Checking…') : L('حفظ', 'Save')}</button>
-        </div>
+        <label htmlFor="ai-key">{L("مفتاح Claude (اختياري)", "Claude key (optional)")}</label>
+        {saved ? (
+          <div className="row" style={{ gap: 8 }}>
+            <code className="grow" dir="ltr">{masked(getAiKey())}</code>
+            <button className="btn sm danger" onClick={remove}><Icon name="trash" size={15} />{L(' حذف المفتاح', ' Remove key')}</button>
+          </div>
+        ) : (
+          <div className="row" style={{ gap: 8 }}>
+            <input id="ai-key" className="input" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" dir="ltr" />
+            <button className="btn primary" onClick={save} disabled={testing || !key.trim()}>{testing ? L('يتحقق…', 'Checking…') : L('حفظ', 'Save')}</button>
+          </div>
+        )}
         <div className="faint tiny">
           {saved ? L('مفعّل — الرسائل والمحادثة يكتبها Claude.', 'On — messages and chat are written by Claude.') : L('بدون مفتاح يكتب المدرب رسائل جاهزة من بياناتك.', 'Without a key the coach uses built-in messages based on your data.')}{' '}
-          {L('المفتاح من console.anthropic.com (مدفوع بالاستخدام، منفصل عن اشتراك Claude). يبقى على هذا الجهاز فقط ولا يدخل في النسخ الاحتياطية أو النقل. عند الاستخدام تُرسل خطتك (عناوين المهام والاختبارات) إلى Anthropic لكتابة الرد.', "Get one at console.anthropic.com (pay-as-you-go, separate from a Claude subscription). It stays on this device only and isn't included in backups or transfers. When used, your plan (task and exam titles) is sent to Anthropic to write the reply.")}
+          {L('المفتاح من console.anthropic.com (مدفوع بالاستخدام، منفصل عن اشتراك Claude — يُفضّل مفتاح بحد إنفاق). يبقى على هذا الجهاز فقط ولا يدخل في النسخ الاحتياطية أو النقل. عند الاستخدام تُرسل لـAnthropic خطتك ومختصر مصاريفك ونبذتك والمحادثة لكتابة الرد.', "Get one at console.anthropic.com (pay-as-you-go, separate from a Claude subscription — a key with a spend limit is best). It stays on this device only and isn't included in backups or transfers. When used, your plan, a spending summary, your about-me and the chat are sent to Anthropic to write the reply.")}
         </div>
       </div>
     </>

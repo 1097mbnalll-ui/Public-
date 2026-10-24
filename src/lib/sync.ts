@@ -183,8 +183,15 @@ export function pairLink(): string {
 export async function joinFromLink(text: string) {
   const m = text.match(/[?&]c=([\w-]+)/);
   if (!m) throw new Error(L('هذا مو رابط ربط من «مسار».', "That's not a Masar pairing link."));
-  const j = JSON.parse(new TextDecoder().decode(fromB64url(m[1])));
+  let j: { u?: unknown; t?: string; k?: string };
+  try {
+    j = JSON.parse(new TextDecoder().decode(fromB64url(m[1])));
+  } catch {
+    throw new Error(L('رابط الربط تالف.', 'The pairing link is damaged.'));
+  }
   if (!j?.u || !j?.t || !j?.k) throw new Error(L('رابط الربط ناقص.', 'The pairing link is incomplete.'));
+  // only ever talk to a Google Apps Script — a crafted link must not send the data anywhere else
+  if (typeof j.u !== 'string' || !validScriptUrl(j.u)) throw new Error(L('رابط الربط لا يشير إلى سكربت قوقل — لا تستخدمه.', "This pairing link doesn't point to a Google script — don't use it."));
   await call({ url: j.u, token: j.t }, 'ping');
   // with nothing here yet, simply take the other device's data; otherwise merge both
   setSync({ url: j.u, token: j.t, key: j.k, rev: 0, dirty: hasData(getState()) });
@@ -260,8 +267,10 @@ export async function syncNow(): Promise<void> {
     if (p.rev > c.rev) {
       if (p.data) {
         const remote = await decryptState(p.data, c.key);
-        await apply(c.dirty ? mergeSynced(getState(), remote, getBase()) : remote);
-        if (!c.dirty) setBase(remote);
+        // re-read: something may have changed here while we were waiting on the network
+        const dirty = getSync()!.dirty;
+        await apply(dirty ? mergeSynced(getState(), remote, getBase()) : remote);
+        if (!dirty) setBase(remote);
       }
       patch({ rev: p.rev });
     }
@@ -271,10 +280,12 @@ export async function syncNow(): Promise<void> {
     // 3) send what changed here
     for (let tries = 0; tries < 3 && getSync()?.dirty; tries++) {
       c = getSync()!;
-      const r = await call(c, 'push', JSON.stringify({ base: c.rev, data: await encryptState(getState(), c.key) }));
+      const sent = getState();
+      const r = await call(c, 'push', JSON.stringify({ base: c.rev, data: await encryptState(sent, c.key) }));
       if (r.ok) {
-        setBase(getState());
-        patch({ rev: r.rev, dirty: false });
+        // the base is what the server now holds — not whatever was added while uploading
+        setBase(sent);
+        patch({ rev: r.rev, dirty: getState() !== sent });
       } else if (r.conflict) {
         // both devices changed: keep both, then try again on top of theirs
         if (r.data) await apply(mergeSynced(getState(), await decryptState(r.data, c.key), getBase()));

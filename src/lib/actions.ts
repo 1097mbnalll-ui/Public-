@@ -639,11 +639,35 @@ export function readCoursePack(raw: any): CoursePack {
     throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
   const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}), ...(schedule.length ? { schedule } : {}) };
   if (!hasCourse) return { ...extra, units: [] };
+  // a pack can come from any link: keep only well-typed, bounded values
+  const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
+  const diff = (v: unknown) => (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5 ? (v as number) : undefined);
+  const c = raw.course;
+  const name = str(c.name, 120);
+  if (!name) throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
+  const course: CoursePack['course'] = {
+    name,
+    ...(diff(c.difficulty) ? { difficulty: diff(c.difficulty) } : {}),
+    ...(str(c.sizeLabel, 30) ? { sizeLabel: str(c.sizeLabel, 30) } : {}),
+    ...(Number(c.paceGuess) > 0 && Number(c.paceGuess) < 1000 ? { paceGuess: Number(c.paceGuess) } : {}),
+    ...(str(c.notes, 40_000) ? { notes: str(c.notes, 40_000) } : {}),
+    ...(typeof c.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(c.color) ? { color: c.color } : {}),
+  };
   const units = raw.units
-    .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
-    .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty, ...(typeof u.notes === 'string' && u.notes.trim() ? { notes: u.notes.slice(0, 40_000) } : {}) }));
-  const exam = raw.exam && day.test(raw.exam.date) ? raw.exam : undefined;
-  return { course: raw.course, units, exam, ...extra };
+    .filter((u: any) => u && str(u.title, 300) && Number(u.size) > 0 && Number(u.size) < 100_000)
+    .slice(0, 500)
+    .map((u: any) => ({ title: str(u.title, 300)!, size: Number(u.size), difficulty: diff(u.difficulty), ...(str(u.notes, 40_000) ? { notes: str(u.notes, 40_000) } : {}) }));
+  const e = raw.exam;
+  const exam: CoursePack['exam'] =
+    e && day.test(e.date)
+      ? {
+          title: str(e.title, 200) || name,
+          date: e.date,
+          ...(/^\d{2}:\d{2}$/.test(e.time) ? { time: e.time } : {}),
+          ...(Number.isInteger(e.reviewDays) && e.reviewDays >= 0 && e.reviewDays <= 30 ? { reviewDays: e.reviewDays } : {}),
+        }
+      : undefined;
+  return { course, units, exam, ...extra };
 }
 
 /** adds a course with its units (and exam) without touching anything else */

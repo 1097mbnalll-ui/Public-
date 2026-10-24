@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from 'react';
 import type { AppState } from './types';
 import { initialState, migrate } from './defaults';
-import { loadState, saveSnapshot, saveState } from './db';
+import { LoadError, loadState, saveSnapshot, saveState } from './db';
 import { todayKey } from './dates';
 import { setLang } from './i18n';
 import { L } from './i18n';
@@ -55,10 +55,13 @@ export function useSaveStatus(): SaveStatus {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** set when stored data couldn't be read: never overwrite it with what's in memory */
+let saveBlocked = false;
 
 async function flush() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
+  if (saveBlocked) return setStatus('error');
   setStatus('saving');
   const ok = await saveState(state);
   setStatus(ok ? 'saved' : 'error');
@@ -132,19 +135,30 @@ export function rollover(now = Date.now()) {
 }
 
 export async function init() {
-  const raw = await loadState();
+  let raw: unknown | null = null;
+  try {
+    raw = await loadState().catch(() => loadState()); // one retry
+  } catch (e) {
+    if (!(e instanceof LoadError)) throw e;
+    saveBlocked = true;
+  }
   state = raw ? migrate(raw) : initialState();
   ready = true;
   rollover();
   emit();
-  if (!raw) await flush();
-  // one snapshot per day, kept for two weeks
-  saveSnapshot(todayKey(), state);
+  if (saveBlocked) setStatus('error');
+  else {
+    if (!raw) await flush();
+    // one snapshot per day, kept for two weeks
+    saveSnapshot(todayKey(), state);
+  }
 
   channel?.addEventListener('message', async (e) => {
     if (e.data?.from === tabId || e.data?.type !== 'changed') return;
-    const fresh = await loadState();
+    if (saveTimer) return; // our own unsaved edit is newer; it saves and notifies the other tab
+    const fresh = await loadState().catch(() => null);
     if (fresh) {
+      undoStack.length = 0;
       state = migrate(fresh);
       emit();
     }
