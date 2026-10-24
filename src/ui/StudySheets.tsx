@@ -199,6 +199,20 @@ export function LessonRow({ u, color, pace, sizeLabel }: { u: Unit; color: strin
   );
 }
 
+/** the lesson's summary: "## " headings, "- " bullets, plain lines as paragraphs */
+function LessonNotes({ text }: { text: string }) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  return (
+    <div className="lesson-notes">
+      {lines.map((l, i) =>
+        l.startsWith('## ') ? <h4 key={i}>{l.slice(3)}</h4>
+        : l.startsWith('- ') ? <div key={i} className="ln-b">{l.slice(2)}</div>
+        : <p key={i}>{l}</p>,
+      )}
+    </div>
+  );
+}
+
 export function LessonSheet({ id }: { id: string }) {
   const s = useApp();
   const u = s.units.find((x) => x.id === id);
@@ -219,6 +233,7 @@ export function LessonSheet({ id }: { id: string }) {
       }
     >
       <div className="fields">
+        {u.notes && <LessonNotes text={u.notes} />}
         <div className="field">
           <label>{L("وين وصلت؟", "How far are you?")}</label>
           <div className="row wrap" style={{ gap: 6 }}>

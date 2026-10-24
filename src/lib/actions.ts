@@ -405,14 +405,14 @@ export function deleteCourse(id: string) {
   }, L('حذف مادة', "Delete course"));
 }
 
-export function addUnits(courseId: string, units: { title: string; size: number; difficulty?: number }[]): string[] {
+export function addUnits(courseId: string, units: { title: string; size: number; difficulty?: number; notes?: string }[]): string[] {
   const ids: string[] = [];
   mutate((s) => {
     let order = Math.max(-1, ...s.units.filter((u) => u.courseId === courseId).map((u) => u.order)) + 1;
     for (const u of units) {
       const id = uid();
       ids.push(id);
-      s.units.push({ id, courseId, title: u.title, size: u.size, difficulty: u.difficulty, progress: 0, reviewed: false, spent: 0, order: order++ });
+      s.units.push({ id, courseId, title: u.title, size: u.size, difficulty: u.difficulty, ...(u.notes ? { notes: u.notes } : {}), progress: 0, reviewed: false, spent: 0, order: order++ });
     }
   });
   return ids;
@@ -582,7 +582,7 @@ export function clearMissed() {
 
 export interface CoursePack {
   course: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
-  units: { title: string; size: number; difficulty?: number }[];
+  units: { title: string; size: number; difficulty?: number; notes?: string }[];
   exam?: { title: string; date: string; time?: string; reviewDays?: number };
 }
 
@@ -591,7 +591,7 @@ export function readCoursePack(raw: any): CoursePack {
     throw new Error(L('هذا الملف ليس ملف مادة من «مسار».', "This file is not a Masar course file."));
   const units = raw.units
     .filter((u: any) => u && typeof u.title === 'string' && Number(u.size) > 0)
-    .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty }));
+    .map((u: any) => ({ title: u.title, size: Number(u.size), difficulty: u.difficulty, ...(typeof u.notes === 'string' && u.notes.trim() ? { notes: u.notes.slice(0, 40_000) } : {}) }));
   const exam = raw.exam && /^\d{4}-\d{2}-\d{2}$/.test(raw.exam.date) ? raw.exam : undefined;
   return { course: raw.course, units, exam };
 }

@@ -9,22 +9,29 @@ import { go, useRoute } from '../ui/router';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
 import { L, sz } from '../lib/i18n';
+import { unpackLinkPack } from '../lib/transfer';
 
 /** #/import?src=courses/xxx.json — preview a ready-made course and add it */
 export function Import() {
   const s = useApp();
-  const src = useRoute().query.get('src');
+  const route = useRoute();
+  const src = route.query.get('src');
+  const inline = route.query.get('pack');
   const [pack, setPack] = useState<CoursePack | null>(null);
   const [err, setErr] = useState('');
   // exam details, prefilled from the package when it has them
   const [examTitle, setExamTitle] = useState(L('الميد', "Midterm"));
   const [examDate, setExamDate] = useState('');
   const [reviewDays, setReviewDays] = useState(2);
+  const [examTime, setExamTime] = useState<string | undefined>();
 
   useEffect(() => {
-    if (!src || /^https?:|\/\//.test(src)) return setErr(L('رابط الاستيراد غير صالح.', "Invalid import link."));
-    fetch(`${src.replace(/^\/+/, '')}?v=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(L('تعذر تحميل الملف.', "Couldn't load the file.")))))
+    // the pack can live inside the link itself (private: no file on the server) or in a file on the site
+    let load: Promise<unknown>;
+    if (inline) load = unpackLinkPack(inline).catch(() => Promise.reject(new Error(L('رابط الاستيراد تالف أو ناقص.', 'The import link is damaged or incomplete.'))));
+    else if (!src || /^https?:|\/\//.test(src)) return setErr(L('رابط الاستيراد غير صالح.', "Invalid import link."));
+    else load = fetch(`${src.replace(/^\/+/, '')}?v=${Date.now()}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(L('تعذر تحميل الملف.', "Couldn't load the file.")))));
+    load
       .then((j) => {
         const p = readCoursePack(j);
         setPack(p);
@@ -32,10 +39,11 @@ export function Import() {
           setExamTitle(p.exam.title);
           setExamDate(p.exam.date);
           setReviewDays(p.exam.reviewDays ?? 2);
+          setExamTime(p.exam.time);
         }
       })
       .catch((e) => setErr(e.message || L('تعذر تحميل الملف.', "Couldn't load the file.")));
-  }, [src]);
+  }, [src, inline]);
 
   if (err) return <div><PageTop title={L("استيراد مادة", "Import course")} back={{ label: L('الدراسة', "Study"), to: 'study' }} /><div className="card"><Empty icon="alert" title={err} /></div></div>;
   if (!pack) return <div className="card"><Empty icon="study" title={L("جارٍ التحميل…", "Loading…")} /></div>;
@@ -45,7 +53,7 @@ export function Import() {
   const pastDate = !!examDate && examDate < todayKey();
   const add = (replace = false) => {
     if (replace && existing) deleteCourse(existing.id);
-    const exam = examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, reviewDays } : undefined;
+    const exam = examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, time: examTime, reviewDays } : undefined;
     const id = importCoursePack({ ...pack, exam });
     const examId = getState().exams.find((e) => e.courseId === id)?.id;
     toast((examId && quotaMessage(examId)) || L(`أُضيفت ${pack.course.name}`, `Added ${pack.course.name}`), { ms: 8000 });

@@ -157,6 +157,15 @@ describe('study planner', () => {
     const plan = planStudy(s, NOW);
     expect(plan.exams[1].mid).toBe(0);
   });
+
+  it('studies on the morning of an afternoon exam, not of a morning one', () => {
+    const s = initialState();
+    withCourse(s, [10, 10], 1, 0);
+    s.exams[0].time = '17:00';
+    expect(planStudy(s, NOW).exams[0].lastStudyDay).toBe(addDays(TODAY, 1));
+    s.exams[0].time = '08:00';
+    expect(planStudy(s, NOW).exams[0].lastStudyDay).toBe(TODAY);
+  });
 });
 
 describe('daily study quota', () => {

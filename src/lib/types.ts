@@ -157,6 +157,8 @@ export interface Unit {
   reviewed: boolean;
   spent: number;
   order: number;
+  /** study notes / summary for this lesson */
+  notes?: string;
 }
 
 export interface Exam {

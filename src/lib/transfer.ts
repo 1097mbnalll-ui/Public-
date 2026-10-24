@@ -45,6 +45,12 @@ async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionS
 
 const canGzip = () => typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
 
+/** a course pack carried inside a link (#/import?pack=…): gzip + base64url, nothing stored on the server */
+export async function unpackLinkPack(s: string): Promise<unknown> {
+  const raw = await pipe(fromB64url(s), new DecompressionStream('gzip'));
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+
 export function toB64url(b: Uint8Array): string {
   let s = '';
   for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));

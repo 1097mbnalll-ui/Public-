@@ -3054,3 +3054,11 @@ h3 {
   border-radius: 3px;
   background: var(--grad);
 }
+
+/* lesson summary inside the lesson sheet */
+.lesson-notes { background: var(--surface); border: 1px solid var(--glass-border); border-radius: 14px; padding: 12px 14px; max-height: 55vh; overflow-y: auto; line-height: 1.8; font-size: 14.5px; }
+.lesson-notes h4 { margin: 10px 0 4px; font-size: 15px; color: var(--accent, inherit); }
+.lesson-notes h4:first-child { margin-top: 0; }
+.lesson-notes p { margin: 2px 0; }
+.lesson-notes .ln-b { position: relative; padding-inline-start: 14px; margin: 2px 0; }
+.lesson-notes .ln-b::before { content: '•'; position: absolute; inset-inline-start: 0; opacity: .6; }

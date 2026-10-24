@@ -136,10 +136,13 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     );
     const remainingAll = allUnits.reduce((s, u) => s + unitMinutes(u, course, pace.pace, state.settings.reviewFactor), 0);
     const daysLeft = diffDays(today, exam.date);
-    let lastStudyDay = addDays(exam.date, -(exam.reviewDays || 0) - 1);
+    // an afternoon exam (12:00 or later) leaves its morning for study
+    const studyOnExamDay = !!exam.time && exam.time >= '12:00';
+    const latest = studyOnExamDay ? exam.date : addDays(exam.date, -1);
+    let lastStudyDay = addDays(latest, -(exam.reviewDays || 0));
     let reviewCompressed = false;
-    if (lastStudyDay < today && exam.date > today) {
-      lastStudyDay = addDays(exam.date, -1);
+    if (lastStudyDay < today && latest >= today) {
+      lastStudyDay = latest;
       reviewCompressed = (exam.reviewDays || 0) > 0;
     }
     plans.push({
