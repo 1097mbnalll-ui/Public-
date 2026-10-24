@@ -146,6 +146,10 @@ export function Settings() {
         </div>
       </Section>
 
+      <Section title={L("المزامنة بين أجهزتك", "Sync across your devices")} desc={L("جوالك والتابلت يشوفون نفس البيانات تلقائيًا، ورسائل البنك تدخل مصاريفك لحالها — عن طريق حساب قوقل حقك.", "Your phone and tablet see the same data automatically, and bank messages land in your spending — through your own Google account.")}>
+        <button className="btn primary" onClick={() => openSheet({ type: 'sync' })}><Icon name="repeat" size={16} />{L(" المزامنة", " Sync")}</button>
+      </Section>
+
       <Section title={L("جهاز آخر", "Another device")} desc={L("انقل كل بياناتك لجوال أو كمبيوتر آخر بدون حساب: تُشفّر بكود، وترسل الرابط لنفسك، وتفتحه هناك.", "Move all your data to another phone or computer without an account: it's encrypted with a code, you send yourself the link, and open it there.")}>
         <div className="row wrap" style={{ gap: 8 }}>
           <button className="btn primary" onClick={() => openSheet({ type: 'transfer' })}><Icon name="share" size={16} />{L(" انقل بياناتي لجهاز آخر", " Move my data to another device")}</button>

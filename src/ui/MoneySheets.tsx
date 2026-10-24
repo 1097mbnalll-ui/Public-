@@ -200,6 +200,7 @@ export function SmsSheet() {
             <b className="money">{fmtMoney(f.amount)}</b>
           </label>
         ))}
+        <button className="m-link" onClick={() => openSheet({ type: 'sync' })}>⚡ {L('أسهل: شغّل المزامنة وخلّ الرسائل تدخل لحالها بدون ملف', 'Easier: turn on sync and let messages come in by themselves, no file')}</button>
         <Collapse title={L('خلّ رسائل البنك تنحفظ لحالها (آيفون)', 'Save bank messages automatically (iPhone)')} defaultOpen={!s.money.smsSeen?.length && !text}>
           <ol className="m-guide">
             <li>{L('افتح تطبيق «الاختصارات» ← «الأتمتة» ← زر +.', 'Open Shortcuts → Automation → +.')}</li>

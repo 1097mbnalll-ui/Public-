@@ -18,7 +18,8 @@ export type SheetSpec =
   | { type: 'expense'; id?: string; text?: string }
   | { type: 'sms' }
   | { type: 'money-settings' }
-  | { type: 'sub'; id?: string };
+  | { type: 'sub'; id?: string }
+  | { type: 'sync' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

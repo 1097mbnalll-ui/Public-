@@ -716,7 +716,7 @@ export function addExpenses(list: Omit<Expense, 'id' | 'createdAt'>[]) {
 export function updateExpense(id: string, patch: Partial<Expense>) {
   mutate((s) => {
     const e = s.expenses.find((x) => x.id === id);
-    if (e) Object.assign(e, patch);
+    if (e) Object.assign(e, patch, { updatedAt: now() });
   });
 }
 
@@ -756,7 +756,7 @@ export function saveSub(sub: Omit<Subscription, 'id' | 'createdAt'> & { id?: str
   const id = sub.id || uid();
   mutate((s) => {
     const cur = s.subs.find((x) => x.id === id);
-    if (cur) Object.assign(cur, sub);
+    if (cur) Object.assign(cur, sub, { updatedAt: now() });
     else s.subs.push({ ...sub, id, createdAt: now() });
   });
   return id;
@@ -772,7 +772,7 @@ export function deleteSub(id: string) {
 export function markSubUsed(id: string) {
   mutate((s) => {
     const sub = s.subs.find((x) => x.id === id);
-    if (sub) sub.lastUsed = todayKey();
+    if (sub) Object.assign(sub, { lastUsed: todayKey(), updatedAt: now() });
   });
 }
 

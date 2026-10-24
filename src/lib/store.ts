@@ -99,8 +99,8 @@ export function undo(): string | null {
 }
 
 /** replace everything (import / restore). Old state is kept in undo. */
-export function replaceState(raw: unknown, label = L('استعادة', "Restore")) {
-  undoStack.push({ label, state });
+export function replaceState(raw: unknown, label = L('استعادة', "Restore"), undoable = true) {
+  if (undoable) undoStack.push({ label, state });
   state = migrate(raw);
   emit();
   return flush();

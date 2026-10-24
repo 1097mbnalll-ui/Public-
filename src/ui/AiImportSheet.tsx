@@ -57,7 +57,7 @@ export function AiImportSheet() {
   const go2 = async () => {
     setErr('');
     const t = text.trim();
-    const link = t.match(/#\/((?:import|receive)\?\S+)/);
+    const link = t.match(/#\/((?:import|receive|sync)\?\S+)/);
     if (link) { closeSheet(); return go(link[1]); }
     const a = t.indexOf('{');
     const b = t.lastIndexOf('}');

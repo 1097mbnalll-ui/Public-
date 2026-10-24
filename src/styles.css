@@ -3213,3 +3213,10 @@ h3 {
 .m-guide { margin: 6px 0 8px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.75; display: grid; gap: 6px; }
 .m-code { margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: var(--hover); font-size: 12.5px; line-height: 1.7; }
 .m-file { white-space: nowrap; font-family: ui-monospace, monospace; font-size: 12.5px; background: var(--hover); padding: 1px 6px; border-radius: 6px; }
+
+/* sync */
+.sync-box { display: grid; gap: 8px; padding: 14px; border-radius: 18px; background: var(--hover); }
+.sync-status { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--text); font-size: 14px; }
+.sync-status svg { color: var(--green); flex: none; }
+.sync-status.bad { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.sync-status.bad svg { color: var(--amber); }

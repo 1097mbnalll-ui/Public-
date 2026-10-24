@@ -129,6 +129,30 @@ function unionById<T extends WithId>(mine: T[], theirs: T[]): T[] {
   return [...map.values()];
 }
 
+const LISTS = ['tasks', 'procedures', 'goals', 'courses', 'units', 'exams', 'sessions', 'thoughts', 'templates', 'expenses', 'subs'] as const;
+export type IdSnapshot = Partial<Record<(typeof LISTS)[number], string[]>>;
+
+/** the ids in each list — what both devices agreed on at the last sync */
+export function idSnapshot(s: AppState): IdSnapshot {
+  const out: IdSnapshot = {};
+  for (const k of LISTS) out[k] = ((s[k] || []) as { id: string }[]).map((x) => x.id);
+  return out;
+}
+
+/** merge with deletions: an item that existed at the last sync and is now missing on either side was deleted there */
+export function mergeSynced(mine: AppState, theirs: AppState, base: IdSnapshot | null): AppState {
+  const out = mergeStates(mine, theirs);
+  if (!base) return out;
+  for (const k of LISTS) {
+    const was = new Set(base[k] || []);
+    if (!was.size) continue;
+    const m = new Set(((mine[k] || []) as { id: string }[]).map((x) => x.id));
+    const t = new Set(((theirs[k] || []) as { id: string }[]).map((x) => x.id));
+    (out as any)[k] = ((out[k] || []) as { id: string }[]).filter((x) => !(was.has(x.id) && (!m.has(x.id) || !t.has(x.id))));
+  }
+  return out;
+}
+
 /** combine two devices' data; on conflicts the most recently edited item wins, this device's settings stay */
 export function mergeStates(mine: AppState, theirs: AppState): AppState {
   const out: AppState = structuredClone(mine);
@@ -140,6 +164,15 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   out.exams = unionById(mine.exams, theirs.exams);
   out.sessions = unionById(mine.sessions, theirs.sessions);
   out.thoughts = unionById(mine.thoughts, theirs.thoughts);
+  out.expenses = unionById(mine.expenses || [], theirs.expenses || []);
+  out.subs = unionById(mine.subs || [], theirs.subs || []);
+  out.money = {
+    ...theirs.money,
+    ...mine.money,
+    swaps: { ...theirs.money?.swaps, ...mine.money?.swaps },
+    smsSeen: [...new Set([...(theirs.money?.smsSeen || []), ...(mine.money?.smsSeen || [])])].slice(-3000),
+    ...(mine.money?.goal || theirs.money?.goal ? { goal: mine.money?.goal && theirs.money?.goal ? { ...mine.money.goal, saved: Math.max(mine.money.goal.saved, theirs.money.goal.saved) } : mine.money?.goal || theirs.money?.goal } : {}),
+  };
   // templates: same name means the same template — keep one
   const names = new Set(mine.templates.map((t) => t.name.trim()));
   out.templates = unionById(mine.templates, theirs.templates.filter((t) => !names.has(t.name.trim()) || mine.templates.some((m) => m.id === t.id)));

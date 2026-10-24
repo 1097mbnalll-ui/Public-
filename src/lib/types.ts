@@ -292,6 +292,7 @@ export interface Expense {
   worth?: Worth;
   source?: 'sms' | 'sub' | 'import';
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface Subscription {
@@ -304,6 +305,7 @@ export interface Subscription {
   /** last day the user said they used it */
   lastUsed?: string;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface MoneyState {

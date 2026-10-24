@@ -3,9 +3,14 @@ import './styles.css';
 import { App } from './App';
 import { init } from './lib/store';
 import { setServiceWorker } from './lib/reminders';
+import { onSmsAdded, startSync } from './lib/sync';
+import { toast } from './ui/toast';
+import { L } from './lib/i18n';
 
 init().then(() => {
   createRoot(document.getElementById('root')!).render(<App />);
+  onSmsAdded((n) => toast(n === 1 ? L('📩 أُضيف مصروف من رسائل البنك', '📩 An expense was added from your bank messages') : L(`📩 أُضيفت ${n} مصاريف من رسائل البنك`, `📩 ${n} expenses added from your bank messages`), { undoable: true, ms: 6000 }));
+  startSync();
 });
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
