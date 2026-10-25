@@ -371,6 +371,8 @@ export interface AppState {
   dayOverrides: Record<string, number>;
   /** a lecture / shift you won't attend on one date: `${day}|${blockId}` → true (false = back on) */
   skipClass: Record<string, boolean>;
+  /** study time raised for particular days (exam crunch): day → minutes */
+  studyOverrides: Record<string, number>;
   days: Record<string, DayRecord>;
   timer?: Timer;
   /** insight id → hidden until (epoch ms) */

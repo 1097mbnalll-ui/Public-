@@ -143,7 +143,6 @@ function QueueRow({ ep, lead }: { ep: ExamPlan; lead?: boolean }) {
  * `compact` (the Today page) keeps the total and the list, without the big lesson.
  */
 export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boolean }) {
-  const s = useApp();
   const rows = plan.exams.filter((ep) => ep.quota > 0);
   const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
   const hasExams = plan.exams.some((ep) => ep.status !== 'past');
@@ -151,8 +150,6 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
   const total = rows.reduce((a, ep) => a + ep.quota, 0);
   const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
   const done = Math.min(total, rows.reduce((a, ep) => a + ep.doneToday, 0));
-  const cap = studyCapFor(s, todayKey());
-  const behind = rows.filter((ep) => ep.status === 'behind');
   const lead = compact ? undefined : rows.find((ep) => ep.todayMinutes > 0);
   const rest = rows.filter((ep) => ep !== lead);
   const ahead = !lead && !compact ? aheadLesson(plan) : null;
@@ -249,13 +246,7 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
         </button>
       ))}
 
-      {rows.length > 0 && (behind.length > 0 || (total > cap + 5 && left > 0)) && (
-        <div className={`sx-note ${behind.length ? 'red' : 'amber'}`}>
-          {behind.length
-            ? behind.map((ep) => L(`${ep.course.name}: حتى مع الالتزام ينقصك ~${fmtMinutes(ep.shortfall)} قبل الاختبار.`, `${ep.course.name}: even keeping to it you're ~${fmtMinutes(ep.shortfall)} short before the exam.`)).join(' ')
-            : L(`أكثر من وقت مذاكرتك (${fmtMinutes(cap)}) — اللي ما تخلصه يتوزع على الأيام الجاية.`, `More than your study time (${fmtMinutes(cap)}) — what you don't finish spreads over the coming days.`)}
-        </div>
-      )}
+      {rows.length > 0 && <TimeNote plan={plan} />}
 
       {rows.length > 0 && (
         <details className="sx-why">
@@ -267,6 +258,45 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
         </details>
       )}
     </section>
+  );
+}
+
+/** when your study time isn't enough: one clear sentence and one tap that fixes it (from your free time) */
+function TimeNote({ plan }: { plan: StudyPlan }) {
+  const s = useApp();
+  const today = todayKey();
+  const raised = s.studyOverrides?.[today];
+  const behind = plan.exams.filter((ep) => ep.status === 'behind');
+  const b = plan.boost;
+  if (!b || !behind.length)
+    return raised != null ? (
+      <div className="sx-note calm">
+        {L(`رفعت مذاكرتك إلى ${fmtMinutes(raised)} يوميًا لين الاختبارات.`, `You raised study to ${fmtMinutes(raised)} a day until the exams.`)}{' '}
+        <button className="linkish" onClick={() => { const last = Object.keys(s.studyOverrides).sort().pop()!; A.boostStudy(last, null); toast(L('رجع وقت مذاكرتك المعتاد', 'Back to your usual study time'), { undoable: true }); }}>{L('رجّع المعتاد', 'Back to usual')}</button>
+      </div>
+    ) : null;
+  const names = behind.map((ep) => ep.course.name).join(L(' و', ' and '));
+  const cap = studyCapFor(s, today);
+  return (
+    <div className="sx-note red sx-fix">
+      {b.enough ? (
+        <>
+          <div>{L(`وقت مذاكرتك (${fmtMinutes(cap)} باليوم) ما يكفي ${names}.`, `Your study time (${fmtMinutes(cap)} a day) isn't enough for ${names}.`)}</div>
+          <div><b>{L(`لو تذاكر ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)} تلحق كل شي`, `Study ${fmtMinutes(b.minutes)} a day until ${relDay(b.until)} and you'll make it`)}</b>{L(' — وجدولك فيه وقت فاضي لها.', ' — your timetable has the free time.')}</div>
+          <button className="btn sm primary" onClick={() => { A.boostStudy(b.until, b.minutes); toast(L(`تمام — ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)}، وتوزعت المواد عليها`, `Done — ${fmtMinutes(b.minutes)} a day until ${relDay(b.until)}`), { undoable: true }); }}>
+            {L(`اعتمد ${fmtMinutes(b.minutes)} يوميًا`, `Use ${fmtMinutes(b.minutes)} a day`)}
+          </button>
+        </>
+      ) : (
+        <>
+          <div>{L(`حتى لو ذاكرت كل وقتك الفاضي (${fmtMinutes(b.minutes)} باليوم) ينقصك ~${fmtMinutes(b.short)} في ${names}.`, `Even all your free time (${fmtMinutes(b.minutes)} a day) leaves ~${fmtMinutes(b.short)} short in ${names}.`)}</div>
+          <div>{L('اعتمد أقصى وقت، وركّز على أهم الدروس — أو ألغِ محاضرة/مهمة تقدر تأجلها.', 'Take the most time you have and focus on the key lessons — or drop a lecture/task you can.')}</div>
+          <button className="btn sm primary" onClick={() => { A.boostStudy(b.until, b.minutes); toast(L(`تمام — ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)}`, `Done — ${fmtMinutes(b.minutes)} a day`), { undoable: true }); }}>
+            {L(`اعتمد ${fmtMinutes(b.minutes)} يوميًا`, `Use ${fmtMinutes(b.minutes)} a day`)}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -373,10 +403,6 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
   const rest = active.filter((ep) => ep !== hero);
   const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
   const rows = plan.exams.filter((ep) => ep.quota > 0);
-  const total = rows.reduce((a, ep) => a + ep.quota, 0);
-  const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
-  const cap = studyCapFor(s, today);
-  const behind = rows.filter((ep) => ep.status === 'behind');
   const ahead = hero && !hero.todayMinutes ? aheadLesson(plan) : null;
   const smart = (s.settings.studyMode || 'smart') === 'smart';
 
@@ -455,13 +481,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
         </button>
       ))}
 
-      {rows.length > 0 && (behind.length > 0 || (total > cap + 5 && left > 0)) && (
-        <div className={`sx-note ${behind.length ? 'red' : 'amber'}`}>
-          {behind.length
-            ? behind.map((ep) => L(`${ep.course.name}: حتى مع الالتزام ينقصك ~${fmtMinutes(ep.shortfall)} قبل الاختبار.`, `${ep.course.name}: even keeping to it you're ~${fmtMinutes(ep.shortfall)} short before the exam.`)).join(' ')
-            : L(`المطلوب اليوم ${fmtMinutes(total)} — أكثر من وقت مذاكرتك (${fmtMinutes(cap)}). الاختبارات أولًا: خفّف اللي يتأجل.`, `Today needs ${fmtMinutes(total)} — more than your study time (${fmtMinutes(cap)}). Exams first: lighten what can wait.`)}
-        </div>
-      )}
+      {rows.length > 0 && <TimeNote plan={plan} />}
 
       {rows.length > 0 && (
         <details className="sx-why">

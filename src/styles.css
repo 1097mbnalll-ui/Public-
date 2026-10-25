@@ -3294,6 +3294,9 @@ html[lang='ar'] * {
 .sx-note { font-size: 13px; line-height: 1.6; padding: 10px 12px; border-radius: 14px; }
 .sx-note.red { background: var(--red-soft); color: var(--red); }
 .sx-note.amber { background: var(--amber-soft); color: var(--amber); }
+.sx-note.calm { background: var(--accent-soft, color-mix(in srgb, var(--accent) 10%, transparent)); color: var(--text); }
+.sx-note.sx-fix { display: grid; gap: 6px; justify-items: start; }
+.sx-note.sx-fix b { color: var(--text); }
 
 .sx-why > summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 700; list-style: none; width: fit-content; }
 .sx-why > summary::-webkit-details-marker { display: none; }

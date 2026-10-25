@@ -565,6 +565,17 @@ export function setDayOverride(day: string, minutes: number | null) {
   });
 }
 
+/** study `minutes` a day from today until `until` (null = back to your usual study time) */
+export function boostStudy(until: string, minutes: number | null) {
+  mutate((s) => {
+    s.studyOverrides ||= {};
+    for (let d = todayKey(); d <= until; d = addDays(d, 1)) {
+      if (minutes == null) delete s.studyOverrides[d];
+      else s.studyOverrides[d] = minutes;
+    }
+  }, minutes == null ? L('رجوع وقت المذاكرة', 'Usual study time') : L('رفع وقت المذاكرة', 'More study time'));
+}
+
 export function snooze(id: string, ms: number) {
   mutate((s) => {
     s.snoozed[id] = now() + ms;

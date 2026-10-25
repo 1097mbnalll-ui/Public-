@@ -245,6 +245,9 @@ describe('study planner across exams', () => {
     const s = initialState();
     s.settings.studyMode = 'even';
     s.settings.reviewFactor = 0;
+    // enough study time each day — this checks the arithmetic of the split, not whether it fits
+    s.settings.studyCap = [600, 600, 600, 600, 600, 600, 600];
+    s.settings.available = [600, 600, 600, 600, 600, 600, 600];
     withCourse(s, [108], 3, 0); // 108 pages × 5 min = 540 min; study today, tomorrow and the day after
     const plan = planStudy(s, NOW);
     const ep = plan.exams[0];
@@ -257,11 +260,12 @@ describe('study planner across exams', () => {
     expect(next.byDay[addDays(TODAY, 2)][0].minutes).toBe(270);
   });
 
-  it('shows what’s needed even when it’s more than your study time, and flags it', () => {
+  it('keeps today within your study time when it isn’t enough, flags it and says what would be', () => {
     const s = twoExams(3, 4, [60, 60], [60, 60]);
     const plan = planStudy(s, NOW);
     const total = plan.exams.reduce((a, ep) => a + ep.quota, 0);
-    expect(total).toBeGreaterThan(150);
+    expect(total).toBeLessThanOrEqual(150);
+    expect(plan.boost).toBeTruthy();
     expect(plan.exams.some((ep) => ep.status === 'behind')).toBe(true);
   });
 

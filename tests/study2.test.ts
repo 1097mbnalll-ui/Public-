@@ -11,6 +11,9 @@ function example(mode: 'smart' | 'even'): AppState {
   const s = initialState();
   s.settings.studyMode = mode;
   s.settings.reviewFactor = 0;
+  // plenty of time each day: these check how the work is shared out, not whether it fits
+  s.settings.studyCap = [720, 720, 720, 720, 720, 720, 720];
+  s.settings.available = [720, 720, 720, 720, 720, 720, 720];
   let n = 0;
   const course = (name: string, minutes: number, exam: string, time?: string) => {
     const cid = 'c' + n++;
@@ -65,5 +68,21 @@ describe('study modes', () => {
     const s = example('smart');
     s.exams[0].time = '08:00';
     expect(today(s)['عرب']).toBe(0);
+  });
+
+  it('never asks for more than your study time; a far exam still moves; and says how much would be enough', () => {
+    const s = example('smart');
+    s.settings.studyCap = [240, 240, 240, 240, 240, 240, 240];
+    s.settings.available = [300, 300, 300, 300, 300, 300, 300];
+    const p = planStudy(s, NOW);
+    for (const [d, list] of Object.entries(p.byDay)) expect(list.reduce((a, x) => a + x.minutes, 0), d).toBeLessThanOrEqual(240 + 10);
+    const eng = p.exams.find((e) => e.course.name === 'انجل')!;
+    expect(eng.todayMinutes).toBeGreaterThan(0);
+    expect(p.boost?.enough).toBe(true);
+    expect(p.boost!.minutes).toBeGreaterThan(240);
+    // taking the suggestion clears the warning
+    for (let d = '2026-10-25'; d <= p.boost!.until; d = addDays(d, 1)) s.studyOverrides[d] = p.boost!.minutes;
+    const q = planStudy(s, NOW);
+    expect(q.exams.filter((e) => e.status === 'behind')).toEqual([]);
   });
 });

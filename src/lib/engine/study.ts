@@ -11,6 +11,7 @@ import type { AppState, Course, Exam, Unit } from '../types';
 import { addDays, atTime, diffDays, fmtMinutes, todayKey } from '../dates';
 import { coursePace, diffFactor, type Pace } from './learning';
 import { availableFor, dayRecord, minutesLeftToday, studyCapFor } from './capacity';
+import { freeMinutes } from './schedule';
 import { L, szn } from '../i18n';
 
 export type ExamStatus = 'unknown' | 'done' | 'ok' | 'tight' | 'behind' | 'past';
@@ -92,6 +93,9 @@ export interface Portion {
 export interface StudyPlan {
   exams: ExamPlan[];
   byDay: Record<string, { examId: string; minutes: number }[]>;
+  /** when your study time isn't enough: the daily study until `until` that would be — or, if even
+   *  all your free time falls short, the most you can do and how much is still missing */
+  boost?: { minutes: number; until: string; enough: boolean; short: number };
 }
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
@@ -233,7 +237,7 @@ function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, 
 /** how much of a far exam's daily share a crowded day may hold back */
 const MAX_EASE = 0.4;
 
-function level(jobs: Job[], from: string, weightOf: (day: string) => number): SimResult {
+function level(jobs: Job[], from: string, weightOf: (day: string) => number, capOf: (day: string) => number): SimResult {
   const learn = new Map(jobs.map((j) => [j.p.exam.id, j.learn]));
   const review = new Map(jobs.map((j) => [j.p.exam.id, j.review]));
   const alloc = new Map<string, Record<string, number>>(jobs.map((j) => [j.p.exam.id, {}]));
@@ -281,6 +285,27 @@ function level(jobs: Job[], from: string, weightOf: (day: string) => number): Si
         x.want -= cut;
         over -= cut;
       }
+    }
+    // never ask for more than the day's study time. Every subject first gets one short session
+    // (15 min, nearest exam first) so nothing stalls; the rest goes nearest deadline first, and what
+    // doesn't fit carries over to the next days
+    const cap = Math.max(0, capOf(day));
+    if (asks.reduce((a, x) => a + x.want, 0) > cap) {
+      const order = asks.map((_, i) => i).sort((a, b) => asks[a].due.localeCompare(asks[b].due) || asks[b].want - asks[a].want);
+      const give = asks.map(() => 0);
+      let first = cap;
+      for (const i of order) {
+        const f = Math.min(asks[i].want, 15, first);
+        give[i] = f;
+        first -= f;
+      }
+      let room = cap - give.reduce((a, b) => a + b, 0);
+      for (const i of order) {
+        const g = Math.min(asks[i].want - give[i], Math.max(0, room));
+        give[i] += g;
+        room -= g;
+      }
+      asks.forEach((x, i) => (x.want = give[i]));
     }
     for (const x of asks) {
       const id = x.j.p.exam.id;
@@ -400,7 +425,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   const capOf = (day: string) => (day === today ? todayCap : studyCapFor(state, day));
   // the quota: what's needed, evenly over the days that have study time
   // smart weighs each day by its study time: a freer day (a skipped lecture) carries more, a busier one less
-  const need = smart ? level(jobs, today, (d) => studyCapFor(state, d)) : simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
+  const need = smart ? level(jobs, today, (d) => studyCapFor(state, d), (d) => studyCapFor(state, d)) : simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0), (d) => studyCapFor(state, d));
   // the check: does it fit your study time? (expected and pessimistic pace)
   const fit = simulate(jobs, today, capOf, capOf);
   const high = simulate(jobs.map((j) => ({ ...j, learn: j.learn * (1 + j.p.pace.spread), review: j.review * (1 + j.p.pace.spread) })), today, capOf, capOf);
@@ -478,7 +503,31 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   }
   for (const p of plans) if (p.status === 'unknown') p.suggestions.push(L('أضف الفصول أو الموضوعات المطلوبة لهذا الاختبار حتى أستطيع حساب الوقت.', "Add the chapters or topics for this exam so I can work out the time."));
 
-  return { exams: plans, byDay };
+  // not enough study time: find the daily study (in half hours, within your free time) that would be
+  const late = jobs.filter((j) => j.p.status === 'behind');
+  let boost: StudyPlan['boost'];
+  if (late.length) {
+    const until = late.reduce((m, j) => (j.lastDay > m ? j.lastDay : m), today);
+    const room = (d: string) => (d === today ? Math.min(freeMinutes(state, d), dayRecord(state, d).study + minutesLeftToday(state, now)) : freeMinutes(state, d));
+    const leftWith = (x: number) => {
+      const c = (d: string) => (d <= until ? Math.max(capOf(d), Math.min(x, room(d))) : capOf(d));
+      const r = simulate(jobs, today, c, c);
+      return late.reduce((a, j) => a + (r.learn.get(j.p.exam.id) || 0) + (r.review.get(j.p.exam.id) || 0), 0);
+    };
+    const most = Math.max(...Array.from({ length: diffDays(today, until) + 1 }, (_, i) => room(addDays(today, i))));
+    for (let x = 60; x <= 16 * 60; x += 30) {
+      const short = leftWith(x);
+      if (short <= 15) {
+        boost = { minutes: x, until, enough: true, short: 0 };
+        break;
+      }
+      if (x >= most) {
+        boost = { minutes: Math.max(60, Math.floor(most / 30) * 30), until, enough: false, short: round5(short) };
+        break;
+      }
+    }
+  }
+  return { exams: plans, byDay, ...(boost ? { boost } : {}) };
 }
 
 /** "ش1 · الدرس 3 (كامل)" or "ش1 · الدرس 4: 12 من 34 دقيقة فيديو" */

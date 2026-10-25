@@ -5,7 +5,11 @@ import { blocksOn, busyBetween, freeMinutes, freedMinutes } from './schedule';
 /** free minutes you said you have for planned work on a day */
 export function availableFor(state: AppState, day: string): number {
   const o = state.dayOverrides[day];
-  const set = o != null ? o : state.settings.available[weekday(day)] ?? 0;
+  const base = o != null ? o : state.settings.available[weekday(day)] ?? 0;
+  // a raised study time brings the day's time up with it, keeping your usual time for tasks on top
+  const raised = state.studyOverrides?.[day];
+  const taskTime = Math.max(0, (state.settings.available[weekday(day)] ?? 0) - (state.settings.studyCap[weekday(day)] ?? 0));
+  const set = raised != null ? Math.max(base, raised + taskTime) : base;
   // a lecture you skip gives its time (and the trip) back to that day
   const freed = freedMinutes(state, day);
   // lectures / shifts take their share: never plan more than the time left around them
@@ -13,7 +17,8 @@ export function availableFor(state: AppState, day: string): number {
 }
 
 export function studyCapFor(state: AppState, day: string): number {
-  return Math.min((state.settings.studyCap[weekday(day)] ?? 0) + freedMinutes(state, day), availableFor(state, day));
+  const set = state.studyOverrides?.[day] ?? state.settings.studyCap[weekday(day)] ?? 0;
+  return Math.min(set + freedMinutes(state, day), availableFor(state, day));
 }
 
 /** when your day ends */

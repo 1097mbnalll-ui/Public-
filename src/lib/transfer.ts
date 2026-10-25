@@ -179,6 +179,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   out.templates = unionById(mine.templates, theirs.templates.filter((t) => !names.has(t.name.trim()) || mine.templates.some((m) => m.id === t.id)));
   out.dayOverrides = { ...theirs.dayOverrides, ...mine.dayOverrides };
   out.skipClass = { ...theirs.skipClass, ...mine.skipClass };
+  out.studyOverrides = { ...theirs.studyOverrides, ...mine.studyOverrides };
   out.quotaLog = { ...theirs.quotaLog, ...mine.quotaLog };
   for (const [d, r] of Object.entries(theirs.days)) {
     const m = out.days[d];
