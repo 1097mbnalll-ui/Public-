@@ -23,7 +23,8 @@ export type SheetSpec =
   | { type: 'sub'; id?: string }
   | { type: 'sync' }
   | { type: 'block'; id?: string }
-  | { type: 'study-subject'; examId: string };
+  | { type: 'study-subject'; examId: string }
+  | { type: 'study-try' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

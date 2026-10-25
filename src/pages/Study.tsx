@@ -440,7 +440,10 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
   return (
     <>
       <section className="sh-today" aria-label={L('وش أذاكر اليوم', 'What to study today')}>
-        <h2 className="sh-h">{L('وش أذاكر اليوم', 'What to study today')}</h2>
+        <div className="sh-hrow">
+          <h2 className="sh-h">{L('وش أذاكر اليوم', 'What to study today')}</h2>
+          {active.length > 0 && <button className="sh-try" onClick={() => openSheet({ type: 'study-try' })}>{L('جرّب يومك', 'Try your days')}</button>}
+        </div>
         {rows.length ? (
           <>
             <div className="sh-total">
@@ -533,6 +536,118 @@ function SubjectRow({ ep }: { ep: ExamPlan }) {
       </button>
     </div>
   );
+}
+
+const DAY_SHORT = () => (lang() === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت']);
+
+/**
+ * «جرّب يومك»: pick any day and see only each subject and its hours; mark the days you won't
+ * study a subject and watch the other days take it — nothing changes in your plan until you
+ * press «اعتمدها».
+ */
+export function TrySheet() {
+  const s = useApp();
+  const now = useNow();
+  const today = todayKey(now);
+  const [off, setOff] = useState<Record<string, string[]>>(() => ({ ...s.studyOff }));
+  const [day, setDay] = useState(today);
+  const [pick, setPick] = useState<string | null>(null);
+  const real = useMemo(() => planStudy(s, now), [s, now]);
+  const trial = useMemo(() => planStudy({ ...s, studyOff: off }, now), [s, off, now]);
+  const exams = trial.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'unknown' && ep.status !== 'done' && ep.lastDay >= today);
+  const last = exams.reduce((m, ep) => (ep.lastDay > m ? ep.lastDay : m), today);
+  const days: string[] = [];
+  for (let d = today; d <= last; d = addDays(d, 1)) days.push(d);
+  const on = (p: StudyPlan, d: string, id: string) => (d === today ? p.exams.find((e) => e.exam.id === id)?.quota || 0 : p.byDay[d]?.find((x) => x.examId === id)?.minutes || 0);
+  const total = (p: StudyPlan, d: string) => exams.reduce((a, ep) => a + on(p, d, ep.exam.id), 0);
+  const isOff = (id: string, d: string) => !!off[id]?.includes(d);
+  const toggle = (id: string, d: string) => setOff((o) => ({ ...o, [id]: isOff(id, d) ? o[id].filter((x) => x !== d) : [...(o[id] || []), d] }));
+  const norm = (o: Record<string, string[]>) => JSON.stringify(Object.keys(o).filter((k) => o[k]?.length).sort().map((k) => [k, [...o[k]].sort()]));
+  const changed = norm(off) !== norm(s.studyOff || {});
+  const short = exams.filter((ep) => ep.unplanned);
+  const picked = exams.find((ep) => ep.exam.id === pick);
+  const label = (d: string) => (d === today ? L('اليوم', 'Today') : d === addDays(today, 1) ? L('بكرة', 'Tmrw') : DAY_SHORT()[new Date(`${d}T12:00:00`).getDay()]);
+  const delta = (a: number, b: number) => (Math.abs(a - b) < 3 ? null : <small className={`tr-d ${a > b ? 'up' : 'down'}`}>{a > b ? '+' : '−'}{hrs(Math.abs(a - b))}</small>);
+
+  return (
+    <Sheet
+      title={L('جرّب يومك', 'Try your days')}
+      onClose={closeSheet}
+      footer={
+        changed ? (
+          <>
+            <button className="btn primary grow" onClick={() => { A.setStudyOff(off); closeSheet(); toast(L('اعتمدتها — خطتك تمشي عليها الحين', 'Saved — your plan follows it now'), { undoable: true }); }}>{L('اعتمدها في خطتي', 'Use it in my plan')}</button>
+            <button className="btn ghost" onClick={() => setOff({ ...s.studyOff })}>{L('رجّع', 'Reset')}</button>
+          </>
+        ) : (
+          <button className="btn ghost grow" onClick={closeSheet}>{L('تم', 'Done')}</button>
+        )
+      }
+    >
+      <div className="tr">
+        <div className="tr-days" role="tablist" aria-label={L('اختر اليوم', 'Pick the day')}>
+          {days.map((d) => (
+            <button key={d} role="tab" aria-selected={d === day} className={d === day ? 'on' : ''} onClick={() => setDay(d)}>
+              <span>{label(d)}</span>
+              <b className="num">{new Date(`${d}T12:00:00`).getDate()}</b>
+              <small className="num">{hrs(total(trial, d))}</small>
+            </button>
+          ))}
+        </div>
+
+        <section className="tr-list">
+          <div className="tr-head"><b>{d2(day, today)}</b><span className="num"><Hours m={total(trial, day)} />{delta(total(trial, day), total(real, day))}</span></div>
+          {exams.map((ep) => {
+            const m = on(trial, day, ep.exam.id);
+            const gone = day > ep.lastDay;
+            return (
+              <div key={ep.exam.id} className={`tr-row ${isOff(ep.exam.id, day) ? 'off' : ''}`}>
+                <span className="bar" style={{ background: ep.course.color }} />
+                <b>{ep.course.name}</b>
+                <span className="v">{gone ? <span className="faint small">{L('خلص اختبارها', 'exam done')}</span> : isOff(ep.exam.id, day) ? <span className="faint small">{L('بدون مذاكرة', 'off')}</span> : m ? <><Hours m={m} />{delta(m, on(real, day, ep.exam.id))}</> : <span className="faint">—</span>}</span>
+              </div>
+            );
+          })}
+        </section>
+
+        <section className="tr-play">
+          <b>{L('جرّب: الأيام اللي ما راح تذاكر فيها مادة', "Try it: the days you won't study a subject")}</b>
+          <div className="tr-chips">
+            {exams.map((ep) => (
+              <button key={ep.exam.id} className={pick === ep.exam.id ? 'on' : ''} style={{ ['--c' as string]: ep.course.color }} onClick={() => setPick(pick === ep.exam.id ? null : ep.exam.id)}>
+                {ep.course.name}{off[ep.exam.id]?.length ? <small className="num"> · {L(`${off[ep.exam.id].length} إجازة`, `${off[ep.exam.id].length} off`)}</small> : null}
+              </button>
+            ))}
+          </div>
+          {picked && (
+            <>
+              <div className="faint tiny">{L(`اضغط اليوم اللي ما راح تذاكر فيه ${picked.course.name} — وشوف كيف تتوزع ساعاتها`, `Tap the days you won't study ${picked.course.name} and see its hours move`)}</div>
+              <div className="tr-grid">
+                {days.filter((d) => d <= picked.lastDay).map((d) => {
+                  const offd = isOff(picked.exam.id, d);
+                  const m = on(trial, d, picked.exam.id);
+                  return (
+                    <button key={d} className={offd ? 'off' : ''} aria-pressed={offd} onClick={() => toggle(picked.exam.id, d)}>
+                      <span>{label(d)} <b className="num">{new Date(`${d}T12:00:00`).getDate()}</b></span>
+                      <small className="num">{offd ? L('إجازة', 'off') : hrs(m)}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {short.map((ep) => (
+            <div key={ep.exam.id} className="sx-note red">{L(`${ep.course.name}: الأيام اللي بقت ما تكفي — ${hrs(ep.unplanned || 0)} بدون يوم. رجّع يوم أو أكثر.`, `${ep.course.name}: the days left aren't enough — ${hrs(ep.unplanned || 0)} has no day. Bring a day back.`)}</div>
+          ))}
+        </section>
+      </div>
+    </Sheet>
+  );
+}
+
+/** «اليوم · الإثنين 26 أكتوبر» */
+function d2(d: string, today: string): string {
+  return d === today ? L(`اليوم · ${fmtDate(d)}`, `Today · ${fmtDate(d)}`) : fmtDate(d);
 }
 
 /** everything about one subject's exam, and all of it editable: the exam, the sum, the lessons */

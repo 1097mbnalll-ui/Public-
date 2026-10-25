@@ -76,6 +76,8 @@ export interface ExamPlan {
   postponed?: number;
   /** today isn't the last day before the exam, so its share can move to tomorrow */
   canPostpone: boolean;
+  /** minutes with no day left to go to (every day left is a day off) */
+  unplanned?: number;
 }
 
 export interface Portion {
@@ -170,7 +172,14 @@ interface Job {
  * review days, everything against the exam; the larger wins). A share postponed on a day moves whole
  * to the next one — tomorrow takes it on top of its own share, so the other days don't change.
  */
-function spread(jobs: Job[], from: string, postponed: (day: string, examId: string) => number) {
+function spread(jobs: Job[], from: string, postponed: (day: string, examId: string) => number, off: (day: string, examId: string) => boolean = () => false) {
+  // study days from `a` to `b`, leaving out the days you won't study this exam
+  const count = (id: string, a: string, b: string) => {
+    let n = 0;
+    for (let d = a; d <= b; d = addDays(d, 1)) if (!off(d, id)) n++;
+    return n;
+  };
+  const left = new Map<string, number>();
   const alloc = new Map<string, Record<string, number>>();
   const learnDone = new Map<string, string>();
   for (const j of jobs) {
@@ -181,8 +190,12 @@ function spread(jobs: Job[], from: string, postponed: (day: string, examId: stri
     // postponed yesterday: it lands today, on top of today's share
     let carry = postponed(addDays(from, -1), id);
     for (let d = from; d <= j.lastDay && l + r > 0.5; d = addDays(d, 1)) {
+      // a day off: nothing today; a share carried into it waits for the next study day
+      if (off(d, id)) continue;
       const learning = l > 0.5 && d <= j.learnEnd;
-      const base = Math.max(Math.max(0, l + r - carry) / (diffDays(d, j.lastDay) + 1), learning ? Math.max(0, l - carry) / (diffDays(d, j.learnEnd) + 1) : 0);
+      const nLast = count(id, d, j.lastDay);
+      const nLearn = count(id, d, j.learnEnd);
+      const base = Math.max(Math.max(0, l + r - carry) / Math.max(1, nLast), learning && nLearn > 0 ? Math.max(0, l - carry) / nLearn : 0);
       let want = Math.min(l + r, carry + base);
       // the last day has no tomorrow to move to
       const out = d < j.lastDay ? Math.min(want, postponed(d, id)) : 0;
@@ -196,8 +209,9 @@ function spread(jobs: Job[], from: string, postponed: (day: string, examId: stri
       if (l <= 0.5 && g > 0 && !learnDone.has(id)) learnDone.set(id, d);
     }
     alloc.set(id, a);
+    left.set(id, l + r);
   }
-  return { alloc, learnDone };
+  return { alloc, learnDone, left };
 }
 
 export function planStudy(state: AppState, now = Date.now()): StudyPlan {
@@ -295,7 +309,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   }
 
   const postponed = (day: string, examId: string) => state.studyDefer?.[day]?.[examId] || 0;
-  const need = spread(jobs, today, postponed);
+  const need = spread(jobs, today, postponed, (day, examId) => !!state.studyOff?.[examId]?.includes(day));
 
   const byDay: StudyPlan['byDay'] = {};
   for (const j of jobs) {
@@ -303,6 +317,8 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     const id = p.exam.id;
     p.alloc = need.alloc.get(id) || {};
     p.finishDay = need.learnDone.get(id) || (p.learnLeft <= 0.5 ? today : undefined);
+    const unplanned = need.left.get(id) || 0;
+    if (unplanned > 5) p.unplanned = unplanned;
     const moved = postponed(today, id);
     if (moved && p.canPostpone) p.postponed = moved;
 

@@ -585,6 +585,13 @@ export function postponeStudy(examId: string, minutes: number | null) {
   }, minutes == null ? L('إلغاء التأجيل', 'Undo postpone') : L('تأجيل مادة لبكرة', 'Postpone to tomorrow'));
 }
 
+/** the days you won't study each subject (from «جرّب يومك») */
+export function setStudyOff(off: Record<string, string[]>) {
+  mutate((s) => {
+    s.studyOff = Object.fromEntries(Object.entries(off).filter(([, days]) => days.length));
+  }, L('أيام بدون مذاكرة', 'Days off'));
+}
+
 export function snooze(id: string, ms: number) {
   mutate((s) => {
     s.snoozed[id] = now() + ms;

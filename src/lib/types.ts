@@ -387,6 +387,8 @@ export interface AppState {
   studyOverrides: Record<string, number>;
   /** a subject's share moved to the next day: day → exam id → minutes moved */
   studyDefer: Record<string, Record<string, number>>;
+  /** days you won't study a subject: exam id → days */
+  studyOff: Record<string, string[]>;
   days: Record<string, DayRecord>;
   timer?: Timer;
   /** insight id → hidden until (epoch ms) */

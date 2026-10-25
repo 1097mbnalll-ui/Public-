@@ -69,3 +69,21 @@ describe('finishing an exam', () => {
     expect(Object.values(p.byDay).flat().some((x) => x.examId === 'e0')).toBe(false);
   });
 });
+
+describe('days off for a subject', () => {
+  it('the days you skip spread over the days you study; other subjects stay as they are', () => {
+    const s = build();
+    s.studyOff = { e0: [addDays(DAY, 1), addDays(DAY, 2)] };
+    expect(share(s, NOW, 'e0', DAY)).toBe(150);
+    expect(share(s, NOW, 'e0', addDays(DAY, 1))).toBe(0);
+    expect(share(s, NOW, 'e0', addDays(DAY, 3))).toBe(150);
+    expect(share(s, NOW, 'e1', addDays(DAY, 1))).toBe(100);
+    expect(planStudy(s, NOW).exams[0].unplanned).toBeUndefined();
+  });
+
+  it('says what has no day left when every day is off', () => {
+    const s = build();
+    s.studyOff = { e0: Array.from({ length: 6 }, (_, i) => addDays(DAY, i)) };
+    expect(planStudy(s, NOW).exams[0].unplanned).toBeCloseTo(600, 0);
+  });
+});
