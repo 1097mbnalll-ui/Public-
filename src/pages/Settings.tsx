@@ -259,6 +259,7 @@ export function Settings() {
       )}
 
       <Section title={L("حول «مدار»", "About Madar")}>
+        <div className="faint tiny">{L('الخط: ثمانية — بإذن من شركة ثمانية للنشر والتوزيع.', 'Typeface: thmanyah — used with permission of thmanyah Publishing & Distribution.')}</div>
         <Collapse title={L("كيف يعمل «مدار»؟", "How does Madar work?")}>
           <div className="small muted col" style={{ gap: 8 }}>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
@@ -439,15 +440,15 @@ function OwnFont() {
   return (
     <div className="col" style={{ gap: 8 }}>
       <b>{L('الخط العربي', 'Arabic font')}</b>
-      <div className="small muted">{on ? L('خطك مفعّل على هذا الجهاز.', 'Your font is on for this device.') : L('تقدر تستخدم خط ثمانية (أو أي خط عندك): اختر ملف الـzip اللي حمّلته من موقعهم، أو ملفات الخط.', 'Use thmanyah (or any font you have): pick the zip you downloaded from them, or the font files.')}</div>
+      <div className="small muted">{on ? L('خطك الخاص مفعّل على هذا الجهاز بدل خط ثمانية.', 'Your own font is on for this device instead of thmanyah.') : L('التطبيق بخط ثمانية للعربي والإنجليزي. تبي خط ثاني؟ اختر ملفه (أو ملف zip) من جهازك.', 'The app uses thmanyah for Arabic and English. Want another? Pick its file (or a zip) from this device.')}</div>
       <div className="row wrap" style={{ gap: 8 }}>
         <label className="btn sm">
-          {busy ? L('أجهّز الخط…', 'Preparing…') : on ? L('غيّر الخط', 'Change font') : L('اختر الخط من جهازك', 'Pick the font from this device')}
+          {busy ? L('أجهّز الخط…', 'Preparing…') : on ? L('غيّر الخط', 'Change font') : L('خط من جهازك', 'A font from this device')}
           <input type="file" hidden multiple accept=".zip,.woff2,.woff,.otf,.ttf" onChange={(e) => { pick(e.target.files); e.target.value = ''; }} />
         </label>
-        {on && <button className="btn sm ghost" onClick={async () => { await clearOwnFont(); toast(L('رجع الخط الأساسي', 'Back to the default font')); }}>{L('رجّع الخط الأساسي', 'Default font')}</button>}
+        {on && <button className="btn sm ghost" onClick={async () => { await clearOwnFont(); toast(L('رجع خط ثمانية', 'Back to thmanyah')); }}>{L('رجّع خط ثمانية', 'Back to thmanyah')}</button>}
       </div>
-      <div className="faint tiny">{L('الملفات تنحفظ في هذا المتصفح بس — ما تنرفع لأي مكان ولا تنتقل مع المزامنة أو النسخة الاحتياطية (ترخيص الخط ما يسمح بنشره). على جهازك الثاني اخترها مرة وحدة.', "The files stay in this browser only — never uploaded, synced or backed up (the font's licence doesn't allow sharing it). On your other device, pick them once there.")}</div>
+      <div className="faint tiny">{L('الملف ينحفظ في هذا الجهاز بس — ما ينتقل مع المزامنة أو النسخة الاحتياطية.', 'The file stays on this device only — not synced or backed up.')}</div>
     </div>
   );
 }

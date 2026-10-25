@@ -1,3 +1,10 @@
+/* خط ثمانية (thmanyah) — بإذن من شركة ثمانية للنشر والتوزيع. Arabic and Latin in one family. */
+@font-face { font-family: 'Thmanyah Sans'; src: url('./assets/fonts/thmanyahsans-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Thmanyah Sans'; src: url('./assets/fonts/thmanyahsans-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Thmanyah Sans'; src: url('./assets/fonts/thmanyahsans-Bold.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+@font-face { font-family: 'Thmanyah Sans'; src: url('./assets/fonts/thmanyahsans-Black.woff2') format('woff2'); font-weight: 800 900; font-display: swap; }
+@font-face { font-family: 'Thmanyah Display'; src: url('./assets/fonts/thmanyahserifdisplay-Bold.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+
 :root {
   --g1: #EDE7FF;
   --g2: #FFE9E0;
@@ -50,8 +57,8 @@
   --radius: 22px;
   --radius-sm: 14px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --font: 'Tajawal', 'SF Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
-  --font-display: var(--font);
+  --font: 'Thmanyah Sans', 'SF Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
+  --font-display: 'Thmanyah Display', var(--font);
   --tabbar: 64px;
 }
 

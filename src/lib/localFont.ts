@@ -1,6 +1,5 @@
-// Your own Arabic font (e.g. خط ثمانية), picked from your device. Its licence allows use on your own
-// devices but not hosting the files anywhere, so they're never in the app, the repo, a backup or a
-// sync: the files you pick stay in this browser's storage and are only read back here.
+// Another font of your own, picked from your device, in place of the built-in خط ثمانية. The files
+// you pick stay in this browser's storage — never in a backup or a sync.
 
 import { useSyncExternalStore } from 'react';
 
@@ -107,7 +106,7 @@ function apply(files: FontFile[]) {
   const root = document.documentElement.style;
   const hasSans = files.some((f) => f.role === 'sans');
   const hasDisplay = files.some((f) => f.role === 'display');
-  if (hasSans) root.setProperty('--font', `'${FAMILY.sans}', 'Tajawal', 'SF Arabic', -apple-system, sans-serif`);
+  if (hasSans) root.setProperty('--font', `'${FAMILY.sans}', 'Thmanyah Sans', 'SF Arabic', -apple-system, sans-serif`);
   else root.removeProperty('--font');
   if (hasDisplay) root.setProperty('--font-display', `'${FAMILY.display}', var(--font)`);
   else root.removeProperty('--font-display');
