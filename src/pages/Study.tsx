@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, daysWord, fmtDate, fmtMinutes, fmtMinutesShort, todayKey } from '../lib/dates';
-import { planStudy, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
+import { planStudy, portionText, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
 import { studyCapFor } from '../lib/engine/capacity';
 import { coursePace } from '../lib/engine/learning';
 import { openSheet } from '../ui/sheets';
@@ -69,7 +69,7 @@ function StudyOverview() {
         </div>
       ) : (
         <div className="stack">
-          <TodayQuota plan={plan} />
+          <StudyToday plan={plan} />
 
           {plan.exams.length > 0 ? (
             <Group title={L("الاختبارات", "Exams")} action={<button onClick={() => openSheet({ type: 'exam' })}>{L("+ اختبار", "+ Exam")}</button>}>
@@ -227,98 +227,86 @@ function CourseDetail({ id }: { id: string }) {
   );
 }
 
-/**
- * «حصة اليوم»: for every upcoming exam, how much to study today (and which lessons) so the
- * material is finished before the review days. Missed minutes roll into the next days' quota.
- */
-export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string }) {
-  const s = useApp();
-  const today = todayKey();
-  const active = plan.exams.filter((ep) => ep.quota > 0 || ep.status === 'unknown' || ((ep.status === 'behind' || ep.status === 'tight') && ep.daysLeft > 0));
-  if (!active.length) return null;
-  const totalLeft = active.reduce((a, ep) => a + ep.todayMinutes, 0);
-  const totalQuota = active.reduce((a, ep) => a + ep.quota, 0);
-  const cap = studyCapFor(s, today);
-
-  return (
-    <section>
-      <div className="group-title">
-        <span>{title || L("المذاكرة المطلوبة اليوم", "Study required today")}</span>
-        <span className="faint" style={{ fontWeight: 500 }}>{totalLeft ? L(`باقي ${fmtMinutes(totalLeft)}`, `${fmtMinutes(totalLeft)} left`) : L('أنجزت حصص اليوم ✓', "Today's quotas done ✓")}</span>
-      </div>
-      <div className="col" style={{ gap: 10 }}>
-        {active.map((ep) => {
-          if (ep.status === 'unknown')
-            return (
-              <button key={ep.exam.id} className="card tap row" style={{ width: '100%', textAlign: 'start' }} onClick={() => openSheet({ type: 'exam', id: ep.exam.id })}>
-                <span className="dot" style={{ background: ep.course.color }} />
-                <span className="grow">{ep.course.name} — {ep.exam.title}: <span style={{ color: 'var(--violet)' }}>{L("حدد الدروس المطلوبة لأحسب حصتك", "Set the required lessons so I can work out your quota")}</span></span>
-              </button>
-            );
-          const doneAll = ep.quota > 0 && ep.todayMinutes <= 0;
-          const y = ep.yesterday;
-          const grew = y && y.done < y.quota && ep.quota > y.quota;
-          return (
-            <div key={ep.exam.id} className="card" style={{ borderInlineStart: `3px solid ${ep.course.color}` }}>
-              <div className="row between" style={{ alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 650 }}>{ep.course.name}</div>
-                  <div className="faint tiny">{ep.exam.title} {fmtDate(ep.exam.date, false)} · {phaseLine(ep)}</div>
-                </div>
-                <div style={{ textAlign: 'end', flexShrink: 0 }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: doneAll ? 'var(--green)' : undefined }} className="num">{doneAll ? '✓' : fmtMinutes(ep.todayMinutes)}</div>
-                  <div className="faint tiny">{doneAll ? L('أنجزت حصة اليوم', "Today's quota done") : ep.doneToday ? L(`من ${fmtMinutes(ep.quota)}`, `of ${fmtMinutes(ep.quota)}`) : L('اليوم', "Today")}</div>
-                </div>
-              </div>
-              <div style={{ margin: '10px 0 8px' }}><Bar value={ep.quota ? ep.doneToday / ep.quota : 0} color={ep.course.color} /></div>
-              {!ep.quota && !doneAll && <div className="faint tiny">{L('ما فيه وقت مذاكرة باقي اليوم — الحصة تنتقل للأيام الجاية.', "No study time left today — the quota moves to the coming days.")}</div>}
-              {!doneAll && ep.portion.length > 0 && (
-                <ul className="small" style={{ margin: 0, paddingInlineStart: 18, display: 'grid', gap: 3 }}>
-                  {ep.portion.map((x) => (
-                    <li key={x.unit.id + (x.review ? ':r' : '')}>
-                      <bdi>{x.unit.title}</bdi>
-                      {x.review ? L(' (مراجعة)', " (review)") : x.whole ? (x.unit.progress > 0 ? L(' (الباقي)', " (the rest)") : L(' (كامل)', " (whole)")) : ` — ${x.amount} ${sz(ep.course.sizeLabel)}`}
-                      <span className="faint"> · ~{fmtMinutes(x.minutes)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {grew && (
-                <div className="chip amber" style={{ marginTop: 8, height: 'auto', padding: '4px 10px', whiteSpace: 'normal' }}>{L("زادت ", "Up ")}{fmtMinutes(ep.quota - y!.quota)}{L(" عن حصة أمس لأنك ذاكرت ", " from yesterday's quota because you studied ")}{fmtMinutes(y!.done)}{L(" من ", " of ")}{fmtMinutes(y!.quota)}
-                </div>
-              )}
-              {y && y.done >= y.quota && !grew && <div className="faint tiny" style={{ marginTop: 8 }}>{L("أمس أنجزت حصتك كاملة ✓", "Yesterday you finished your whole quota ✓")}</div>}
-              {(ep.status === 'behind' || ep.status === 'tight') && (
-                <div className="tiny" style={{ marginTop: 8, color: ep.status === 'behind' ? 'var(--red)' : 'var(--amber)' }}>{examSentence(ep).text}</div>
-              )}
-              {!doneAll && (
-                <div className="row" style={{ gap: 8, marginTop: 12 }}>
-                  <button className="btn sm primary" onClick={() => A.startTimer({ kind: 'study', refId: ep.exam.id, courseId: ep.course.id, unitId: ep.portion[0]?.unit.id, label: L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`) })}>
-                    <Icon name="play" size={13} />{L(" ابدأ", " Start")}</button>
-                  <button className="btn sm" onClick={() => openSheet({ type: 'study-log', courseId: ep.course.id, unitId: ep.portion[0]?.unit.id })}>{L("سجّل ما ذاكرته", "Log what I studied")}</button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {totalQuota > cap + 5 && (
-        <div className="notice amber" style={{ marginTop: 10 }}>
-          <Icon name="alert" size={18} />
-          <div>{L(`المطلوب اليوم ${fmtMinutes(totalQuota)} ووقت مذاكرتك ${fmtMinutes(cap)}. ذاكر أكثر لو تقدر، أو ارفع وقت المذاكرة من «أنت» — اللي ما تذاكره اليوم يتوزع على الأيام الباقية فتكبر حصصها.`, `Today needs ${fmtMinutes(totalQuota)} and your study time is ${fmtMinutes(cap)}. Study more if you can, or raise study time in “You” — what you don't study today spreads over the days left, making them bigger.`)}</div>
-        </div>
-      )}
-      <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L('الحصة = الباقي ÷ الأيام الباقية: الدروس قبل أيام المراجعة، والمراجعة قبل الاختبار. مثال: 9 ساعات و3 أيام = 3 ساعات يوميًا؛ لو ما ذاكرت اليوم تصير 4.5 بكرة و4.5 بعده.', "Quota = what's left ÷ days left: lessons before the review days, review before the exam. Example: 9 hours over 3 days = 3 hours a day; skip today and it's 4.5 tomorrow and 4.5 the day after.")}</p>
-    </section>
-  );
+/** what to study today, one line per course */
+function lessonsLine(ep: ExamPlan): string {
+  const parts = ep.portion.map((x) => portionText(x, ep.course.sizeLabel));
+  return parts.length > 2 ? `${parts.slice(0, 2).join(L('، ', ', '))}${L(` +${parts.length - 2}`, ` +${parts.length - 2}`)}` : parts.join(L('، ', ', '));
 }
 
-/** where this exam stands: learning until a day, in the review days, or finishing lessons late */
-function phaseLine(ep: ExamPlan): string {
-  if (ep.inReview) return L(`أيام المراجعة — باقي ${daysWord(ep.daysLeft)}`, `Review days — ${daysWord(ep.daysLeft)} to go`);
-  if (ep.reviewCompressed) return L('تكمّل الدروس في أيام المراجعة', 'Finishing lessons in the review days');
-  if (!ep.exam.reviewDays) return L(`تنهي وتراجع قبل ${fmtDate(ep.lastDay, false)}`, `Learn and review by ${fmtDate(ep.lastDay, false)}`);
-  return L(`تنهي الدروس ${fmtDate(ep.lastStudyDay, false)} وتبقى ${daysWord(ep.exam.reviewDays)} للمراجعة`, `Lessons done ${fmtDate(ep.lastStudyDay, false)}, then ${daysWord(ep.exam.reviewDays)} of review`);
+/** why today's number is what it is, in one sentence per exam */
+function whyLine(ep: ExamPlan): string {
+  const days = (n: number) => (n === 1 ? L('يوم واحد', '1 day') : daysWord(n));
+  const head = ep.inReview || ep.learnLeft < 5
+    ? L(`باقي ~${fmtMinutes(ep.reviewLeft + ep.doneToday)} مراجعة، وعندك ${days(Math.max(1, ep.daysLeft))} قبل الاختبار`, `~${fmtMinutes(ep.reviewLeft + ep.doneToday)} of review left, ${days(Math.max(1, ep.daysLeft))} before the exam`)
+    : L(`باقي ~${fmtMinutes(ep.learnLeft + ep.doneToday)} دروس، وعندك ${days(ep.studyDays)} ${ep.exam.reviewDays ? 'قبل أيام المراجعة' : 'قبل الاختبار'}`, `~${fmtMinutes(ep.learnLeft + ep.doneToday)} of lessons left, ${days(ep.studyDays)} ${ep.exam.reviewDays ? 'before the review days' : 'before the exam'}`);
+  return `${ep.course.name}: ${head} ← ${fmtMinutes(ep.quota)} ${L('اليوم', 'today')}.`;
+}
+
+/**
+ * «ذاكر اليوم»: one number for today, then a line per course — how long, and what.
+ * The reasoning is folded away under «ليش هالرقم؟».
+ */
+export function StudyToday({ plan }: { plan: StudyPlan }) {
+  const s = useApp();
+  const today = todayKey();
+  const rows = plan.exams.filter((ep) => ep.quota > 0);
+  const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
+  if (!rows.length && !unknown.length) return null;
+  const total = rows.reduce((a, ep) => a + ep.quota, 0);
+  const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
+  const done = Math.min(total, rows.reduce((a, ep) => a + ep.doneToday, 0));
+  const cap = studyCapFor(s, today);
+  const behind = rows.filter((ep) => ep.status === 'behind');
+  const start = (ep: ExamPlan) => A.startTimer({ kind: 'study', refId: ep.exam.id, courseId: ep.course.id, unitId: ep.portion[0]?.unit.id, label: L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`) });
+
+  return (
+    <div className="tile study-today">
+      {rows.length > 0 && (
+        <>
+          <div className="k2"><Icon name="study" size={14} /> {left ? L('ذاكر اليوم', 'Study today') : L('مذاكرة اليوم', "Today's study")}</div>
+          <div className="st-big num">{left ? fmtMinutes(left) : L('خلصت ✓', 'Done ✓')}</div>
+          {done > 0 && <div className="faint small">{L(`ذاكرت ${fmtMinutes(done)} من ${fmtMinutes(total)}`, `${fmtMinutes(done)} of ${fmtMinutes(total)} done`)}</div>}
+          {done > 0 && <Bar value={done / total} thick />}
+          <div className="st-rows">
+            {rows.map((ep) => {
+              const ok = ep.todayMinutes <= 0;
+              return (
+                <div key={ep.exam.id} className={`st-row ${ok ? 'done' : ''}`}>
+                  <span className="dot" style={{ background: ep.course.color }} />
+                  <button className="grow st-main" onClick={() => openSheet({ type: 'exam', id: ep.exam.id })}>
+                    <b>{ep.course.name}</b>
+                    <span className="faint tiny">{ok ? L('خلصت حصتها ✓', 'Done for today ✓') : `${ep.inReview ? L('مراجعة: ', 'Review: ') : ''}${lessonsLine(ep)}`}</span>
+                  </button>
+                  <b className="num st-min">{ok ? '✓' : fmtMinutes(ep.todayMinutes)}</b>
+                  {!ok && <button className="icon-btn sm" aria-label={L('ابدأ', 'Start')} onClick={() => start(ep)}><Icon name="play" size={13} /></button>}
+                </div>
+              );
+            })}
+          </div>
+          {behind.length === 0 && total > cap + 5 && left > 0 && (
+            <div className="tiny" style={{ color: 'var(--amber)' }}>{L(`أكثر من وقت مذاكرتك (${fmtMinutes(cap)}) — اللي ما تخلصه يتوزع على الأيام الجاية.`, `More than your study time (${fmtMinutes(cap)}) — what you don't finish spreads over the coming days.`)}</div>
+          )}
+          {behind.length > 0 && (
+            <div className="tiny" style={{ color: 'var(--red)' }}>{behind.map((ep) => L(`${ep.course.name}: حتى مع الالتزام ينقصك ~${fmtMinutes(ep.shortfall)} قبل الاختبار.`, `${ep.course.name}: even keeping to it you're ~${fmtMinutes(ep.shortfall)} short before the exam.`)).join(' ')}</div>
+          )}
+          <details className="st-why">
+            <summary>{L('ليش هالرقم؟', 'Why this number?')}</summary>
+            <div className="faint tiny col" style={{ gap: 4, marginTop: 6 }}>
+              {rows.map((ep) => <div key={ep.exam.id}>{whyLine(ep)}</div>)}
+              <div>{L('إذا ذاكرت أقل اليوم، الباقي يتوزع بالتساوي على الأيام اللي بعده.', "Study less today and the rest spreads evenly over the days after.")}</div>
+            </div>
+          </details>
+        </>
+      )}
+      {unknown.map((ep) => (
+        <button key={ep.exam.id} className="st-row tap" onClick={() => openSheet({ type: 'exam', id: ep.exam.id })}>
+          <span className="dot" style={{ background: ep.course.color }} />
+          <span className="grow small">{ep.course.name}: <span style={{ color: 'var(--violet)' }}>{L('حدد دروس الاختبار عشان أحسب كم تذاكر', 'Pick the exam’s lessons so I can work out how much to study')}</span></span>
+          <Icon name="chevron" size={14} className="chev-end" />
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** import a course or tasks: a Masar link or an AI's reply (iPhone opens tapped links in Safari, with separate data) */

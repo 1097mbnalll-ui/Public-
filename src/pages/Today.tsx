@@ -5,7 +5,7 @@ import { useApp, useSaveStatus } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, atTime, daysWord, fmtClock, fmtDate, fmtMinutes, fmtTime, relDay, timeAgo, todayKey } from '../lib/dates';
 import { planDay, suggestDeferrals, weekLoad, type DayPlan, type PlanItem } from '../lib/engine/planner';
-import { planStudy, portionText, type StudyPlan } from '../lib/engine/study';
+import { planStudy, type StudyPlan } from '../lib/engine/study';
 import { buildInsights, type Insight } from '../lib/engine/insights';
 import { nextStep, procStage } from '../lib/engine/procedures';
 import { openSheet } from '../ui/sheets';
@@ -20,6 +20,7 @@ import { dayPhase, isNight, workStart, type DayPhase } from '../lib/engine/capac
 import { advance, blockLabel, blocksOn, nowBlock, skipBusy } from '../lib/engine/schedule';
 import { InstallCard } from '../ui/InstallCard';
 import { MoneyTile } from './Money';
+import { StudyToday } from './Study';
 import { fmtNum, moneyToday } from '../lib/engine/money';
 import type { AppState } from '../lib/types';
 
@@ -156,51 +157,6 @@ function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: st
         {(it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent' && (
           <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast(L('نُقل إلى الغد', "Moved to tomorrow"), { undoable: true })))}>{L("غدًا", "Tomorrow")}</button>
         )}
-      </div>
-    </div>
-  );
-}
-
-/** study required today, exam by exam, with the actual lessons */
-function StudyTile({ study }: { study: StudyPlan }) {
-  const rows = study.exams.filter((ep) => ep.status === 'unknown' || ep.quota > 0);
-  if (!rows.length) return null;
-  const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
-  return (
-    <div className="tile">
-      <div className="k2 row between">
-        <span><Icon name="study" size={14} /> {L('المذاكرة المطلوبة اليوم', 'Study required today')}</span>
-        <span className="faint">{left ? L(`باقي ${fmtMinutes(left)}`, `${fmtMinutes(left)} left`) : L('أنجزت حصص اليوم ✓', "Today's quotas done ✓")}</span>
-      </div>
-      <div className="col" style={{ gap: 14 }}>
-        {rows.map((ep) => {
-          if (ep.status === 'unknown')
-            return (
-              <button key={ep.exam.id} className="r tap" style={{ padding: 0, minHeight: 0 }} onClick={() => openSheet({ type: 'exam', id: ep.exam.id })}>
-                <span className="dot" style={{ background: ep.course.color }} />
-                <span className="grow">{ep.course.name}: <span style={{ color: 'var(--violet)' }}>{L('حدد الدروس المطلوبة لأحسب حصتك', 'Set the required lessons so I can work out your quota')}</span></span>
-              </button>
-            );
-          const doneAll = ep.todayMinutes <= 0;
-          return (
-            <div key={ep.exam.id}>
-              <div className="row between">
-                <span className="row" style={{ gap: 8, minWidth: 0 }}><span className="dot" style={{ background: ep.course.color }} /><b className="ellipsis">{ep.course.name}</b>{ep.inReview && <span className="faint tiny">{L('مراجعة', 'Review')}</span>}</span>
-                <span className="row" style={{ gap: 6 }}>
-                  <span className="num" style={{ fontWeight: 700, color: doneAll ? 'var(--green)' : undefined }}>{doneAll ? '✓' : fmtMinutes(ep.todayMinutes)}</span>
-                  {!doneAll && (
-                    <button className="icon-btn sm" aria-label={L('ابدأ', 'Start')} onClick={() => A.startTimer({ kind: 'study', refId: ep.exam.id, courseId: ep.course.id, unitId: ep.portion[0]?.unit.id, label: L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`) })}>
-                      <Icon name="play" size={13} />
-                    </button>
-                  )}
-                </span>
-              </div>
-              <div style={{ margin: '6px 0' }}><Bar value={ep.quota ? ep.doneToday / ep.quota : 0} color={ep.course.color} /></div>
-              {!doneAll && ep.portion.length > 0 && <div className="faint tiny" style={{ lineHeight: 1.7 }}>{ep.portion.map((x) => portionText(x, ep.course.sizeLabel)).join(L('، ', ', '))}</div>}
-              {ep.status === 'behind' || ep.status === 'tight' ? <div className="tiny" style={{ marginTop: 4, color: ep.status === 'behind' ? 'var(--red)' : 'var(--amber)' }}>{ep.status === 'behind' ? L(`وقتك ما يكفي — ينقصك ~${fmtMinutes(ep.shortfall)} — `, `Not enough time — ~${fmtMinutes(ep.shortfall)} short — `) : L('بلا هامش — لا تفوّت حصة — ', 'No margin — don’t skip a session — ')}<button className="linkish" onClick={() => go('study')}>{L('افتح الخطة', 'open the plan')}</button></div> : null}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -609,6 +565,8 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     return buildInsights(s, plan, study, now).filter((i) => {
       if (i.id.startsWith('week-heavy') || i.id.startsWith('urgent:') || i.id.startsWith('overload:')) return false;
       if (i.id.startsWith('urgent-proc:')) return !planned.has(i.id.split(':')[1]);
+      // an exam short of time is already said on «ذاكر اليوم»
+      if (i.id.startsWith('exam-behind:') || i.id.startsWith('exam-tight:')) return !study.exams.some((ep) => ep.exam.id === i.id.split(':')[1] && ep.quota > 0);
       return true;
     });
   }, [s, plan, study, now]);
@@ -626,7 +584,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     startOf.set(i, at);
     t = advance(s, at, i.minutes);
   }
-  // study is listed in full under «المذاكرة المطلوبة اليوم», and late items get their own list — neither is repeated here
+  // study is listed in full under «ذاكر اليوم», and late items get their own list — neither is repeated here
   const lateRest = afterFirst.filter((i) => i.kind !== 'study' && late.has(i.id));
   const rest = afterFirst.filter((i) => i.kind !== 'study' && !late.has(i.id));
   // today's remaining lectures / shifts, shown in place among the planned items
@@ -710,6 +668,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         <WrapUp plan={plan} now={now} />
         {hero}
+        <StudyToday plan={study} />
         {lateList}
         {timelineTile}
       </>
@@ -722,7 +681,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         {alerts}
         <More>
           {laterList}
-          <StudyTile study={study} />
           <Upcoming study={study} />
           <WeekTile study={study} />
           <ProceduresLink />
@@ -734,6 +692,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     main = (
       <>
         {hero}
+        <StudyToday plan={study} />
         {lateList}
         <DaySummary plan={plan} phase={phase} />
         {timelineTile}
@@ -743,7 +702,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         <MissedReminders now={now} />
         {phase === 'day' && <Thoughts />}
-        <StudyTile study={study} />
         {alerts}
         <More>
           {laterList}
