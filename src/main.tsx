@@ -11,15 +11,18 @@ import { onSmsAdded, startSync } from './lib/sync';
 import { toast } from './ui/toast';
 import { L } from './lib/i18n';
 import { loadOwnFont } from './lib/localFont';
+import { isNative, startNative } from './lib/native';
 
 // your own font (picked in settings) is ready before the first paint when it can be
 Promise.all([init(), loadOwnFont().catch(() => {})]).then(() => {
   createRoot(document.getElementById('root')!).render(<App />);
   onSmsAdded((n) => toast(n === 1 ? L('📩 أُضيف مصروف من رسائل البنك', '📩 An expense was added from your bank messages') : L(`📩 أُضيفت ${n} مصاريف من رسائل البنك`, `📩 ${n} expenses added from your bank messages`), { undoable: true, ms: 6000 }));
   startSync();
+  void startNative();
 });
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// the Android app has its files inside it — no service worker needed there
+if ('serviceWorker' in navigator && import.meta.env.PROD && !isNative()) {
   // a new version took over → reload once so the page runs the new code, but only while the page
   // is out of sight, so nothing being typed is lost
   const hadController = !!navigator.serviceWorker.controller;

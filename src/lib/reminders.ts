@@ -7,6 +7,7 @@ import { addDays, atTime, fmtClock, todayKey } from './dates';
 import { mutate } from './store';
 import { planDay } from './engine/planner';
 import { L } from './i18n';
+import { isNative, nativeNotifyNow, nativePermission, requestNativeNotifications } from './native';
 
 export interface DueReminder {
   id: string;
@@ -90,11 +91,13 @@ export function setServiceWorker(reg: ServiceWorkerRegistration | null) {
 }
 
 export function notificationSupport(): 'unsupported' | NotificationPermission {
+  if (isNative()) return nativePermission();
   if (typeof Notification === 'undefined') return 'unsupported';
   return Notification.permission;
 }
 
 export async function requestNotifications(): Promise<NotificationPermission | 'unsupported'> {
+  if (isNative()) return requestNativeNotifications().catch(() => 'unsupported' as const);
   if (typeof Notification === 'undefined') return 'unsupported';
   try {
     return await Notification.requestPermission();
@@ -105,6 +108,11 @@ export async function requestNotifications(): Promise<NotificationPermission | '
 
 export async function showSystemNotification(title: string, body: string, tag: string, url = '#/today') {
   if (notificationSupport() !== 'granted') return false;
+  if (isNative()) {
+    // in the app the phone already has every reminder scheduled; only the test and focus alerts show from here
+    if (tag !== 'test' && tag !== 'focus-phase') return true;
+    return nativeNotifyNow(title, body).then(() => true, () => false);
+  }
   try {
     const reg = swReg || (await navigator.serviceWorker?.getRegistration());
     if (reg) {

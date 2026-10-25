@@ -1,0 +1,58 @@
+name: Android app
+
+# Builds the Android app from the same code as the site:
+#  - a debug APK to install and try on a phone (Actions → this run → Artifacts)
+#  - a signed release bundle (.aab) for Google Play, when the signing secrets are set
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'public/**', 'android/**', 'package.json', 'package-lock.json', 'capacitor.config.ts', 'index.html', 'vite.config.ts']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      # secrets can't be read in `if:`, so this says whether the signing key is set
+      HAS_KEY: ${{ secrets.MASAR_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+        env:
+          TZ: Asia/Riyadh
+      - run: npm run android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: masar-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Signed release bundle
+        if: env.HAS_KEY == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.MASAR_KEYSTORE_BASE64 }}
+          MASAR_KEYSTORE_PASSWORD: ${{ secrets.MASAR_KEYSTORE_PASSWORD }}
+          MASAR_KEY_ALIAS: ${{ secrets.MASAR_KEY_ALIAS }}
+          MASAR_KEY_PASSWORD: ${{ secrets.MASAR_KEY_PASSWORD }}
+        working-directory: android
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/masar.jks"
+          MASAR_KEYSTORE="$RUNNER_TEMP/masar.jks" ./gradlew bundleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('android/app/build/outputs/bundle/release/*.aab') != '' }}
+        with:
+          name: masar-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab

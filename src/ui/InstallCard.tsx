@@ -1,3 +1,4 @@
+import { isNative } from '../lib/native';
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { exportUI } from './ops';
@@ -26,6 +27,8 @@ type Env = 'standalone' | 'ios' | 'inapp' | 'prompt' | 'samsung' | 'android' | '
 /** what this browser can do to install the app */
 export function installEnv(): Env {
   const ua = navigator.userAgent;
+  // the Android app from the store is already installed
+  if (isNative()) return 'standalone';
   if (matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) return 'standalone';
   if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
   // browsers inside other apps (WhatsApp, Instagram, Facebook, Snapchat, Google app…) can't install anything

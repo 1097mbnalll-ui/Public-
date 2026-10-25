@@ -13,6 +13,7 @@ import { fromB64url, idSnapshot, mergeSynced, pipe, toB64url, type IdSnapshot } 
 import { parseBankSms } from './engine/money';
 import { uid } from './text';
 import { L } from './i18n';
+import { isNative, SITE_URL } from './native';
 
 export interface SyncConf {
   url: string;
@@ -171,7 +172,8 @@ export async function connect(url: string) {
 export function pairLink(): string {
   const c = getSync();
   if (!c) return '';
-  const base = location.href.split('#')[0];
+  // links made inside the Android app point at the site, so anyone can open them
+  const base = isNative() ? SITE_URL : location.href.split('#')[0];
   return `${base}#/sync?c=${toB64url(new TextEncoder().encode(JSON.stringify({ u: c.url, t: c.token, k: c.key })))}`;
 }
 

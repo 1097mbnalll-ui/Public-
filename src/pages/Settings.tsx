@@ -20,6 +20,7 @@ import { L } from '../lib/i18n';
 import { AUTO, THEMES } from '../lib/themes';
 import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
 import { useSyncConf } from '../lib/sync';
+import { isNative } from '../lib/native';
 import { clearOwnFont, setOwnFont, useOwnFont } from '../lib/localFont';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
@@ -121,7 +122,7 @@ export function Settings() {
         <div className="notice">
           <Icon name="info" size={18} />
           <div>
-            <b>{L("بصراحة عن حدود التنبيهات:", "Honestly, about notification limits:")}</b>{L(" الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك». للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.", " the site sends browser notifications only while it's open (in a tab, even in the background). If it's closed, missed reminders appear when you open it, under “Missed while you were away”. For a guaranteed alert with the phone locked, use “Add to calendar” inside a task or exam — it adds an event with an alert to your device calendar.")}{isIOS && !standalone && L(' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.', " On iPhone: notifications require adding the site to the Home Screen (Share → Add to Home Screen) and opening it from there.")}
+            {isNative() ? <b>{L('في التطبيق: التذكيرات تنجدول في جوالك وتوصلك حتى لو «مسار» مسكّر.', 'In the app: reminders are scheduled on your phone and arrive even when Masar is closed.')}</b> : <>            <b>{L("بصراحة عن حدود التنبيهات:", "Honestly, about notification limits:")}</b>{L(" الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك». للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.", " the site sends browser notifications only while it's open (in a tab, even in the background). If it's closed, missed reminders appear when you open it, under “Missed while you were away”. For a guaranteed alert with the phone locked, use “Add to calendar” inside a task or exam — it adds an event with an alert to your device calendar.")}{isIOS && !standalone && L(' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.', " On iPhone: notifications require adding the site to the Home Screen (Share → Add to Home Screen) and opening it from there.")}</>}
           </div>
         </div>
         <div className="row between">

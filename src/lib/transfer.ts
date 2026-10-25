@@ -6,6 +6,7 @@
 import type { AppState } from './types';
 import { migrate } from './defaults';
 import { L } from './i18n';
+import { isNative, SITE_URL } from './native';
 import { toWestern } from './text';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L
@@ -107,7 +108,8 @@ export async function open(packed: Uint8Array, code: string): Promise<{ state: A
 export const LINK_LIMIT = 60_000;
 
 export function transferLink(packed: Uint8Array): string {
-  const base = location.href.split('#')[0];
+  // links made inside the Android app point at the site, so anyone can open them
+  const base = isNative() ? SITE_URL : location.href.split('#')[0];
   return `${base}#/receive?d=${toB64url(packed)}`;
 }
 
