@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
 import { atTime } from '../src/lib/dates';
 import { advance, freeMinutes, readSchedule, skipBusy } from '../src/lib/engine/schedule';
-import { availableFor, minutesLeftToday } from '../src/lib/engine/capacity';
+import { availableFor, dayPhase, minutesLeftToday } from '../src/lib/engine/capacity';
 import type { AppState } from '../src/lib/types';
 
 function withClasses(): AppState {
@@ -40,5 +40,23 @@ describe('timetable', () => {
     expect(freeMinutes(s, '2026-10-25')).toBe(570);
     expect(availableFor(s, '2026-10-25')).toBe(570);
     expect(minutesLeftToday(s, atTime('2026-10-25', '12:00'))).toBe(660 - 110);
+  });
+});
+
+describe('day phase', () => {
+  const at = (hm: string, day = '2026-10-25') => atTime(day, hm);
+  it('follows the clock and ends with your day', () => {
+    const s = initialState(); // day ends 23:30
+    expect(dayPhase(s, at('07:40'))).toBe('morning');
+    expect(dayPhase(s, at('16:30'))).toBe('day');
+    expect(dayPhase(s, at('21:45'))).toBe('evening');
+    expect(dayPhase(s, at('23:50'))).toBe('night');
+    expect(dayPhase(s, at('02:00'))).toBe('night');
+  });
+  it('a day that ends after midnight is still evening before it', () => {
+    const s = initialState();
+    s.settings.dayEnd = '01:00';
+    expect(dayPhase(s, at('23:50'))).toBe('evening');
+    expect(dayPhase(s, at('01:30', '2026-10-26'))).toBe('night');
   });
 });

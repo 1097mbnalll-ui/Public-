@@ -380,7 +380,7 @@ export function MoneyTile({ now }: { now: number }) {
   if (!m.budget && !s.expenses.some((e) => e.day >= addDays(todayKey(now), -6))) return null;
   const over = m.allowance !== undefined && m.spentToday > m.allowance;
   return (
-    <div className="o6 bwide">
+    <div>
     <button className="tile m-tile" onClick={() => go('money')}>
       <div className="k2 row between"><span><Icon name="wallet" size={15} /> {L('مصاريف اليوم', "Today's spending")}</span><Icon name="chevron" size={14} /></div>
       {m.allowance !== undefined ? (
