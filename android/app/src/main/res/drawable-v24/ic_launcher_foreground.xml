@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- the feather from the site's icon, inside the adaptive icon's safe zone -->
+<!-- مدار: the orbit and its sun, inside the adaptive icon's safe zone -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
     <path
-        android:pathData="M150,360c56,-140 116,-196 230,-212 -14,118 -74,178 -210,232M150,360l84,-84"
-        android:strokeWidth="30"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:pathData="M256,128a128,128 0,1 1,0 256a128,128 0,1 1,0 -256z"
+        android:strokeWidth="34"
+        android:strokeColor="#FFFFF4E3" />
+    <path
+        android:pathData="M366,150a40,40 0,1 1,0 80a40,40 0,1 1,0 -80z"
+        android:fillColor="#FFF2B53A"
+        android:strokeWidth="14"
+        android:strokeColor="#FF2A1A14" />
 </vector>

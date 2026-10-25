@@ -669,7 +669,7 @@ export function readCoursePack(raw: any): CoursePack {
   const schedule = readSchedule(raw?.schedule || []);
   const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
   if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length && !expenses.length && !schedule.length))
-    throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
+    throw new Error(L('هذا ليس ملف مادة أو مهام من «مدار».', "This is not a Madar course or task file."));
   const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}), ...(schedule.length ? { schedule } : {}) };
   if (!hasCourse) return { ...extra, units: [] };
   // a pack can come from any link: keep only well-typed, bounded values
@@ -677,7 +677,7 @@ export function readCoursePack(raw: any): CoursePack {
   const diff = (v: unknown) => (Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5 ? (v as number) : undefined);
   const c = raw.course;
   const name = str(c.name, 120);
-  if (!name) throw new Error(L('هذا ليس ملف مادة أو مهام من «مسار».', "This is not a Masar course or task file."));
+  if (!name) throw new Error(L('هذا ليس ملف مادة أو مهام من «مدار».', "This is not a Madar course or task file."));
   const course: CoursePack['course'] = {
     name,
     ...(diff(c.difficulty) ? { difficulty: diff(c.difficulty) } : {}),

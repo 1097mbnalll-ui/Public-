@@ -90,7 +90,7 @@ export async function seal(state: AppState, code: string): Promise<Uint8Array> {
 export class WrongCode extends Error {}
 
 export async function open(packed: Uint8Array, code: string): Promise<{ state: AppState; exportedAt?: string }> {
-  if (packed.length < 31 || packed[0] !== VERSION) throw new Error(L('هذا الرابط أو الملف ليس نقلًا من «مسار» أو أنه ناقص.', "This link or file isn't a Masar transfer, or it's incomplete."));
+  if (packed.length < 31 || packed[0] !== VERSION) throw new Error(L('هذا الرابط أو الملف ليس نقلًا من «مدار» أو أنه ناقص.', "This link or file isn't a Madar transfer, or it's incomplete."));
   const salt = packed.subarray(2, 18);
   const iv = packed.subarray(18, 30);
   let body: Uint8Array;

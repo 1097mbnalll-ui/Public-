@@ -179,7 +179,7 @@ const icsDay = (ms: number) => {
 };
 
 export function buildIcs(events: CalEvent[]): string {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Masar//AR', 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Madar//AR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
     lines.push('BEGIN:VEVENT', `UID:${e.uid}@masar`, `DTSTAMP:${icsDate(Date.now())}`);
     if (e.allDay) {

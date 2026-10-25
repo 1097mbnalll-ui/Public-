@@ -3,8 +3,8 @@
 // and bank messages waiting to be picked up. Script Properties hold both (no Drive access needed).
 
 export function serverCode(token: string): string {
-  return `// «مسار» — مزامنة بين أجهزتك. هذا الكود يشتغل داخل حسابك في قوقل فقط.
-// بيانات «مسار» توصل هنا مشفّرة، والمفتاح على أجهزتك بس. رسائل البنك تنتظر هنا لين يسحبها «مسار» ثم تنمسح.
+  return `// «مدار» — مزامنة بين أجهزتك. هذا الكود يشتغل داخل حسابك في قوقل فقط.
+// بيانات «مدار» توصل هنا مشفّرة، والمفتاح على أجهزتك بس. رسائل البنك تنتظر هنا لين يسحبها «مدار» ثم تنمسح.
 const TOKEN = '${token}';
 
 function out_(o) {

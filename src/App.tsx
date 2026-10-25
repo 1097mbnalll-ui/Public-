@@ -68,7 +68,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = lng === 'en' ? 'en' : 'ar';
     document.documentElement.dir = lng === 'en' ? 'ltr' : 'rtl';
-    document.title = lng === 'en' ? 'Masar' : 'مسار';
+    document.title = lng === 'en' ? 'Madar' : 'مدار';
   }, [lng]);
 
   // welcome once — but never on top of an import link; it shows on the next page instead
@@ -133,7 +133,7 @@ export function App() {
       body = <Schedule />;
       break;
     case 'install':
-      body = <div><PageTop title={L('ثبّت «مسار»', 'Install Masar')} /><InstallCard always /></div>;
+      body = <div><PageTop title={L('ثبّت «مدار»', 'Install Madar')} /><InstallCard always /></div>;
       break;
   }
 
@@ -141,7 +141,7 @@ export function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
+          <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مدار", "Madar")}</div>
         <button className="btn primary block side-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })}>
           <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'currentColor', color: 'inherit', opacity: 0.8 }}>N</span>
         </button>

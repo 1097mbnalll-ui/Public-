@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#EDE7FF" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="مسار — مساعد شخصي لتنظيم الجامعة والعمل والحياة. بياناتك على جهازك فقط." />
+    <meta name="description" content="مدار — مساعد شخصي لتنظيم الجامعة والعمل والحياة. بياناتك على جهازك فقط." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="مسار" />
+    <meta name="apple-mobile-web-app-title" content="مدار" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
     <script src="./theme-boot.js"></script>
-    <title>مسار</title>
+    <title>مدار</title>
     <style>
       /* the opening logo: shown before anything loads, then lifts away (see main.tsx) */
       #splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--boot-bg, #FFF4E3); }
@@ -22,16 +22,19 @@
       #splash .sp svg { width: 100%; height: 100%; display: block; }
       #splash.out { animation: sp-fade 0.42s ease 0.08s forwards; pointer-events: none; }
       #splash.out .sp { animation: sp-out 0.46s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+      /* the sun comes round its orbit as the logo arrives */
+      #splash .sun { transform-box: view-box; transform-origin: 256px 256px; animation: sp-orbit 0.9s cubic-bezier(0.32, 0.72, 0, 1) both; }
+      @keyframes sp-orbit { from { transform: rotate(-200deg); } }
       @keyframes sp-in { from { transform: scale(0.72); opacity: 0; } }
       @keyframes sp-out { to { transform: scale(1.4); opacity: 0; } }
       @keyframes sp-fade { to { opacity: 0; } }
-      @media (prefers-reduced-motion: reduce) { #splash .sp, #splash.out .sp { animation: none; } #splash.out { animation-duration: 0.15s; animation-delay: 0s; } }
+      @media (prefers-reduced-motion: reduce) { #splash .sp, #splash.out .sp, #splash .sun { animation: none; } #splash.out { animation-duration: 0.15s; animation-delay: 0s; } }
     </style>
   </head>
   <body>
-    <div id="splash" aria-hidden="true"><div class="sp"><svg viewBox="56 56 400 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="spg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9db3ff"/><stop offset=".55" stop-color="#6d8bff"/><stop offset="1" stop-color="#a682ff"/></linearGradient></defs><rect x="56" y="56" width="400" height="400" rx="96" fill="url(#spg)"/><path d="M150 360c56-140 116-196 230-212-14 118-74 178-210 232M150 360l84-84" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+    <div id="splash" aria-hidden="true"><div class="sp"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" rx="115" fill="#2A1A14"/><circle cx="256" cy="256" r="128" fill="none" stroke="#FFF4E3" stroke-width="34"/><g class="sun"><circle cx="366" cy="190" r="40" fill="#F2B53A" stroke="#2A1A14" stroke-width="14"/></g></svg></div></div>
     <div id="root"></div>
-    <noscript>يحتاج «مسار» إلى تفعيل JavaScript.</noscript>
+    <noscript>يحتاج «مدار» إلى تفعيل JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

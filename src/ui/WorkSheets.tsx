@@ -59,7 +59,7 @@ export function StepConfirm({ procId, stepId }: { procId: string; stepId: string
       <div className="col" style={{ gap: 14 }}>
         <div className="notice">
           <Icon name="info" size={18} />
-          <div>{L("«مسار» لا يرسل شيئًا بالنيابة عنك. أكّد فقط إذا أرسلت", "Masar never sends anything on your behalf. Confirm only if you sent it")}{st.target ? L(` إلى «${st.target}»`, ` to “${st.target}”`) : ''}{L(" بنفسك — حتى يبقى السجل صادقًا.", " yourself — so the log stays honest.")}</div>
+          <div>{L("«مدار» لا يرسل شيئًا بالنيابة عنك. أكّد فقط إذا أرسلت", "Madar never sends anything on your behalf. Confirm only if you sent it")}{st.target ? L(` إلى «${st.target}»`, ` to “${st.target}”`) : ''}{L(" بنفسك — حتى يبقى السجل صادقًا.", " yourself — so the log stays honest.")}</div>
         </div>
         <button className="btn" onClick={share}>
           <Icon name="share" size={16} />{L(" مشاركة / نسخ ملخص الإجراء للإرسال", " Share / copy the procedure summary to send")}</button>

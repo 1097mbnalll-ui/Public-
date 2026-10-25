@@ -216,7 +216,7 @@ const TONE_RULES: Record<CoachTone, string> = {
 /** system prompt for both the daily message and the chat */
 export function coachSystem(tone: CoachTone, lang: 'ar' | 'en', about: string): string {
   return [
-    'You are the personal coach inside «Masar», a planning app. You know the user only through the facts given to you.',
+    'You are the personal coach inside «Madar», a planning app. You know the user only through the facts given to you.',
     lang === 'ar'
       ? 'Always reply in natural Saudi/Gulf Arabic dialect, short and human.'
       : 'Always reply in natural, plain English, short and human.',

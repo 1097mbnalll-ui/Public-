@@ -9,10 +9,10 @@ import { packLinkPack } from '../lib/transfer';
 import { fmtDate, todayKey } from '../lib/dates';
 import { L } from '../lib/i18n';
 
-/** the instruction any AI chat (Claude, ChatGPT, Gemini…) needs to turn notes or a task list into a Masar pack */
+/** the instruction any AI chat (Claude, ChatGPT, Gemini…) needs to turn notes or a task list into a Madar pack */
 function aiPrompt(): string {
   const today = todayKey();
-  return `أنت تجهّز بيانات لتطبيق «مسار» (منظّم مهام ومذاكرة). تاريخ اليوم ${today} (${fmtDate(today)}).
+  return `أنت تجهّز بيانات لتطبيق «مدار» (منظّم مهام ومذاكرة). تاريخ اليوم ${today} (${fmtDate(today)}).
 حوّل المحتوى اللي بأرسله تحت (ملخص مادة، موعد اختبار، قائمة مهام، مصاريف، جدول دراسي أو دوام…) إلى JSON واحد فقط بهذا الشكل، داخل كتلة \`\`\`json وبدون أي كلام قبلها أو بعدها:
 
 {
@@ -41,7 +41,7 @@ function aiPrompt(): string {
 `;
 }
 
-/** paste a Masar link, or an AI's reply holding a pack, and open it in the import preview */
+/** paste a Madar link, or an AI's reply holding a pack, and open it in the import preview */
 export function AiImportSheet() {
   const [text, setText] = useState('');
   const [err, setErr] = useState('');
@@ -92,7 +92,7 @@ export function AiImportSheet() {
         </div>
         <div className="ai-step">
           <b>2</b>
-          <div className="grow">{L('انسخ رده كامل والصقه هنا — أو الصق رابط «مسار» وصلك.', 'Copy its whole reply and paste it here — or paste a Masar link you received.')}</div>
+          <div className="grow">{L('انسخ رده كامل والصقه هنا — أو الصق رابط «مدار» وصلك.', 'Copy its whole reply and paste it here — or paste a Madar link you received.')}</div>
         </div>
         <textarea className="input" rows={6} dir="auto" value={text} onChange={(e) => setText(e.target.value)} placeholder={L('الصق هنا…', 'Paste here…')} />
         {err && <div className="notice amber">{err}</div>}

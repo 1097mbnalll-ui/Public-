@@ -37,7 +37,7 @@ export function readBackup(text: string): ImportPreview {
   }
   const data = raw && raw.app === 'masar' ? raw.data : raw;
   if (!data || typeof data !== 'object' || !Array.isArray(data.tasks) || !Array.isArray(data.procedures))
-    throw new Error(L('هذا الملف لا يبدو نسخة احتياطية من «مسار».', "This file doesn't look like a Masar backup."));
+    throw new Error(L('هذا الملف لا يبدو نسخة احتياطية من «مدار».', "This file doesn't look like a Madar backup."));
   const state = migrate(data);
   return {
     state,

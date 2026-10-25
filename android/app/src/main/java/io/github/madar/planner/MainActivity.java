@@ -1,4 +1,4 @@
-package io.github.masar.planner;
+package io.github.madar.planner;
 
 import com.getcapacitor.BridgeActivity;
 

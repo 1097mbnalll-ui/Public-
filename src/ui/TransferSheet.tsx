@@ -24,7 +24,7 @@ export function TransferSheet() {
   const shareLink = async () => {
     if (!link) return;
     try {
-      if (navigator.share) await navigator.share({ title: L('نقل بيانات مسار', "Masar data transfer"), text: L('افتح هذا الرابط على جهازك الآخر:', "Open this link on your other device:"), url: link });
+      if (navigator.share) await navigator.share({ title: L('نقل بيانات مدار', "Madar data transfer"), text: L('افتح هذا الرابط على جهازك الآخر:', "Open this link on your other device:"), url: link });
       else {
         await navigator.clipboard.writeText(link);
         toast(L('نُسخ الرابط — أرسله لنفسك', "Link copied — send it to yourself"));
@@ -46,7 +46,7 @@ export function TransferSheet() {
     if (!packed) return;
     const file = new File([packed as BlobPart], fileName, { type: 'application/octet-stream' });
     try {
-      if (navigator.canShare?.({ files: [file] })) return await navigator.share({ files: [file], title: L('نقل بيانات مسار', "Masar data transfer") });
+      if (navigator.canShare?.({ files: [file] })) return await navigator.share({ files: [file], title: L('نقل بيانات مدار', "Madar data transfer") });
     } catch {
       return;
     }

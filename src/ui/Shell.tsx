@@ -180,7 +180,7 @@ function Onboarding() {
 
   const hours = [60, 120, 180, 240, 300, 360, 480];
   return (
-    <Sheet title={[L('أهلًا بك في «مسار»', "Welcome to Masar"), L('كم وقتك المتاح؟', "How much time do you have?"), L('قبل أن نبدأ', "Before we start")][step]} onClose={() => { A.setMeta({ onboarded: true }); closeSheet(); }}
+    <Sheet title={[L('أهلًا بك في «مدار»', "Welcome to Madar"), L('كم وقتك المتاح؟', "How much time do you have?"), L('قبل أن نبدأ', "Before we start")][step]} onClose={() => { A.setMeta({ onboarded: true }); closeSheet(); }}
       footer={
         <>
           {step > 0 && <button className="btn" onClick={() => setStep(step - 1)}>{L("رجوع", "Back")}</button>}

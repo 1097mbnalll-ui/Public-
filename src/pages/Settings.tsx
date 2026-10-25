@@ -74,7 +74,7 @@ export function Settings() {
 
   return (
     <div>
-      <PageTop title={L("أنت", "You")} sub={L("وقتك، تنبيهاتك، بياناتك — وما تعلمه «مسار» عنك", "Your time, reminders, data — and what Masar has learned about you")} />
+      <PageTop title={L("أنت", "You")} sub={L("وقتك، تنبيهاتك، بياناتك — وما تعلمه «مدار» عنك", "Your time, reminders, data — and what Madar has learned about you")} />
 
       <div className="stack">
         <Group>
@@ -122,7 +122,7 @@ export function Settings() {
         <div className="notice">
           <Icon name="info" size={18} />
           <div>
-            {isNative() ? <b>{L('في التطبيق: التذكيرات تنجدول في جوالك وتوصلك حتى لو «مسار» مسكّر.', 'In the app: reminders are scheduled on your phone and arrive even when Masar is closed.')}</b> : <>            <b>{L("بصراحة عن حدود التنبيهات:", "Honestly, about notification limits:")}</b>{L(" الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك». للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.", " the site sends browser notifications only while it's open (in a tab, even in the background). If it's closed, missed reminders appear when you open it, under “Missed while you were away”. For a guaranteed alert with the phone locked, use “Add to calendar” inside a task or exam — it adds an event with an alert to your device calendar.")}{isIOS && !standalone && L(' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.', " On iPhone: notifications require adding the site to the Home Screen (Share → Add to Home Screen) and opening it from there.")}</>}
+            {isNative() ? <b>{L('في التطبيق: التذكيرات تنجدول في جوالك وتوصلك حتى لو «مدار» مسكّر.', 'In the app: reminders are scheduled on your phone and arrive even when Madar is closed.')}</b> : <>            <b>{L("بصراحة عن حدود التنبيهات:", "Honestly, about notification limits:")}</b>{L(" الموقع يرسل إشعارات المتصفح فقط وهو مفتوح (في تبويب ولو بالخلفية). إذا أُغلق، تظهر التذكيرات الفائتة عند فتحه في «فاتتك أثناء غيابك». للتنبيه المضمون والجوال مقفل، استخدم «أضف للتقويم» داخل المهمة أو الاختبار — يضيف موعدًا بتنبيه في تقويم جهازك.", " the site sends browser notifications only while it's open (in a tab, even in the background). If it's closed, missed reminders appear when you open it, under “Missed while you were away”. For a guaranteed alert with the phone locked, use “Add to calendar” inside a task or exam — it adds an event with an alert to your device calendar.")}{isIOS && !standalone && L(' على الآيفون: الإشعارات تتطلب إضافة الموقع للشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) ثم فتحه منها.', " On iPhone: notifications require adding the site to the Home Screen (Share → Add to Home Screen) and opening it from there.")}</>}
           </div>
         </div>
         <div className="row between">
@@ -140,7 +140,7 @@ export function Settings() {
         </div>
         {perm === 'granted' && st.notifications && (
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-            const ok = await showSystemNotification(L('تجربة من مسار', "Test from Masar"), L('هكذا ستصلك التذكيرات.', "This is how reminders will reach you."), 'test');
+            const ok = await showSystemNotification(L('تجربة من مدار', "Test from Madar"), L('هكذا ستصلك التذكيرات.', "This is how reminders will reach you."), 'test');
             if (!ok) toast(L('تعذر إظهار الإشعار', "Couldn't show the notification"));
           }}>
             <Icon name="bell" size={15} />{L(" إشعار تجريبي", " Test notification")}</button>
@@ -258,8 +258,8 @@ export function Settings() {
         </Section>
       )}
 
-      <Section title={L("حول «مسار»", "About Masar")}>
-        <Collapse title={L("كيف يعمل «مسار»؟", "How does Masar work?")}>
+      <Section title={L("حول «مدار»", "About Madar")}>
+        <Collapse title={L("كيف يعمل «مدار»؟", "How does Madar work?")}>
           <div className="small muted col" style={{ gap: 8 }}>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("ترتيب اليوم:", "Ordering your day:")}</b>{L(" لكل عنصر درجة من الأولوية، قرب الموعد، هل هو لا يحتمل التأجيل، كم تأجل، وكم مضى عليه. الأسباب تظهر تحت كل عنصر. الخطة لا تتجاوز وقتك المتاح إلا بما لا يمكن تأجيله، وتخبرك بالزيادة.", " every item gets a score from priority, closeness of its deadline, whether it can be postponed, how often it was postponed, and how long it has waited. The reasons show under each item. The plan never goes beyond your available time except for what can't be postponed, and tells you by how much.")}</p>
           <p style={{ margin: 0 }}><b style={{ color: 'var(--text)' }}>{L("تقدير المذاكرة:", "Study estimates:")}</b>{L(" حجم الفصول × صعوبتها × سرعتك المقاسة من جلساتك + وقت المراجعة. يُعرض كنطاق (أقل–أكثر) يضيق كلما سجلت جلسات أكثر. ثم أحاكي الأيام حتى الاختبار مقابل وقتك المتاح للمذاكرة وأوزع الوقت بين الاختبارات.", " chapter size × difficulty × your speed measured from your sessions + review time. Shown as a range (low–high) that narrows as you log more sessions. Then I simulate the days until the exam against your study time and split it between exams.")}</p>
@@ -268,7 +268,7 @@ export function Settings() {
                   </div>
         </Collapse>
         <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet({ type: 'shortcuts' })}><Icon name="question" size={15} />{L(" اختصارات لوحة المفاتيح", " Keyboard shortcuts")}<span className="kbd">?</span></button>
-        <div className="faint tiny" dir="ltr" style={{ textAlign: 'end' }}>Masar · {__BUILD__}</div>
+        <div className="faint tiny" dir="ltr" style={{ textAlign: 'end' }}>Madar · {__BUILD__}</div>
       </Section>
     </div>
   );

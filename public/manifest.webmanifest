@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "مسار — مساعدك الشخصي",
-  "short_name": "مسار",
+  "name": "مدار — مساعدك الشخصي",
+  "short_name": "مدار",
   "description": "تنظيم الجامعة والعمل والحياة في مكان واحد",
   "lang": "ar",
   "dir": "rtl",
@@ -27,7 +27,7 @@
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

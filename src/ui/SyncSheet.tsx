@@ -51,7 +51,7 @@ function Setup() {
       <div className="faint small">{L('بياناتك تنحفظ في حسابك أنت في قوقل (مجاني)، وتنرفع مشفّرة بمفتاح يبقى على أجهزتك. بعدها كل تعديل يوصل لجهازك الثاني لحاله، ورسائل البنك تدخل مصاريفك بدون ما تلمس شي.', 'Your data is kept in your own Google account (free), uploaded encrypted with a key that stays on your devices. After that every change reaches your other device by itself, and bank messages land in your spending untouched.')}</div>
 
       <section className="sync-box">
-        <b>{L('عندك «مسار» مربوط على جهاز ثاني؟', 'Already set up on another device?')}</b>
+        <b>{L('عندك «مدار» مربوط على جهاز ثاني؟', 'Already set up on another device?')}</b>
         <div className="faint tiny">{L('من الجهاز الثاني: الإعدادات ← المزامنة ← «اربط جهاز ثاني»، والصق الرابط هنا.', 'On the other device: Settings → Sync → “Link another device”, then paste the link here.')}</div>
         <div className="row" style={{ gap: 8 }}>
           <input className="input grow" dir="ltr" value={link} onChange={(e) => setLink(e.target.value)} placeholder={L('الصق رابط الربط', 'Paste the pairing link')} />
@@ -109,7 +109,7 @@ function Connected() {
 
       <section className="sync-box">
         <b>📱 {L('اربط جهاز ثاني (التابلت مثلًا)', 'Link another device (e.g. a tablet)')}</b>
-        <div className="faint tiny">{L('انسخ الرابط، وعلى الجهاز الثاني افتح «مسار» ← الإعدادات ← المزامنة والصقه. (لو نفس حساب أبل، النسخ هنا واللصق هناك يشتغل مباشرة.) لا ترسله لأحد — فيه مفتاح بياناتك.', 'Copy the link; on the other device open Masar → Settings → Sync and paste it. (Same Apple ID? Copy here, paste there.) Don’t share it — it holds your data key.')}</div>
+        <div className="faint tiny">{L('انسخ الرابط، وعلى الجهاز الثاني افتح «مدار» ← الإعدادات ← المزامنة والصقه. (لو نفس حساب أبل، النسخ هنا واللصق هناك يشتغل مباشرة.) لا ترسله لأحد — فيه مفتاح بياناتك.', 'Copy the link; on the other device open Madar → Settings → Sync and paste it. (Same Apple ID? Copy here, paste there.) Don’t share it — it holds your data key.')}</div>
         <button className="btn primary" onClick={() => copy(pairLink(), L('نُسخ رابط الربط ✓', 'Pairing link copied ✓'))}><Icon name="copy" size={15} /> {L('انسخ رابط الربط', 'Copy pairing link')}</button>
       </section>
 
@@ -128,7 +128,7 @@ function Connected() {
             <li>{L('تأكد إن الأتمتة على «تشغيل فورًا».', 'Make sure the automation is set to “Run Immediately”.')}</li>
           </ol>
         </Collapse>
-        <div className="faint tiny">{L('الرسائل تنتظر في حسابك لين تفتح «مسار» على أي جهاز، وبعدها تنضاف وتنمسح من هناك.', 'Messages wait in your account until you open Masar on any device; then they’re added and removed from there.')}</div>
+        <div className="faint tiny">{L('الرسائل تنتظر في حسابك لين تفتح «مدار» على أي جهاز، وبعدها تنضاف وتنمسح من هناك.', 'Messages wait in your account until you open Madar on any device; then they’re added and removed from there.')}</div>
       </section>
 
       <button className="btn ghost danger" onClick={() => { if (confirm(L('توقف المزامنة على هذا الجهاز؟ بياناتك تبقى هنا وفي حسابك.', 'Stop syncing on this device? Your data stays here and in your account.'))) { stopSync(); toast(L('توقفت المزامنة على هذا الجهاز', 'Sync stopped on this device')); } }}>

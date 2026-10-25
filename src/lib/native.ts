@@ -62,7 +62,7 @@ function upcoming(state: AppState, now: number): Upcoming[] {
   if (state.settings.morningBrief)
     for (let i = 0; i < 7; i++) {
       const day = addDays(todayKey(now), i);
-      add({ key: `brief:${day}`, title: L('خطة يومك جاهزة', 'Your day plan is ready'), body: L('افتح «مسار» وشوف وش عندك اليوم.', 'Open Masar to see your day.'), at: atTime(day, state.settings.morningBrief), ref: 'today' });
+      add({ key: `brief:${day}`, title: L('خطة يومك جاهزة', 'Your day plan is ready'), body: L('افتح «مدار» وشوف وش عندك اليوم.', 'Open Madar to see your day.'), at: atTime(day, state.settings.morningBrief), ref: 'today' });
     }
   return out.sort((a, b) => a.at - b.at).slice(0, 60);
 }

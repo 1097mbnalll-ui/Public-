@@ -58,7 +58,7 @@ export function InstallCard({ always }: { always?: boolean }) {
   }, []);
 
   const env = installEnv();
-  if (env === 'standalone') return always ? <div className="tile install-card"><b>✓ {L('«مسار» مثبّت على هذا الجهاز', 'Masar is installed on this device')}</b></div> : null;
+  if (env === 'standalone') return always ? <div className="tile install-card"><b>✓ {L('«مدار» مثبّت على هذا الجهاز', 'Madar is installed on this device')}</b></div> : null;
   if (hidden || (env === 'desktop' && !always)) return null;
   const ios = env === 'ios';
 
@@ -73,7 +73,7 @@ export function InstallCard({ always }: { always?: boolean }) {
 
   const how: Record<Env, string> = {
     ios: L('بياناتك محفوظة في هذا الجوال فقط، وسفاري يمسحها إذا ما فتحت الموقع أسبوع. اضغط زر المشاركة ⬆︎ ثم «إضافة إلى الشاشة الرئيسية»، وافتحه من هناك.', "Your data is stored on this phone only, and Safari clears it if you don't open the site for a week. Tap Share ⬆︎, then “Add to Home Screen”, and open it from there."),
-    inapp: L('أنت فاتح الرابط من داخل تطبيق ثاني، وهذا ما يقدر يثبّت. اضغط الزر يفتح «مسار» في Chrome، وهناك اضغط «ثبّت».', "You opened the link inside another app, which can't install. Tap the button to open Masar in Chrome, then tap “Install” there."),
+    inapp: L('أنت فاتح الرابط من داخل تطبيق ثاني، وهذا ما يقدر يثبّت. اضغط الزر يفتح «مدار» في Chrome، وهناك اضغط «ثبّت».', "You opened the link inside another app, which can't install. Tap the button to open Madar in Chrome, then tap “Install” there."),
     prompt: L('ضغطة وحدة ويصير عندك أيقونة مثل أي تطبيق: يفتح أسرع، يشتغل بدون إنترنت، وبياناتك تبقى محفوظة أكثر.', 'One tap and it’s an icon like any app: opens faster, works offline, keeps your data safer.'),
     samsung: L('من متصفح سامسونج: اضغط ☰ تحت ← «إضافة الصفحة إلى» ← «الشاشة الرئيسية». أو افتحه في Chrome وثبّته بضغطة.', 'In Samsung Internet: tap ☰ → “Add page to” → “Home screen”. Or open it in Chrome and install with one tap.'),
     android: L('اضغط ⋮ فوق ← «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».', 'Tap ⋮ at the top → “Install app” or “Add to Home screen”.'),
@@ -86,7 +86,7 @@ export function InstallCard({ always }: { always?: boolean }) {
       <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
         <span className="ic-round"><Icon name="shield" size={18} /></span>
         <div className="grow">
-          <b>{ios ? L('احمِ بياناتك: أضف «مسار» للشاشة الرئيسية', 'Protect your data: add Masar to your Home Screen') : L('ثبّت «مسار» كتطبيق', 'Install Masar as an app')}</b>
+          <b>{ios ? L('احمِ بياناتك: أضف «مدار» للشاشة الرئيسية', 'Protect your data: add Madar to your Home Screen') : L('ثبّت «مدار» كتطبيق', 'Install Madar as an app')}</b>
           <div className="small muted" style={{ marginTop: 3 }}>{how[env]}</div>
           <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>
             {env === 'prompt' && (

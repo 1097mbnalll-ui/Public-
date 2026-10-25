@@ -179,7 +179,7 @@ export function pairLink(): string {
 
 export async function joinFromLink(text: string) {
   const m = text.match(/[?&]c=([\w-]+)/);
-  if (!m) throw new Error(L('هذا مو رابط ربط من «مسار».', "That's not a Masar pairing link."));
+  if (!m) throw new Error(L('هذا مو رابط ربط من «مدار».', "That's not a Madar pairing link."));
   let j: { u?: unknown; t?: string; k?: string };
   try {
     j = JSON.parse(new TextDecoder().decode(fromB64url(m[1])));
