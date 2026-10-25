@@ -645,9 +645,20 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   let main: ReactNode;
   let side: ReactNode;
   if (phase === 'night') {
+    // the night is when you look back: what's still open stays one tap from «✓»
+    const openTonight = plan.items.filter((i) => i.kind !== 'study');
     main = (
       <>
         <NightTile plan={plan} now={now} />
+        {openTonight.length > 0 && (
+          <div className="tile">
+            <div className="k2 row between">
+              <span>{isNight(now) ? L('مهام اليوم — خلّصت شي منها؟', "Today's tasks — done any?") : L('باقي اليوم — خلّصت شي منها؟', 'Left today — done any?')}</span>
+              <span className="faint">{openTonight.length}</span>
+            </div>
+            <div className="rows flat">{openTonight.map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} late={late.get(it.id)} />)}</div>
+          </div>
+        )}
         <Tomorrow now={now} plan={plan} />
       </>
     );
