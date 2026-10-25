@@ -34,5 +34,27 @@ export const sz = (label?: string) => {
   return current === 'en' ? SIZE_EN[v] || v : v;
 };
 
+const PLURAL_AR: Record<string, [string, string]> = {
+  'صفحة': ['صفحتين', 'صفحات'],
+  'شريحة': ['شريحتين', 'شرائح'],
+  'محاضرة': ['محاضرتين', 'محاضرات'],
+  'درس': ['درسين', 'دروس'],
+  'مسألة': ['مسألتين', 'مسائل'],
+  'دقيقة': ['دقيقتين', 'دقائق'],
+  'دقيقة فيديو': ['دقيقتين فيديو', 'دقائق فيديو'],
+};
+/** an amount of material, counted the way it's said: «صفحتين»، «7 صفحات»، «12 صفحة» · "1 page", "7 pages" */
+export const szn = (n: number, label?: string) => {
+  const v = label || 'صفحة';
+  if (current === 'en') {
+    const pl = SIZE_EN[v] || v;
+    return `${n} ${n === 1 && pl.endsWith('s') ? pl.slice(0, -1) : pl}`;
+  }
+  const f = PLURAL_AR[v];
+  if (f && n === 2) return f[0];
+  if (f && Number.isInteger(n) && n >= 3 && n <= 10) return `${n} ${f[1]}`;
+  return `${n} ${v}`;
+};
+
 /** rotation that keeps the same visual meaning when the layout mirrors */
 export const turn = (deg: number) => `rotate(${current === 'en' ? -deg : deg}deg)`;

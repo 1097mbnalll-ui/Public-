@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Group, NumInput, Ring, Sheet, Seg, Switch } from './kit';
+import { Collapse, Group, NumInput, Ring, Sheet, Seg, Switch } from './kit';
 import { Icon } from './Icon';
 import { getState, useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, atTime, daysWord, fmtDate, fmtMinutes, fmtMinutesShort, todayKey } from '../lib/dates';
+import { addDays, atTime, daysWord, fmtDate, fmtMinutes, todayKey } from '../lib/dates';
 import { planStudy, unitMinutes, type ExamPlan } from '../lib/engine/study';
 import type { Unit } from '../lib/types';
 import { coursePace } from '../lib/engine/learning';
 import { buildIcs } from '../lib/reminders';
 import { download } from '../lib/backup';
 import { closeSheet, openSheet } from './sheets';
+import { go } from './router';
 import { toast } from './toast';
-import { L, sz } from '../lib/i18n';
+import { L, sz, szn } from '../lib/i18n';
 
 /** "الفصل 3 - 24" / "Chapter 2: 30" → title + size */
 export function parseUnitLines(text: string, defSize: number) {
@@ -34,9 +35,12 @@ export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: 
   const [uid, setUid] = useState(unitId || units.find((u) => u.progress < 1)?.id || '');
   const [mins, setMins] = useState<number | undefined>(minutes || 45);
   const [amount, setAmount] = useState<number | undefined>(undefined);
+  // after a timer the course, lesson and minutes are known: only "how far did you get?" is asked
+  const [changing, setChanging] = useState(!fromTimer || !courseId);
   const course = s.courses.find((c) => c.id === cid);
   const unit = s.units.find((u) => u.id === uid);
   const left = unit ? Math.round(unit.size * (1 - unit.progress) * 10) / 10 : 0;
+  const unitLabel = sz(course?.sizeLabel);
 
   if (!courses.length)
     return (
@@ -50,61 +54,77 @@ export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: 
     if (!cid || !mins) return;
     A.logStudy(cid, uid || undefined, mins, amount || 0);
     closeSheet();
-    const pace = course ? coursePace({ ...s, sessions: [...s.sessions, { id: 'x', courseId: cid, unitId: uid, minutes: mins, amount: amount || 0, date: todayKey(), at: Date.now() }] }, course) : null;
+    const after = getState();
+    const pace = course && amount ? coursePace(after, course) : null;
+    const u = uid ? after.units.find((x) => x.id === uid) : undefined;
     toast(
-      amount && pace && course
-        ? L(`سُجلت ${fmtMinutes(mins)}. سرعتك في ${course.name}: ~${pace.pace.toFixed(1)} د لكل ${sz(course.sizeLabel)} (مستوى صعوبة متوسط)`, `Logged ${fmtMinutes(mins)}. Your speed in ${course.name}: ~${pace.pace.toFixed(1)} min per ${sz(course.sizeLabel)} (average difficulty)`)
-        : L(`سُجلت ${fmtMinutes(mins)} مذاكرة`, `Logged ${fmtMinutes(mins)} of study`),
+      u && u.progress >= 1 && unit && unit.progress < 1
+        ? L(`خلصت «${u.title}» ✓`, `Finished “${u.title}” ✓`)
+        : pace && course
+          ? L(`سُجلت ${fmtMinutes(mins)} — سرعتك في ${course.name} ~${pace.pace >= 10 ? Math.round(pace.pace) : pace.pace.toFixed(1)} د لكل ${sz(course.sizeLabel)}`, `Logged ${fmtMinutes(mins)} — about ${pace.pace >= 10 ? Math.round(pace.pace) : pace.pace.toFixed(1)} min per ${sz(course.sizeLabel)} in ${course.name}`)
+          : L(`سُجلت ${fmtMinutes(mins)} مذاكرة`, `Logged ${fmtMinutes(mins)} of study`),
       { undoable: true },
     );
   };
 
+  const half = left > 1 ? Math.round(left / 2) : 0;
   return (
     <Sheet
-      title={fromTimer ? L('انتهت جلسة المذاكرة', "Study session finished") : L('تسجيل مذاكرة', "Log study")}
+      title={fromTimer ? L('خلصت الجلسة', 'Session done') : L('سجّل جلسة مذاكرة', 'Log a study session')}
       onClose={closeSheet}
-      footer={
-        <button className="btn primary grow" onClick={save} disabled={!mins}>{L("حفظ الجلسة", "Save session")}</button>
-      }
+      footer={<button className="btn primary grow" onClick={save} disabled={!mins}>{L("حفظ", "Save")}</button>}
     >
       <div className="fields">
-        <div className="fields two">
-          <div className="field">
-            <label>{L("المادة", "Course")}</label>
-            <select className="select" value={cid} onChange={(e) => { setCid(e.target.value); setUid(''); }}>
-              {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+        {!changing ? (
+          <div className="sx-logsum">
+            <span className="sx-dot" style={{ background: course?.color }} />
+            <span className="grow">
+              <b>{fmtMinutes(mins || 0)}</b> · {course?.name}{unit ? ` · ${unit.title}` : ''}
+            </span>
+            <button className="linkish small" style={{ textDecoration: 'none' }} onClick={() => setChanging(true)}>{L('تغيير', 'Change')}</button>
           </div>
-          <div className="field">
-            <label>{L("الدرس", "Lesson")}</label>
-            <select className="select" value={uid} onChange={(e) => setUid(e.target.value)}>
-              <option value="">{L("عام / مراجعة", "General / review")}</option>
-              {units.map((u) => <option key={u.id} value={u.id}>{u.title}{u.progress >= 1 ? ' ✓' : ''}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="field">
-          <label>{L("المدة", "Duration")}</label>
-          <div className="row wrap" style={{ gap: 6 }}>
-            {[25, 45, 60, 90, 120].map((m) => (
-              <button key={m} className={`chip btnish ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{fmtMinutes(m)}</button>
-            ))}
-            <div style={{ width: 110 }}><NumInput value={mins} onChange={setMins} suffix={L("د", "min")} /></div>
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="fields two">
+              <div className="field">
+                <label>{L("المادة", "Course")}</label>
+                <select className="select" value={cid} onChange={(e) => { setCid(e.target.value); setUid(''); setAmount(undefined); }}>
+                  {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>{L("الدرس", "Lesson")}</label>
+                <select className="select" value={uid} onChange={(e) => { setUid(e.target.value); setAmount(undefined); }}>
+                  <option value="">{L("عام / مراجعة", "General / review")}</option>
+                  {units.map((u) => <option key={u.id} value={u.id}>{u.title}{u.progress >= 1 ? ' ✓' : ''}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>{L("المدة", "Duration")}</label>
+              <div className="row wrap" style={{ gap: 6 }}>
+                {[25, 45, 60, 90, 120].map((m) => (
+                  <button key={m} className={`chip btnish ${mins === m ? 'on' : ''}`} onClick={() => setMins(m)}>{fmtMinutes(m)}</button>
+                ))}
+                <div style={{ width: 110 }}><NumInput value={mins} onChange={setMins} suffix={L("د", "min")} /></div>
+              </div>
+            </div>
+          </>
+        )}
         {unit && left <= 0 ? (
           <div className="faint small">{L("هذا الدرس منتهي — الجلسة تنحسب مراجعة له، وتنشال مراجعته من خطتك.", "This lesson is finished — the session counts as its review and comes off your plan.")}</div>
-        ) : (
+        ) : unit ? (
           <div className="field">
-            <label>{L("كم أنجزت؟ (", "How much did you cover? (")}{sz(course?.sizeLabel)})</label>
+            <label>{L('وين وصلت؟', 'How far did you get?')}</label>
             <div className="row wrap" style={{ gap: 6 }}>
-              {unit && left > 0 && (
-                <button className={`chip btnish ${amount === left ? 'on' : ''}`} onClick={() => setAmount(left)}>{L("أنهيت الدرس (", "Finished the lesson (")}{left})</button>
-              )}
-              <div style={{ width: 130 }}><NumInput value={amount} onChange={setAmount} placeholder={L("مثال: 12", "e.g. 12")} /></div>
+              <button className={`chip btnish ${amount === left ? 'on' : ''}`} onClick={() => setAmount(left)}>{L('خلصت الدرس', 'Finished the lesson')}</button>
+              {half > 0 && <button className={`chip btnish ${amount === half ? 'on' : ''}`} onClick={() => setAmount(half)}>{L(`نصّه (${szn(half, course?.sizeLabel)})`, `Half (${szn(half, course?.sizeLabel)})`)}</button>}
+              <div style={{ width: 130 }}><NumInput value={amount} onChange={setAmount} placeholder={L(`كم ${unitLabel}؟`, `How many ${unitLabel}?`)} /></div>
             </div>
-            <div className="faint tiny">{unit ? L("هذا الرقم هو ما يجعل تقدير وقت المذاكرة مبنيًا على سرعتك الحقيقية.", "This number is what makes study estimates match your real speed.") : L("بدون درس محدد: تنحسب الدقائق، ولا تأثر على سرعتك. في أيام المراجعة تنخصم من المراجعة.", "Without a lesson the minutes count, but not towards your speed. During review days they come off the review.")}</div>
+            <div className="faint tiny">{L(`باقي في الدرس ${szn(left, course?.sizeLabel)}. اللي تكتبه هنا يخلي خطتك على سرعتك الحقيقية.`, `${szn(left, course?.sizeLabel)} left in the lesson. What you enter keeps your plan at your real speed.`)}</div>
           </div>
+        ) : (
+          <div className="faint small">{L('بدون درس محدد: تنحسب الدقائق، ولا تأثر على سرعتك. في أيام المراجعة تنخصم من المراجعة.', 'Without a lesson the minutes count, but not towards your speed. During review days they come off the review.')}</div>
         )}
       </div>
     </Sheet>
@@ -132,44 +152,39 @@ export function examSentence(ep: ExamPlan): { text: string; tone: 'green' | 'amb
 const TONE: Record<string, string> = { green: 'var(--green)', amber: 'var(--amber)', red: 'var(--red)', violet: 'var(--violet)', blue: 'var(--accent)' };
 
 export function ExamPlanView({ ep }: { ep: ExamPlan }) {
-  const today = todayKey();
   const sent = examSentence(ep);
   const paceNote =
     ep.pace.source === 'data'
-      ? L(`التقدير من ${ep.pace.n} ${ep.pace.n === 1 ? 'جلسة' : 'جلسات'} سجلتها`, `Estimate from ${ep.pace.n} ${ep.pace.n === 1 ? 'session' : 'sessions'} you logged`)
+      ? L(`من ${ep.pace.n} ${ep.pace.n === 1 ? 'جلسة' : 'جلسات'} سجلتها`, `From ${ep.pace.n} ${ep.pace.n === 1 ? 'session' : 'sessions'} you logged`)
       : ep.pace.source === 'guess'
-        ? L('التقدير من سرعتك المتوقعة — يدق بعد أول جلسات تسجلها', "Estimate from your expected speed — sharpens after your first logged sessions")
+        ? L('من سرعتك المتوقعة', 'From your expected speed')
         : ep.pace.source === 'global'
-          ? L('التقدير من سرعتك في موادك الأخرى', "Estimate from your speed in other courses")
-          : L('تقدير افتراضي — سجّل جلسة أو جلستين ليصبح دقيقًا', "Default estimate — log a session or two to make it accurate");
+          ? L('من سرعتك في موادك الثانية', 'From your speed in other courses')
+          : L('تقدير مبدئي — يدق بعد ما تسجّل جلسات', 'A first guess — sharpens once you log sessions');
   const active = ep.status !== 'unknown' && ep.status !== 'done' && ep.status !== 'past';
+  const facts: [string, string][] = [];
+  if (active) {
+    facts.push([L('اليوم', 'Today'), ep.todayMinutes > 0 ? `${fmtMinutes(ep.todayMinutes)}${ep.portion.length ? ` · ${ep.portion.map((x) => x.unit.title).filter((t, i, a) => a.indexOf(t) === i).join(L('، ', ', '))}` : ''}` : ep.quota > 0 ? L('خلصت حصة اليوم ✓', "Today's share done ✓") : L('ما فيه حصة اليوم', 'Nothing today')]);
+    facts.push([L('الباقي', 'Left'), L(`دروس ~${fmtMinutes(ep.learnLeft)} · مراجعة ~${fmtMinutes(ep.reviewLeft)}`, `Lessons ~${fmtMinutes(ep.learnLeft)} · review ~${fmtMinutes(ep.reviewLeft)}`)]);
+    if (ep.learnLeft > 1) facts.push([L('تخلص الدروس', 'Lessons done'), ep.finishDay ? fmtDate(ep.finishDay) : L('ما تلحق بوقتك الحالي', "Not at your current time")]);
+    facts.push([L('أيام المراجعة', 'Review days'), ep.exam.reviewDays ? `${daysWord(ep.exam.reviewDays)}${ep.inReview ? L(' — أنت فيها الحين', ' — you are in them') : ''}` : L('بدون', 'None')]);
+    facts.push([L('دقة التقدير', 'Estimate'), `±${Math.round(ep.pace.spread * 100)}% · ${paceNote}`]);
+  }
   return (
-    <div className="exam-hero">
+    <div className="sx-plan">
       <div className="row" style={{ gap: 14 }}>
-        <Ring value={ep.progress} size={58} stroke={5} color={ep.course.color} />
+        <Ring value={ep.progress} size={58} stroke={5} color={ep.course.color} label={`${Math.round(ep.progress * 100)}%`} />
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="faint small">{ep.daysLeft === 0 ? L('اليوم', "Today") : ep.daysLeft === 1 ? L('غدًا', "Tomorrow") : L(`بعد ${daysWord(ep.daysLeft)}`, `in ${daysWord(ep.daysLeft)}`)} · {fmtDate(ep.exam.date)}</div>
-          <div className="status-line" style={{ marginTop: 4, color: TONE[sent.tone], fontWeight: 600 }}>{sent.text}</div>
+          <div style={{ marginTop: 4, color: TONE[sent.tone], fontWeight: 650 }}>{sent.text}</div>
         </div>
       </div>
-      {active && (
-        <>
-          <div className="kpis">
-            <div className="kpi"><div className="v">{fmtMinutesShort(ep.todayMinutes)}</div><div className="k">{L("مذاكرة اليوم", "Study today")}</div></div>
-            <div className="kpi"><div className="v">{fmtMinutesShort(ep.mid)}</div><div className="k">{L("متبقي (±", "Left (±")}{Math.round(ep.pace.spread * 100)}%)</div></div>
-            <div className="kpi">
-              <div className="v">{ep.startBy ? (ep.startBy <= today ? L('الآن', "Now") : fmtDate(ep.startBy, false)) : L('متأخر', "Behind")}</div>
-              <div className="k">{L("ابدأ قبل", "Start by")}</div>
-            </div>
-          </div>
-          <div className="faint tiny">{paceNote}{L(". أيام المراجعة: ", ". Review days: ")}{ep.exam.reviewDays ? daysWord(ep.exam.reviewDays) : L('بدون', "None")}{L(" قبل الاختبار.", " before the exam.")}</div>
-        </>
-      )}
-      {ep.todayUnits.length > 0 && (
-        <div className="small"><span className="muted">{L("ابدأ اليوم بـ: ", "Start today with: ")}</span>{ep.todayUnits.map((w) => w.unit.title).join(L('، ', ", "))}</div>
-      )}
-      {active && ep.mid > 0 && (
-        <div className="faint tiny">{L(`الباقي: دروس ~${fmtMinutes(ep.learnLeft)} · مراجعة ~${fmtMinutes(ep.reviewLeft)}`, `Left: lessons ~${fmtMinutes(ep.learnLeft)} · review ~${fmtMinutes(ep.reviewLeft)}`)}{ep.finishDay && ep.learnLeft > 0 ? L(` · تخلص الدروس ${fmtDate(ep.finishDay, false)}`, ` · lessons done ${fmtDate(ep.finishDay, false)}`) : ''}</div>
+      {facts.length > 0 && (
+        <dl className="sx-facts">
+          {facts.map(([k, v]) => (
+            <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
       )}
       {ep.reviewCompressed && <div className="notice amber">{L("الدروس ما خلصت قبل أيام المراجعة — الخطة تكمّلها فيها، وبعدها تراجع.", "The lessons weren't done before the review days — the plan finishes them there, then reviews.")}</div>}
       {ep.suggestions.length > 0 && ep.status !== 'unknown' && (
@@ -184,22 +199,38 @@ export function ExamPlanView({ ep }: { ep: ExamPlan }) {
   );
 }
 
-/** lesson row: progress ring · title · time left. Tap for details. */
-export function LessonRow({ u, color, pace, sizeLabel }: { u: Unit; color: string; pace: number; sizeLabel: string }) {
+/** a lesson's state as one glyph: empty, partly studied, studied, studied and reviewed */
+function LessonGlyph({ u, color }: { u: Unit; color: string }) {
+  if (u.progress >= 1)
+    return (
+      <span className={`sx-glyph ${u.reviewed ? 'reviewed' : 'studied'}`} style={{ ['--c' as string]: color }} aria-hidden>
+        <Icon name="check" size={13} stroke={2.6} />
+      </span>
+    );
+  return <span className="mini-ring" aria-hidden><Ring value={u.progress} size={26} stroke={3} color={color} label="" /></span>;
+}
+
+/** lesson row: state · title · what's left. Tap for the lesson. */
+export function LessonRow({ u, color, pace, sizeLabel, today }: { u: Unit; color: string; pace: number; sizeLabel: string; today?: boolean }) {
   const s = useApp();
   const c = s.courses.find((x) => x.id === u.courseId);
   const left = c ? unitMinutes(u, c, pace, s.settings.reviewFactor) : 0;
   const done = u.progress >= 1;
+  const sub = done
+    ? u.reviewed
+      ? L('ذاكرته وراجعته', 'Studied and reviewed')
+      : L(`ذاكرته · باقي مراجعة ~${fmtMinutes(left)}`, `Studied · ~${fmtMinutes(left)} of review left`)
+    : u.progress > 0
+      ? L(`${Math.round(u.progress * 100)}% · باقي ~${fmtMinutes(left)}`, `${Math.round(u.progress * 100)}% · ~${fmtMinutes(left)} left`)
+      : `${szn(u.size, sizeLabel)} · ~${fmtMinutes(left)}`;
   return (
-    <button className={`r ${done && u.reviewed ? 'done' : ''}`} onClick={() => openSheet({ type: 'unit', id: u.id })}>
-      <span className="mini-ring"><Ring value={u.progress} size={30} stroke={3} color={color} label={done ? '✓' : ''} /></span>
+    <button className={`r sx-lesson ${done && u.reviewed ? 'done' : ''}`} onClick={() => openSheet({ type: 'unit', id: u.id })}>
+      <LessonGlyph u={u} color={color} />
       <span className="main-t">
-        <div className="lbl">{u.title}</div>
-        <div className="sub">
-          {done ? (u.reviewed ? L('تمت المذاكرة والمراجعة', "Studied and reviewed") : L('تمت المذاكرة · بقيت المراجعة', "Studied · review left")) : u.progress > 0 ? L(`${Math.round(u.progress * 100)}% · بقي ~${fmtMinutes(left)}`, `${Math.round(u.progress * 100)}% · ~${fmtMinutes(left)} left`) : `${u.size} ${sz(sizeLabel)} · ~${fmtMinutes(left)}`}
-        </div>
+        <div className="lbl">{u.title}{u.notes ? <Icon name="note" size={13} className="faint" style={{ marginInlineStart: 6, verticalAlign: '-2px' }} /> : null}</div>
+        <div className="sub">{sub}</div>
       </span>
-      <Icon name="chevron" size={15} className="chev-end" />
+      {today && <span className="sx-tag">{L('اليوم', 'Today')}</span>}
     </button>
   );
 }
@@ -221,68 +252,99 @@ function LessonNotes({ text }: { text: string }) {
 export function LessonSheet({ id }: { id: string }) {
   const s = useApp();
   const u = s.units.find((x) => x.id === id);
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState(u?.notes || '');
   if (!u) return null;
   const c = s.courses.find((x) => x.id === u.courseId);
   const sessions = s.sessions.filter((x) => x.unitId === id);
   const up = (patch: Partial<Unit>) => A.updateUnit(id, patch);
+  const saveNotes = () => {
+    const v = draft.trim();
+    if (v !== (u.notes || '')) up({ notes: v || undefined });
+    setWriting(false);
+  };
   return (
     <Sheet
       title={u.title}
-      onClose={closeSheet}
+      onClose={() => { if (writing) saveNotes(); closeSheet(); }}
       footer={
         <>
-          <button className="btn primary grow" onClick={() => { closeSheet(); A.startTimer({ kind: 'study', refId: id, courseId: u.courseId, unitId: id, label: `${c?.name || ''} · ${u.title}` }); }}>
-            <Icon name="play" size={14} />{L(" ذاكر الآن", " Study now")}</button>
-          <button className="btn" onClick={() => { closeSheet(); openSheet({ type: 'study-log', courseId: u.courseId, unitId: id }); }}>{L("سجّل جلسة", "Log session")}</button>
+          <button className="btn primary grow" onClick={() => { if (writing) saveNotes(); closeSheet(); A.startTimer({ kind: 'study', refId: id, courseId: u.courseId, unitId: id, label: `${c?.name || ''} · ${u.title}` }); }}>
+            <Icon name="play" size={14} />{u.progress >= 1 ? L(' راجعه الآن', ' Review it now') : L(' ذاكر الآن', ' Study now')}</button>
+          <button className="btn" onClick={() => { if (writing) saveNotes(); closeSheet(); openSheet({ type: 'study-log', courseId: u.courseId, unitId: id }); }}>{L("سجّل جلسة", "Log session")}</button>
         </>
       }
     >
       <div className="fields">
-        {u.notes && <LessonNotes text={u.notes} />}
+        <div className="faint small row" style={{ gap: 8 }}>
+          <span className="sx-dot" style={{ background: c?.color }} />
+          {c?.name} · {szn(u.size, c?.sizeLabel)}{u.spent > 0 ? L(` · ذاكرت فيه ${fmtMinutes(u.spent)} في ${sessions.length} ${sessions.length === 1 ? 'جلسة' : 'جلسات'}`, ` · ${fmtMinutes(u.spent)} over ${sessions.length} session${sessions.length === 1 ? '' : 's'}`) : ''}
+        </div>
+
         <div className="field">
           <label>{L("وين وصلت؟", "How far are you?")}</label>
           <div className="row wrap" style={{ gap: 6 }}>
             {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-              <button key={v} className={`chip btnish ${Math.abs(u.progress - v) < 0.13 ? 'on' : ''}`} onClick={() => up({ progress: v })}>
-                {v === 0 ? L('لم أبدأ', "Not started") : v === 1 ? L('أنهيته ✓', "Finished ✓") : `${v * 100}%`}
+              <button key={v} className={`chip btnish ${Math.abs(u.progress - v) < 0.13 ? 'on' : ''}`} onClick={() => up({ progress: v, ...(v < 1 ? { reviewed: false } : {}) })}>
+                {v === 0 ? L('ما بدأت', "Not started") : v === 1 ? L('خلصته ✓', "Finished ✓") : `${v * 100}%`}
               </button>
             ))}
           </div>
         </div>
-        <div className="row between">
-          <div>
-            <div style={{ fontWeight: 500 }}>{L("راجعته", "Reviewed")}</div>
-            <div className="faint tiny">{L("بعد المراجعة لا أحسب له وقت مراجعة إضافي.", "Once reviewed, no extra review time is counted for it.")}</div>
+        {u.progress >= 1 && (
+          <div className="row between">
+            <div>
+              <div style={{ fontWeight: 600 }}>{L("راجعته", "Reviewed")}</div>
+              <div className="faint tiny">{L("بعد المراجعة ما أحسب له وقت مراجعة.", "Once reviewed, no review time is counted for it.")}</div>
+            </div>
+            <Switch on={u.reviewed} onChange={(v) => up({ reviewed: v })} label={L("راجعته", "Reviewed")} />
           </div>
-          <Switch on={u.reviewed} onChange={(v) => up({ reviewed: v })} label={L("راجعته", "Reviewed")} />
-        </div>
-        <div className="divider" style={{ margin: '4px 0' }} />
-        <div className="field">
-          <label>{L("الاسم", "Name")}</label>
-          <input className="input" value={u.title} onChange={(e) => up({ title: e.target.value })} />
-        </div>
-        <div className="fields two">
-          <div className="field">
-            <label>{L("الحجم (", "Size (")}{sz(c?.sizeLabel)})</label>
-            <NumInput value={u.size} min={0.5} onChange={(v) => v && up({ size: v })} />
-          </div>
-          <div className="field">
-            <label>{L("صعوبته", "Difficulty")}</label>
-            <select className="select" value={u.difficulty || ''} onChange={(e) => up({ difficulty: e.target.value ? +e.target.value : undefined })}>
-              <option value="">{L("مثل المادة", "Same as course")}</option>
-              {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{[L('سهل جدًا', "Very easy"), L('سهل', "Easy"), L('متوسط', "Medium"), L('صعب', "Hard"), L('صعب جدًا', "Very hard")][d - 1]}</option>)}
-            </select>
-          </div>
-        </div>
-        {(u.spent > 0 || sessions.length > 0) && (
-          <div className="faint small">{L("ذاكرت فيه ", "Studied ")}{fmtMinutes(u.spent)}{L(" في ", " in ")}{sessions.length} {sessions.length === 1 ? L('جلسة', "session") : L('جلسات', "sessions")}.</div>
         )}
-        <div className="row" style={{ gap: 8 }}>
-          <button className="btn sm" onClick={() => A.moveUnit(id, -1)}><Icon name="up" size={14} />{L(" قدّمه", " Earlier")}</button>
-          <button className="btn sm" onClick={() => A.moveUnit(id, 1)}><Icon name="down" size={14} />{L(" أخّره", " Later")}</button>
-          <span className="grow" />
-          <button className="btn sm danger" onClick={() => { A.deleteUnit(id); closeSheet(); toast(L('حُذف الدرس', "Lesson deleted"), { undoable: true }); }}><Icon name="trash" size={14} />{L(" حذف", " Delete")}</button>
+
+        <div className="field">
+          <div className="row between">
+            <label style={{ margin: 0 }}>{L('ملخصك', 'Your summary')}</label>
+            {!writing && <button className="linkish small" style={{ textDecoration: 'none' }} onClick={() => { setDraft(u.notes || ''); setWriting(true); }}>{u.notes ? L('تعديل', 'Edit') : L('اكتب ملخص', 'Write one')}</button>}
+          </div>
+          {writing ? (
+            <>
+              <textarea className="textarea sx-notes-edit" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={saveNotes} placeholder={L('## عنوان\n- نقطة\nسطر عادي', '## Heading\n- point\nplain line')} />
+              <div className="faint tiny">{L('«## » عنوان، «- » نقطة. ينحفظ تلقائيًا.', '"## " for a heading, "- " for a point. Saves by itself.')}</div>
+            </>
+          ) : u.notes ? (
+            <LessonNotes text={u.notes} />
+          ) : (
+            <div className="faint small">{L('اكتب أهم النقاط بكلماتك وأنت تذاكر — ترجع لها في المراجعة.', 'Write the key points in your own words as you study — they are what you review from.')}</div>
+          )}
         </div>
+
+        <Collapse title={L('تعديل الدرس', 'Edit lesson')}>
+          <div className="fields">
+            <div className="field">
+              <label>{L("الاسم", "Name")}</label>
+              <input className="input" value={u.title} onChange={(e) => up({ title: e.target.value })} />
+            </div>
+            <div className="fields two">
+              <div className="field">
+                <label>{L("الحجم (", "Size (")}{sz(c?.sizeLabel)})</label>
+                <NumInput value={u.size} min={0.5} onChange={(v) => v && up({ size: v })} />
+              </div>
+              <div className="field">
+                <label>{L("صعوبته", "Difficulty")}</label>
+                <select className="select" value={u.difficulty || ''} onChange={(e) => up({ difficulty: e.target.value ? +e.target.value : undefined })}>
+                  <option value="">{L("مثل المادة", "Same as course")}</option>
+                  {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{[L('سهل جدًا', "Very easy"), L('سهل', "Easy"), L('متوسط', "Medium"), L('صعب', "Hard"), L('صعب جدًا', "Very hard")][d - 1]}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn sm" onClick={() => A.moveUnit(id, -1)}><Icon name="up" size={14} />{L(" قدّمه", " Earlier")}</button>
+              <button className="btn sm" onClick={() => A.moveUnit(id, 1)}><Icon name="down" size={14} />{L(" أخّره", " Later")}</button>
+              <span className="grow" />
+              <button className="btn sm danger" onClick={() => { A.deleteUnit(id); closeSheet(); toast(L('حُذف الدرس', "Lesson deleted"), { undoable: true }); }}><Icon name="trash" size={14} />{L(" حذف", " Delete")}</button>
+            </div>
+          </div>
+        </Collapse>
       </div>
     </Sheet>
   );
@@ -363,7 +425,7 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
           <ExamPlanView ep={ep} />
           <Group title={L(`الدروس المطلوبة (${existing!.unitIds.length})`, `Required lessons (${existing!.unitIds.length})`)}>
             {s.units.filter((u) => existing!.unitIds.includes(u.id)).sort((a, b) => a.order - b.order).map((u) => (
-              <LessonRow key={u.id} u={u} color={course?.color || 'var(--accent)'} pace={ep.pace.pace} sizeLabel={sz(course?.sizeLabel)} />
+              <LessonRow key={u.id} u={u} color={course?.color || 'var(--accent)'} pace={ep.pace.pace} sizeLabel={course?.sizeLabel || ''} />
             ))}
           </Group>
         </div>
@@ -404,7 +466,7 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
                     <label className="item tap" key={u.id} style={{ padding: '9px 12px', alignItems: 'center' }}>
                       <input type="checkbox" checked={on} onChange={() => setUnitIds(on ? unitIds.filter((x) => x !== u.id) : [...unitIds, u.id])} />
                       <span className="grow">{u.title}</span>
-                      <span className="faint tiny">{u.size} {sz(course?.sizeLabel)}</span>
+                      <span className="faint tiny">{szn(u.size, course?.sizeLabel)}</span>
                     </label>
                   );
                 })}
@@ -460,7 +522,24 @@ export function CourseEditor({ id }: { id?: string }) {
   };
 
   return (
-    <Sheet title={c ? L('تعديل المادة', "Edit course") : L('مادة جديدة', "New course")} onClose={closeSheet} footer={<button className="btn primary grow" onClick={save} disabled={!name.trim()}>{L("حفظ", "Save")}</button>}>
+    <Sheet
+      title={c ? L('تعديل المادة', "Edit course") : L('مادة جديدة', "New course")}
+      onClose={closeSheet}
+      footer={
+        <>
+          <button className="btn primary grow" onClick={save} disabled={!name.trim()}>{L("حفظ", "Save")}</button>
+          {c && (
+            <button className="icon-btn" aria-label={L('حذف المادة', 'Delete course')} onClick={() => {
+              if (!confirm(L(`حذف ${c.name} مع دروسها واختباراتها وجلساتها؟`, `Delete ${c.name} with its lessons, exams and sessions?`))) return;
+              A.deleteCourse(c.id);
+              closeSheet();
+              go('study');
+              toast(L('حُذفت المادة', "Course deleted"), { undoable: true });
+            }}><Icon name="trash" size={18} /></button>
+          )}
+        </>
+      }
+    >
       <div className="fields">
         <div className="field">
           <label>{L("اسم المادة", "Course name")}</label>
