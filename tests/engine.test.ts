@@ -241,29 +241,37 @@ describe('study planner across exams', () => {
     return s;
   }
 
-  it('never asks for more study today than today’s study time', () => {
-    const s = twoExams(3, 4, [60, 60], [60, 60]); // far more than fits
-    const plan = planStudy(s, NOW);
-    const today = plan.exams.reduce((a, ep) => a + ep.quota, 0);
-    expect(today).toBeLessThanOrEqual(150 + 5);
-    for (const [, list] of Object.entries(plan.byDay)) expect(list.reduce((a, x) => a + x.minutes, 0)).toBeLessThanOrEqual(240 + 10);
-  });
-
-  it('serves the nearest exam first when time is short', () => {
-    const s = twoExams(2, 6, [60, 60], [60, 60]);
-    const [a, b] = planStudy(s, NOW).exams;
-    expect(a.exam.id).toBe('e1');
-    expect(a.quota).toBeGreaterThan(b.quota);
-    expect(a.status).toBe('behind');
-  });
-
-  it('gives freer days a bigger share', () => {
+  it('9 hours over 3 days is 3 a day; skip today and it’s 4.5 + 4.5', () => {
     const s = initialState();
-    withCourse(s, [40, 40], 9, 0); // Tuesday → the Thursday after next, through Friday and Saturday (240) vs weekdays (150)
+    s.settings.reviewFactor = 0;
+    withCourse(s, [108], 3, 0); // 108 pages × 5 min = 540 min; study today, tomorrow and the day after
+    const plan = planStudy(s, NOW);
+    const ep = plan.exams[0];
+    expect(ep.quota).toBe(180);
+    expect(plan.byDay[addDays(TODAY, 1)][0].minutes).toBe(180);
+    expect(plan.byDay[addDays(TODAY, 2)][0].minutes).toBe(180);
+    // nothing studied today → the next morning
+    const next = planStudy(s, atTime(addDays(TODAY, 1), '09:00'));
+    expect(next.exams[0].quota).toBe(270);
+    expect(next.byDay[addDays(TODAY, 2)][0].minutes).toBe(270);
+  });
+
+  it('shows what’s needed even when it’s more than your study time, and flags it', () => {
+    const s = twoExams(3, 4, [60, 60], [60, 60]);
+    const plan = planStudy(s, NOW);
+    const total = plan.exams.reduce((a, ep) => a + ep.quota, 0);
+    expect(total).toBeGreaterThan(150);
+    expect(plan.exams.some((ep) => ep.status === 'behind')).toBe(true);
+  });
+
+  it('skips days with no study time and spreads over the rest', () => {
+    const s = initialState();
+    s.settings.reviewFactor = 0;
+    s.settings.studyCap = [150, 150, 150, 0, 150, 150, 150]; // no study on Wednesdays
+    withCourse(s, [36], 3, 0); // 180 min, today (Tue), Wed (none), Thu
     const ep = planStudy(s, NOW).exams[0];
-    const fri = ep.alloc[addDays(TODAY, 3)];
-    const wed = ep.alloc[addDays(TODAY, 1)];
-    expect(fri).toBeGreaterThan(wed * 1.3);
+    expect(ep.quota).toBe(90);
+    expect(ep.alloc[addDays(TODAY, 1)] || 0).toBe(0);
   });
 
   it('the days ahead show the same plan as the quota', () => {

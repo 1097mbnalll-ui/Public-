@@ -237,6 +237,7 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
   const active = plan.exams.filter((ep) => ep.quota > 0 || ep.status === 'unknown' || ((ep.status === 'behind' || ep.status === 'tight') && ep.daysLeft > 0));
   if (!active.length) return null;
   const totalLeft = active.reduce((a, ep) => a + ep.todayMinutes, 0);
+  const totalQuota = active.reduce((a, ep) => a + ep.quota, 0);
   const cap = studyCapFor(s, today);
 
   return (
@@ -301,7 +302,13 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
           );
         })}
       </div>
-      <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L(`الحصص من وقت مذاكرتك اليوم (${fmtMinutes(cap)}) وموزعة على كل المواد: الدروس تخلص قبل أيام المراجعة، والمراجعة قبل الاختبار، واليوم اللي فيه فراغ أكثر ياخذ أكثر. إذا ضاق الوقت يتقدّم الاختبار الأقرب. وإذا ذاكرت أقل، يتوزع الباقي على الأيام الجاية.`, `Quotas come out of today's study time (${fmtMinutes(cap)}) and are shared across your courses: lessons finish before the review days, review before the exam, and freer days carry more. When time is short the nearest exam goes first. Study less and the rest spreads over the coming days.`)}</p>
+      {totalQuota > cap + 5 && (
+        <div className="notice amber" style={{ marginTop: 10 }}>
+          <Icon name="alert" size={18} />
+          <div>{L(`المطلوب اليوم ${fmtMinutes(totalQuota)} ووقت مذاكرتك ${fmtMinutes(cap)}. ذاكر أكثر لو تقدر، أو ارفع وقت المذاكرة من «أنت» — اللي ما تذاكره اليوم يتوزع على الأيام الباقية فتكبر حصصها.`, `Today needs ${fmtMinutes(totalQuota)} and your study time is ${fmtMinutes(cap)}. Study more if you can, or raise study time in “You” — what you don't study today spreads over the days left, making them bigger.`)}</div>
+        </div>
+      )}
+      <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L('الحصة = الباقي ÷ الأيام الباقية: الدروس قبل أيام المراجعة، والمراجعة قبل الاختبار. مثال: 9 ساعات و3 أيام = 3 ساعات يوميًا؛ لو ما ذاكرت اليوم تصير 4.5 بكرة و4.5 بعده.', "Quota = what's left ÷ days left: lessons before the review days, review before the exam. Example: 9 hours over 3 days = 3 hours a day; skip today and it's 4.5 tomorrow and 4.5 the day after.")}</p>
     </section>
   );
 }

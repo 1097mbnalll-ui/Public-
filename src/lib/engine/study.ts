@@ -1,11 +1,11 @@
 // Study planner. Per exam it splits what's left into learning (lessons not studied yet) and a
-// review pass, then lays both out day by day across *all* exams together against the study time
-// you really have each day:
-//  - learning has to be done by the start of the review days, review by the exam
-//  - each day's share is proportional to that day's study time, so a free Friday carries more
-//    than a busy Monday, and the plan is re-laid every day from where you actually are
-//  - when the days are too full, the nearest deadline goes first
-// The quota you see today is the same number the simulation gives today, so every screen agrees.
+// review pass, and plans both day by day:
+//  - the daily quota is what's needed: lessons spread evenly over the days before the review
+//    days, review over the days before the exam. Skip a day and what you missed spreads evenly
+//    over the days left — re-planned every day from where you actually are
+//  - a second run checks it against the study time you really have each day, across all exams
+//    together (nearest deadline first): what doesn't fit is the shortfall and sets the status
+// The quota you see today is the same number the plan gives today, so every screen agrees.
 
 import type { AppState, Course, Exam, Unit } from '../types';
 import { addDays, atTime, diffDays, fmtMinutes, todayKey } from '../dates';
@@ -152,26 +152,36 @@ interface SimResult {
 }
 
 /**
- * Lay the jobs out day by day. Each day every job asks for its fair share of that day's time:
- * what it has left × (today's time ÷ all the time until its deadline). Learning is measured
+ * Lay the jobs out day by day. Each day every job takes its share of what it has left:
+ * left × (this day's weight ÷ the weight of all days until its deadline). Lessons are measured
  * against the start of the review days, everything against the exam; the larger of the two wins.
- * If the asks fit, each gets its share (+10% on lessons, so the plan keeps a little margin);
- * if not, the nearest deadline is served first.
+ *
+ * Two runs use it:
+ *  - the quota: every study day weighs the same and nothing is cut, so 9 h over 3 days is 3 h a
+ *    day, and a day you skip spreads evenly over the days left (4.5 h + 4.5 h)
+ *  - the check: days weigh by their study time and can't hold more than it, nearest deadline
+ *    first — what doesn't fit is the shortfall
  */
-function simulate(jobs: Job[], from: string, capOf: (day: string) => number): SimResult {
+function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, capOf?: (day: string) => number): SimResult {
   const learn = new Map(jobs.map((j) => [j.p.exam.id, j.learn]));
   const review = new Map(jobs.map((j) => [j.p.exam.id, j.review]));
   const alloc = new Map<string, Record<string, number>>(jobs.map((j) => [j.p.exam.id, {}]));
   const learnDone = new Map<string, string>();
   const end = jobs.reduce((m, j) => (j.lastDay > m ? j.lastDay : m), from);
-  // capacity from each day to the end, so "time until a deadline" is a subtraction
   const days: string[] = [];
   for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
-  const caps = days.map(capOf);
+  const weights = days.map(weightOf);
+  const caps = days.map(capOf || (() => Infinity));
+  // weight from each day to the end, so "all the days until a deadline" is a subtraction
   const tail = new Map<string, number>();
   let acc = 0;
-  for (let i = days.length - 1; i >= 0; i--) tail.set(days[i], (acc += caps[i]));
-  const capBetween = (a: string, b: string) => (tail.get(a) || 0) - (tail.get(addDays(b, 1)) || 0);
+  for (let i = days.length - 1; i >= 0; i--) tail.set(days[i], (acc += weights[i]));
+  const between = (a: string, b: string) => (tail.get(a) || 0) - (tail.get(addDays(b, 1)) || 0);
+  // with no study day left before a deadline, what's left lands on its last day
+  const share = (left: number, day: string, w: number, until: string) => {
+    const all = between(day, until);
+    return all > 0 ? (left * w) / all : day === until ? left : 0;
+  };
 
   days.forEach((day, i) => {
     let cap = caps[i];
@@ -183,18 +193,15 @@ function simulate(jobs: Job[], from: string, capOf: (day: string) => number): Si
         const l = learn.get(id)!;
         const r = review.get(id)!;
         const learning = l > 0.5 && day <= j.learnEnd;
-        const all = ((l + r) * caps[i]) / Math.max(1, capBetween(day, j.lastDay));
-        const lessons = learning ? (l * caps[i]) / Math.max(1, capBetween(day, j.learnEnd)) : 0;
-        return { j, want: Math.min(l + r, Math.max(all, lessons)), due: learning ? j.learnEnd : j.lastDay, learning };
-      });
-    if (!asks.length) return;
-    const total = asks.reduce((a, x) => a + x.want, 0);
-    const margin = total * 1.1 <= cap ? 1.1 : 1;
-    if (total > cap) asks.sort((a, b) => a.due.localeCompare(b.due) || b.want - a.want);
+        const want = Math.max(share(l + r, day, weights[i], j.lastDay), learning ? share(l, day, weights[i], j.learnEnd) : 0);
+        return { j, want: Math.min(l + r, want), due: learning ? j.learnEnd : j.lastDay };
+      })
+      .filter((x) => x.want > 0);
+    if (asks.reduce((a, x) => a + x.want, 0) > cap) asks.sort((a, b) => a.due.localeCompare(b.due) || b.want - a.want);
     for (const x of asks) {
       if (cap <= 0.5) break;
       const id = x.j.p.exam.id;
-      let m = Math.min(cap, x.want * (x.learning ? margin : 1));
+      let m = Math.min(cap, x.want);
       const l = learn.get(id)!;
       const g = Math.min(l, m);
       learn.set(id, l - g);
@@ -305,18 +312,20 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   // today's study time: the day's cap, but never more than what you've studied plus what's left of the day
   const todayCap = Math.min(studyCapFor(state, today), dayRecord(state, today).study + minutesLeftToday(state, now));
   const capOf = (day: string) => (day === today ? todayCap : studyCapFor(state, day));
-  const midSim = simulate(jobs, today, capOf);
-  // the pessimistic run scales each exam by its own uncertainty
-  const high = simulate(jobs.map((j) => ({ ...j, learn: j.learn * (1 + j.p.pace.spread), review: j.review * (1 + j.p.pace.spread) })), today, capOf);
+  // the quota: what's needed, evenly over the days that have study time
+  const need = simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
+  // the check: does it fit your study time? (expected and pessimistic pace)
+  const fit = simulate(jobs, today, capOf, capOf);
+  const high = simulate(jobs.map((j) => ({ ...j, learn: j.learn * (1 + j.p.pace.spread), review: j.review * (1 + j.p.pace.spread) })), today, capOf, capOf);
 
   const byDay: StudyPlan['byDay'] = {};
   for (const j of jobs) {
     const p = j.p;
     const id = p.exam.id;
-    p.alloc = midSim.alloc.get(id) || {};
-    p.shortfall = (midSim.learn.get(id) || 0) + (midSim.review.get(id) || 0);
+    p.alloc = need.alloc.get(id) || {};
+    p.shortfall = (fit.learn.get(id) || 0) + (fit.review.get(id) || 0);
     p.shortfallHigh = (high.learn.get(id) || 0) + (high.review.get(id) || 0);
-    p.finishDay = midSim.learnDone.get(id) || (p.learnLeft <= 0.5 ? today : undefined);
+    p.finishDay = fit.learnDone.get(id) || (p.learnLeft <= 0.5 ? today : undefined);
     const lessonsLate = p.learnLeft > 0.5 && (!p.finishDay || p.finishDay > j.learnEnd);
 
     p.quota = round5(p.alloc[today] || 0);
@@ -348,7 +357,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
 
     if (p.status === 'behind') {
       // lessons that won't be reached: the last ones in course order, as much as is left over
-      let notLearned = midSim.learn.get(id) || 0;
+      let notLearned = fit.learn.get(id) || 0;
       for (let i = p.work.length - 1; i >= 0 && notLearned > 1; i--) {
         const w = p.work[i];
         if (w.learn < 1) continue;
@@ -365,11 +374,11 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
         p.suggestions.push(L(`حتى لو خصصت كل وقتك المتاح للمذاكرة لن يكفي (ينقص ~${fmtMinutes(p.shortfall - headroom)}). الحل: اختصار بعض الدروس أو زيادة وقتك المتاح فعليًا في هذه الأيام.`, `Even all of your free time won't be enough (about ${fmtMinutes(p.shortfall - headroom)} short). Cut some lessons or genuinely free up more time on these days.`));
       if (p.unreachable.length)
         p.suggestions.push(L(`بالوتيرة الحالية لن تصل إلى: ${p.unreachable.map((u) => u.title).join('، ')}. قرر أيها الأهم أو اختصر مذاكرتها.`, `At this pace you won't reach: ${p.unreachable.map((u) => u.title).join(', ')}. Decide which matter most or study them more briefly.`));
-      else if ((midSim.review.get(id) || 0) > 15)
+      else if ((fit.review.get(id) || 0) > 15)
         p.suggestions.push(L('الدروس تخلص، لكن ما يبقى وقت كافي للمراجعة — راجع الأهم فقط.', "You'll get through the lessons, but there's not enough time left to review them all — review the most important ones."));
-      const others = jobs.filter((o) => o !== j && o.lastDay <= j.lastDay && Object.keys(o.p.alloc).some((x) => x <= j.lastDay));
+      const others = jobs.filter((o) => o !== j && o.lastDay <= j.lastDay && o.p.mid > 0);
       if (others.length)
-        p.suggestions.push(L(`الوقت نفسه يتقاسمه ${others.map((o) => o.p.course.name).join('، ')} — اختباره أقرب فأخذ الأولوية.`, `The same time is shared with ${others.map((o) => o.p.course.name).join(', ')} — that exam comes first, so it gets priority.`));
+        p.suggestions.push(L(`نفس الأيام يحتاجها ${others.map((o) => o.p.course.name).join('، ')} واختباره أقرب — لما يضيق الوقت يتقدّم.`, `${others.map((o) => o.p.course.name).join(', ')} needs the same days and comes first — when time is short it goes first.`));
     } else if (p.status === 'tight') {
       p.suggestions.push(
         lessonsLate
