@@ -7,11 +7,11 @@
 
 ## 1. جرّب على جوالك قبل أي شيء (بدون كمبيوتر)
 
-كل تحديث على `main` يبني نسخة تجريبية تلقائيًا:
+كل تحديث على `main` يبني نسخة تجريبية ويحطها على رابط ثابت:
 
-1. GitHub ← تبويب **Actions** ← **Android app** ← آخر تشغيل ناجح.
-2. تحت **Artifacts** حمّل `masar-debug-apk` وفكّ الضغط.
-3. افتح `app-debug.apk` على السامسونج واسمح بالتثبيت من هذا المصدر.
+**https://github.com/1097mbnalll-ui/Public-/releases/download/latest-apk/madar.apk**
+
+افتحه من الجوال، حمّل، وثبّت (اسمح بالتثبيت من هذا المصدر أول مرة). النسخ التجريبية موقّعة بنفس المفتاح، فكل نسخة جديدة تنزل فوق القديمة وبياناتك باقية.
 
 ## 2. جهّز Android Studio (مرة وحدة)
 
@@ -35,7 +35,7 @@
 3. اختر **release** ← Create. الملف يطلع في `android/app/release/app-release.aab`.
 
 (اختياري) بدل Android Studio، GitHub يقدر يوقّع: أضف في Settings ← Secrets ← Actions:
-`MASAR_KEYSTORE_BASE64` (الملف بصيغة base64) و `MASAR_KEYSTORE_PASSWORD` و `MASAR_KEY_ALIAS` و `MASAR_KEY_PASSWORD` — ويطلع `masar-release-aab` مع كل بناء.
+`MASAR_KEYSTORE_BASE64` (الملف بصيغة base64) و `MASAR_KEYSTORE_PASSWORD` و `MASAR_KEY_ALIAS` و `MASAR_KEY_PASSWORD` — ويطلع `madar-release-aab` مع كل بناء.
 
 ## 4. Google Play Console
 

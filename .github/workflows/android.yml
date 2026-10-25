@@ -10,7 +10,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # to put the test APK on the «latest-apk» release (a fixed download link for the phone)
+  contents: write
 
 jobs:
   android:
@@ -38,8 +39,16 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: masar-debug-apk
+          name: madar-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Test APK on a fixed link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk madar.apk
+          gh release view latest-apk >/dev/null 2>&1 || gh release create latest-apk --prerelease --title "مدار — النسخة التجريبية" --notes "أحدث نسخة تجريبية من «مدار» لأندرويد."
+          gh release upload latest-apk madar.apk --clobber
+          gh release edit latest-apk --notes "أحدث نسخة تجريبية من «مدار» لأندرويد — البناء رقم ${GITHUB_RUN_NUMBER}. حمّل madar.apk وثبّته فوق القديم."
       - name: Signed release bundle
         if: env.HAS_KEY == 'true'
         env:
@@ -54,5 +63,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ hashFiles('android/app/build/outputs/bundle/release/*.aab') != '' }}
         with:
-          name: masar-release-aab
+          name: madar-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
