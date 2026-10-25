@@ -14,7 +14,7 @@ import { QuickAdd } from './QuickAdd';
 import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
-import { GoalSheet, Palette, ReplanSheet } from './MiscSheets';
+import { GoalSheet, Palette, ReplanSheet, ShortcutsSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
@@ -38,6 +38,8 @@ export function SheetHost() {
       return <CourseEditor id={sh.id} />;
     case 'unit':
       return <LessonSheet key={sh.id} id={sh.id} />;
+    case 'shortcuts':
+      return <ShortcutsSheet />;
     case 'palette':
       return <Palette />;
     case 'replan':
@@ -151,30 +153,6 @@ export function openRef(ref: string) {
   else go(ref);
 }
 
-export function useShortcuts() {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        openSheet({ type: 'palette' });
-        return;
-      }
-      const el = e.target as HTMLElement;
-      if (el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector('.sheet')) return;
-      if (e.key === 'n' || e.key === 'ى' || e.key === '+') {
-        e.preventDefault();
-        openSheet({ type: 'quick' });
-      } else if (e.key === '/') {
-        e.preventDefault();
-        openSheet({ type: 'palette' });
-      }
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  }, []);
-}
-
 function Onboarding() {
   const s = useApp();
   const [step, setStep] = useState(0);
@@ -233,7 +211,7 @@ function Onboarding() {
       )}
       {step === 2 && (
         <div className="col" style={{ gap: 12 }}>
-          <div className="notice"><Icon name="shield" size={18} /><div><b>{L("بياناتك على جهازك فقط.", "Your data stays on your device.")}</b>{L(" لا حسابات ولا خوادم. نزّل نسخة احتياطية من الإعدادات بين فترة وأخرى.", " No accounts, no servers. Download a backup from settings every now and then.")}</div></div>
+          <div className="notice"><Icon name="shield" size={18} /><div><b>{L("بياناتك على جهازك فقط.", "Your data stays on your device.")}</b>{L(" بدون حسابات. لا يخرج منه شيء إلا إذا فعّلت المزامنة (لسكربت قوقل الخاص بك، مشفّرة) أو أضفت مفتاح Claude. نزّل نسخة احتياطية بين فترة وأخرى.", " No accounts. Nothing leaves it unless you turn on sync (to your own Google script, encrypted) or add a Claude key. Download a backup every now and then.")}</div></div>
           <div className="notice"><Icon name="bell" size={18} /><div><b>{L("التنبيهات تعمل والموقع مفتوح.", "Reminders work while the site is open.")}</b>{L(" ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».", " Anything missed while it's closed shows up when you open it. For guaranteed alerts use the “Add to calendar” button.")}</div></div>
           <div className="notice"><Icon name="info" size={18} /><div><b>{L("كل الحسابات من بياناتك.", "All calculations come from your data.")}</b>{L(" التقديرات تتحسن كلما سجلت وقتك الفعلي. الذكاء الاصطناعي اختياري ولا يعمل إلا بمفتاحك.", " Estimates improve as you log your real time. AI is optional and only runs with your own key.")}</div></div>
           <button className="btn" onClick={async () => {

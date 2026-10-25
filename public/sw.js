@@ -1,8 +1,10 @@
-// Offline support: app shell cached, network-first for navigation, cache-first for assets.
-const CACHE = 'masar-v3';
+// Offline support: app shell + every built file cached on install, network-first for navigation,
+// cache-first for assets. The build fills in the file list and version (see vite.config.ts).
+const CACHE = 'masar-' + '__VERSION__';
+const BUILT = [] /* __PRECACHE__ */;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './theme-boot.js', ...BUILT])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -16,25 +18,18 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const sameOrigin = url.origin === location.origin;
-  const isFont = url.hostname.includes('fonts.g');
-  if (!sameOrigin && !isFont) return;
+  if (!sameOrigin) return;
   // data files (course packages…) must always be fresh: network only
-  if (sameOrigin && url.pathname.endsWith('.json')) return;
+  if (url.pathname.endsWith('.json')) return;
 
+  // pages: the network when online; offline, the index.html cached with this version's own files
+  // (never one written by an older worker, which would point at files it doesn't have)
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html')),
-    );
+    e.respondWith(fetch(req).catch(() => caches.open(CACHE).then((c) => c.match('./index.html'))));
     return;
   }
   e.respondWith(
-    caches.match(req).then(
+    caches.match(req, { cacheName: CACHE, ignoreVary: true }).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {
@@ -55,8 +50,7 @@ self.addEventListener('notificationclick', (e) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if ('focus' in c) {
-          c.navigate ? c.focus().then(() => c.postMessage({ type: 'open', url: target })) : c.focus();
-          return;
+          return c.focus().then(() => c.postMessage({ type: 'open', url: target }));
         }
       }
       return self.clients.openWindow('./' + target);

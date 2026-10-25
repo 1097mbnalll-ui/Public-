@@ -50,7 +50,7 @@
   --radius: 22px;
   --radius-sm: 14px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --font: 'Tajawal', 'IBM Plex Sans Arabic', 'SF Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
+  --font: 'Tajawal', 'SF Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
   --tabbar: 64px;
 }
 
@@ -1520,6 +1520,7 @@ details[open] .chev {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -2862,22 +2863,26 @@ h3 {
 }
 
 /* comfortable tap targets on phones */
-@media (max-width: 899px) and (pointer: coarse) {
+/* fingers need bigger targets than a mouse, on phones and touch tablets alike (44px guideline) */
+@media (pointer: coarse) {
   .icon-btn,
   .icon-btn.sm {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
   .check {
     width: 28px;
     height: 28px;
   }
-  .btn.sm {
-    height: 36px;
-  }
+  .btn.sm,
   .chip.btnish {
-    height: 36px;
+    height: 40px;
   }
+}
+
+/* letter-spacing breaks the joins between Arabic letters */
+html[lang='ar'] * {
+  letter-spacing: normal !important;
 }
 
 /* ================= «جديد» sheet ================= */
@@ -3107,7 +3112,7 @@ h3 {
 
 /* expense sheet */
 .m-amount { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
-.m-amount-in { width: 60%; text-align: center; font-size: 52px; font-weight: 800; border: 0; background: transparent; color: var(--text); outline: none; font-family: inherit; font-variant-numeric: tabular-nums; }
+.m-amount-in { width: 60%; text-align: center; font-size: 52px; font-weight: 800; border: 0; background: transparent; color: var(--text); outline: none; border-radius: 12px; font-family: inherit; font-variant-numeric: tabular-nums; }
 .m-amount span { font-size: 18px; color: var(--faint); font-weight: 700; }
 .m-date { width: auto; flex: 1; min-width: 130px; height: 36px; padding: 0 10px; }
 .m-cats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -3266,3 +3271,5 @@ h3 {
 .m-lim-grid label span { flex: 1; white-space: nowrap; }
 .m-lim-grid .input { width: 76px; height: 36px; padding: 0 8px; text-align: center; }
 .toast > span:first-child, .toast .grow { white-space: pre-line; }
+
+.m-amount-in:focus-visible { box-shadow: 0 0 0 3px var(--accent-line); }

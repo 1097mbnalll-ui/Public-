@@ -299,15 +299,6 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   return { exams: plans, byDay };
 }
 
-export const EXAM_STATUS_LABEL: Record<ExamStatus, string> = {
-  get unknown() { return L('ينقصه معلومات', "Needs info"); },
-  get done() { return L('أنهيت المنهج', "Syllabus done"); },
-  get ok() { return L('على المسار', "On track"); },
-  get tight() { return L('ضيّق', "Tight"); },
-  get behind() { return L('متأخر', "Behind"); },
-  get past() { return L('اليوم', "Today"); },
-};
-
 /** "ش1 · الدرس 3 (كامل)" or "ش1 · الدرس 4: 12 من 34 دقيقة فيديو" */
 export function portionText(x: Portion, sizeLabel: string): string {
   if (x.review) return L(`${x.unit.title} (مراجعة)`, `${x.unit.title} (review)`);

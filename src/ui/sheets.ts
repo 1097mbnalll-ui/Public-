@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { popOverlay, pushOverlay } from './router';
 
 export type SheetSpec =
   | { type: 'quick'; text?: string; mode?: 'task' | 'proc' }
@@ -8,6 +9,7 @@ export type SheetSpec =
   | { type: 'course'; id?: string }
   | { type: 'unit'; id: string }
   | { type: 'palette' }
+  | { type: 'shortcuts' }
   | { type: 'replan' }
   | { type: 'step-confirm'; procId: string; stepId: string }
   | { type: 'template'; id?: string; fromProc?: string; fromTask?: string; forTask?: boolean }
@@ -25,17 +27,28 @@ export type SheetSpec =
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();
 
+const notify = () => ls.forEach((l) => l());
+
 export function openSheet(s: SheetSpec) {
   current = s;
-  ls.forEach((l) => l());
+  pushOverlay(() => {
+    current = null;
+    notify();
+  });
+  notify();
 }
 
-// navigating to another screen (incl. the phone's back gesture) closes any open sheet
-addEventListener('hashchange', () => current && closeSheet());
+// navigating to another screen closes any open sheet
+addEventListener('hashchange', () => {
+  if (!current) return;
+  current = null;
+  notify();
+});
 
 export function closeSheet() {
   current = null;
-  ls.forEach((l) => l());
+  popOverlay();
+  notify();
 }
 
 export function useSheet() {

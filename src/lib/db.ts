@@ -44,19 +44,24 @@ function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) 
   );
 }
 
+/** thrown when stored data exists but couldn't be read — the caller must not save over it */
+export class LoadError extends Error {}
+
 export async function loadState(): Promise<unknown | null> {
+  let failed = false;
   try {
     const v = await tx<unknown>('kv', 'readonly', (s) => s.get('state'));
     if (v) return v;
   } catch {
-    /* fall through to localStorage */
+    failed = true; // fall through to localStorage
   }
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
-    /* ignore */
+    failed = true;
   }
+  if (failed) throw new LoadError('state unreadable');
   return null;
 }
 
@@ -77,8 +82,10 @@ export async function saveState(state: AppState): Promise<boolean> {
   return ok;
 }
 
+/** keeps the first copy of each day: reopening the app after a bad edit must not replace the good one */
 export async function saveSnapshot(day: string, state: AppState): Promise<void> {
   try {
+    if ((await tx<IDBValidKey | undefined>('snapshots', 'readonly', (s) => s.getKey(day))) !== undefined) return;
     await tx('snapshots', 'readwrite', (s) => s.put(state, day));
     const keys = ((await tx<IDBValidKey[]>('snapshots', 'readonly', (s) => s.getAllKeys())) || []) as string[];
     keys.sort();

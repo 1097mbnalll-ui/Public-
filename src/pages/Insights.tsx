@@ -8,13 +8,14 @@ import { AREA_LABEL } from '../lib/engine/planner';
 import type { Area } from '../lib/types';
 import { L, sz } from '../lib/i18n';
 
+const areas: Area[] = ['study', 'work', 'life'];
+
 export function Insights() {
   const s = useApp();
   const today = todayKey();
   const days = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13));
   const rec = days.map((d) => s.days[d] || { done: 0, minutes: 0, study: 0 });
   const maxM = Math.max(60, ...rec.map((r) => r.minutes));
-  const areas: Area[] = ['study', 'work', 'life'];
 
   const deferStats = useMemo(() => {
     const out = areas.map((a) => {
@@ -34,13 +35,15 @@ export function Insights() {
   const weekdayLoad = useMemo(() => {
     const sums = Array(7).fill(0);
     const cnt = Array(7).fill(0);
-    for (const [d, r] of Object.entries(s.days)) {
+    // every calendar day since the first record counts — a day with nothing done is a zero, not skipped
+    const first = Object.keys(s.days).sort()[0];
+    for (let d = first; d && d <= today; d = addDays(d, 1)) {
       const wd = new Date(d + 'T12:00').getDay();
-      sums[wd] += r.minutes;
+      sums[wd] += s.days[d]?.minutes || 0;
       cnt[wd]++;
     }
     return sums.map((x, i) => (cnt[i] ? x / cnt[i] : 0));
-  }, [s.days]);
+  }, [s.days, today]);
 
   const exams = s.exams.filter((e) => e.score != null);
   const totalDone = rec.reduce((a, r) => a + r.done, 0);
@@ -164,11 +167,14 @@ export function Insights() {
           <div className="list">
             {exams.map((e) => {
               const c = s.courses.find((x) => x.id === e.courseId);
-              const mins = s.sessions.filter((x) => x.courseId === e.courseId && x.date <= e.date).reduce((a, x) => a + x.minutes, 0);
+              // only the study since this course's previous exam counts toward this one
+              const prev = s.exams.filter((x) => x.courseId === e.courseId && x.date < e.date).reduce((m, x) => (x.date > m ? x.date : m), '');
+              const mins = s.sessions.filter((x) => x.courseId === e.courseId && x.date <= e.date && x.date > prev).reduce((a, x) => a + x.minutes, 0);
+              const tone = e.score! >= 85 ? 'green' : e.score! >= 60 ? 'amber' : 'red';
               return (
                 <div key={e.id} className="item small">
-                  <div className="grow"><b>{c?.name}</b> — {e.title}<div className="faint tiny">{L("ذاكرت ", "Studied ")}{fmtMinutes(mins)}{L(" قبله", " before it")}</div></div>
-                  <span className="chip green">{e.score}%</span>
+                  <div className="grow">{c && <><b>{c.name}</b> — </>}{e.title}<div className="faint tiny">{L("ذاكرت ", "Studied ")}{fmtMinutes(mins)}{L(" قبله", " before it")}</div></div>
+                  <span className={`chip ${tone}`}>{e.score}%</span>
                 </div>
               );
             })}

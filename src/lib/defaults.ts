@@ -104,7 +104,12 @@ export function migrate(raw: any): AppState {
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule'] as const) {
-    if (!Array.isArray(s[k])) (s as any)[k] = [];
+    // a damaged entry (null, a number…) would crash every page that lists it
+    (s as any)[k] = Array.isArray(s[k]) ? (s[k] as unknown[]).filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
+  }
+  for (const k of ['available', 'studyCap'] as const) {
+    const v = s.settings[k];
+    if (!Array.isArray(v) || v.length !== 7 || v.some((m) => typeof m !== 'number' || !(m >= 0))) s.settings[k] = [...DEFAULT_SETTINGS[k]];
   }
   for (const k of ['dayOverrides', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {
     if (!s[k] || typeof s[k] !== 'object') (s as any)[k] = {};
@@ -113,6 +118,7 @@ export function migrate(raw: any): AppState {
   s.procedures = s.procedures.map((p: any) => ({ fields: [], steps: [], log: [], notes: '', archived: false, priority: 1, ...p }));
   s.units = s.units.map((u: any) => ({ progress: 0, reviewed: false, spent: 0, order: 0, size: 1, ...u }));
   s.exams = s.exams.map((e: any) => ({ unitIds: [], reviewDays: 1, ...e }));
+  s.templates = s.templates.map((t: any) => ({ steps: [], fields: [], ...t }));
   s.courses = s.courses.map((c: any) => ({ difficulty: 3, sizeLabel: 'صفحة', notes: '', archived: false, color: '#5e9cff', ...c }));
   s.version = STATE_VERSION;
   return s;

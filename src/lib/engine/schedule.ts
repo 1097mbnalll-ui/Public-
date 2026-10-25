@@ -3,6 +3,7 @@
 import type { AppState, ClassBlock } from '../types';
 import { atTime, todayKey, weekday } from '../dates';
 import { L, lang } from '../i18n';
+import { toWestern } from '../text';
 
 const toMin = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
@@ -59,10 +60,6 @@ export function nowBlock(state: AppState, now: number) {
   return blocksOn(state, todayKey(now)).find((x) => now >= x.from && now < x.to);
 }
 
-export function nextBlock(state: AppState, now: number) {
-  return blocksOn(state, todayKey(now)).find((x) => x.from > now);
-}
-
 export const DAY_NAMES = () => (lang() === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']);
 
 /** «الأسبوع فيه 21 ساعة محاضرات…» */
@@ -80,7 +77,7 @@ export function readSchedule(raw: unknown): Omit<ClassBlock, 'id' | 'createdAt'>
   const list = Array.isArray(raw) ? raw : Array.isArray((raw as any)?.schedule) ? (raw as any).schedule : [];
   const days: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, 'الأحد': 0, 'الاحد': 0, 'الإثنين': 1, 'الاثنين': 1, 'الثلاثاء': 2, 'الأربعاء': 3, 'الاربعاء': 3, 'الخميس': 4, 'الجمعة': 5, 'السبت': 6 };
   const time = (v: unknown) => {
-    const m = String(v ?? '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).match(/^(\d{1,2})[:.](\d{2})$/);
+    const m = toWestern(String(v ?? '')).match(/^(\d{1,2})[:.](\d{2})$/);
     return m && Number(m[1]) < 24 ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined;
   };
   const out: Omit<ClassBlock, 'id' | 'createdAt'>[] = [];

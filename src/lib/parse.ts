@@ -3,7 +3,7 @@
 
 import type { Area, Priority, Template } from './types';
 import { addDays, dateKey, todayKey, weekday } from './dates';
-import { normalize } from './text';
+import { normalize, toWestern } from './text';
 
 export interface Parsed {
   title: string;
@@ -32,10 +32,9 @@ const DAYS: [RegExp, number][] = [
   [/السبت/, 6],
 ];
 
-export const toWestern = (s: string) => s.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
 
 export function parseQuick(input: string, templates: Template[] = [], now = Date.now()): Parsed {
-  let s = ' ' + toWestern(input) + ' ';
+  let s = ' ' + toWestern(input).replace(/٫/g, '.') + ' ';
   const out: Parsed = { title: '' };
   const today = todayKey(now);
   const take = (re: RegExp, fn: (m: RegExpMatchArray) => void) => {

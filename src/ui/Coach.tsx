@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { go } from './router';
 import { useApp } from '../lib/store';
@@ -96,8 +96,12 @@ export function CoachCard({ plan, now, inPage }: { plan: DayPlan; now: number; i
 export function CoachFab() {
   const s = useApp();
   const now = useNow();
-  const facts = useMemo(() => coachFacts(s, planDay(s, now), now), [s, now]);
-  useEffect(() => A.setCoachScore(facts.today, facts.score), [facts.today, facts.score]);
+  // planning the whole day is the heaviest work on every change: let typing and taps render first
+  const lagged = useDeferredValue(s);
+  const facts = useMemo(() => coachFacts(lagged, planDay(lagged, now), now), [lagged, now]);
+  useEffect(() => {
+    A.setCoachScore(facts.today, facts.score);
+  }, [facts.today, facts.score]);
   const fresh = s.settings.coach.enabled && s.coach.last?.day !== todayKey(now);
   return (
     <button className="coach-fab" onClick={() => go('coach')} aria-label={L('المدرب', 'Coach')} title={L('المدرب', 'Coach')}>

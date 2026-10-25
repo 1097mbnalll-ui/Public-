@@ -42,13 +42,21 @@ export function readBackup(text: string): ImportPreview {
   return {
     state,
     exportedAt: raw.exportedAt,
-    counts: [
-      { label: L('مهام', "tasks"), n: state.tasks.length },
-      { label: L('إجراءات عمل', "work procedures"), n: state.procedures.length },
-      { label: L('قوالب', "templates"), n: state.templates.length },
-      { label: L('مواد', "courses"), n: state.courses.length },
-      { label: L('اختبارات', "exams"), n: state.exams.length },
-      { label: L('جلسات مذاكرة', "study sessions"), n: state.sessions.length },
-    ],
+    counts: stateCounts(state),
   };
+}
+
+/** what a backup / transfer holds, for the "this will replace…" preview (empty kinds left out) */
+export function stateCounts(s: AppState): { label: string; n: number }[] {
+  return [
+    { label: L('مهام', "tasks"), n: s.tasks.length },
+    { label: L('إجراءات عمل', "work procedures"), n: s.procedures.length },
+    { label: L('قوالب', "templates"), n: s.templates.length },
+    { label: L('مواد', "courses"), n: s.courses.length },
+    { label: L('اختبارات', "exams"), n: s.exams.length },
+    { label: L('جلسات مذاكرة', "study sessions"), n: s.sessions.length },
+    { label: L('مصاريف', "expenses"), n: s.expenses.length },
+    { label: L('اشتراكات', "subscriptions"), n: s.subs.length },
+    { label: L('محاضرات/دوامات', "timetable blocks"), n: s.schedule.length },
+  ].filter((x) => x.n);
 }

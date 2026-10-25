@@ -3,7 +3,7 @@
 import type { AppState, Expense, ExpenseCat, Subscription } from '../types';
 import { addDays, addMonths, diffDays, parseKey, todayKey } from '../dates';
 import { L, lang } from '../i18n';
-import { toWestern } from '../parse';
+import { toWestern } from '../text';
 
 export const CAT_ORDER: ExpenseCat[] = ['coffee', 'food', 'delivery', 'transport', 'shopping', 'subs', 'bills', 'study', 'fun', 'health', 'other'];
 
@@ -68,6 +68,8 @@ export function parseExpense(input: string, now = Date.now()) {
       break;
     }
   }
+  // 1,500 / 12,000,000 are thousands, 12,50 is a decimal
+  while (/\d,\d{3}(?!\d)/.test(t)) t = t.replace(/(\d),(\d{3})(?!\d)/, '$1$2');
   const nums = [...t.matchAll(/(\d+(?:[.,]\d{1,2})?)/g)];
   let amount: number | undefined;
   if (nums.length) {

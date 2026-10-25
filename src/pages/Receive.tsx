@@ -8,22 +8,13 @@ import { go, useRoute } from '../ui/router';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
 import { L, lang } from '../lib/i18n';
+import { stateCounts } from '../lib/backup';
 
 /** a file picked on «أنت» is handed over here in memory (never put in the URL) */
 let pendingFile: Uint8Array | null = null;
 export function receiveFile(bytes: Uint8Array) {
   pendingFile = bytes;
   go('receive?f=1');
-}
-
-function counts(s: AppState) {
-  return [
-    { l: L('مهام', "tasks"), n: s.tasks.length },
-    { l: L('إجراءات عمل', "work procedures"), n: s.procedures.length },
-    { l: L('مواد', "courses"), n: s.courses.length },
-    { l: L('اختبارات', "exams"), n: s.exams.length },
-    { l: L('قوالب', "templates"), n: s.templates.length },
-  ].filter((x) => x.n);
 }
 
 export function Receive() {
@@ -106,13 +97,13 @@ export function Receive() {
               <b>{L("فُتحت البيانات", "Data unlocked")}</b>
               {got.exportedAt && <span className="faint small">{L("· أُرسلت ", "· sent ")}{new Date(got.exportedAt).toLocaleString(lang() === 'en' ? 'en' : 'ar', { dateStyle: 'medium', timeStyle: 'short' })}</span>}
             </div>
-            <div className="small muted" style={{ marginTop: 8 }}>{counts(got.state).map((c) => `${c.n} ${c.l}`).join(' · ') || L('لا توجد بيانات', "No data")}</div>
+            <div className="small muted" style={{ marginTop: 8 }}>{stateCounts(got.state).map((c) => `${c.n} ${c.label}`).join(' · ') || L('لا توجد بيانات', "No data")}</div>
           </div>
           {hasData ? (
             <>
               <div className="notice amber small">
                 <Icon name="info" size={16} />
-                <div>{L("هذا الجهاز فيه بيانات أيضًا (", "This device has data too (")}{counts(mine).map((c) => `${c.n} ${c.l}`).join(' · ')}{L("). اختر:", "). Choose:")}</div>
+                <div>{L("هذا الجهاز فيه بيانات أيضًا (", "This device has data too (")}{stateCounts(mine).map((c) => `${c.n} ${c.label}`).join(' · ')}{L("). اختر:", "). Choose:")}</div>
               </div>
               <button className="btn primary" onClick={() => finish('merge')}>{L("ادمجها مع بيانات هذا الجهاز", "Merge with this device's data")}</button>
               <div className="faint tiny" style={{ marginTop: -14 }}>{L("يحتفظ بالاثنين؛ عند التعارض يبقى الأحدث تعديلًا. إعدادات هذا الجهاز تبقى.", "Keeps both; on conflicts the most recent edit wins. This device's settings stay.")}</div>

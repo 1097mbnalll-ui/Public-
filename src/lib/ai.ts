@@ -8,7 +8,8 @@ import type { CoachMessage } from './types';
 import { L } from './i18n';
 
 const KEY = 'masar.aiKey';
-export const COACH_MODEL = 'claude-opus-5-5';
+const COACH_MODEL = 'claude-opus-5-5';
+const TEST_MODEL = 'claude-haiku-5-5';
 
 export function getAiKey(): string {
   try {
@@ -39,6 +40,26 @@ export async function askClaudeImage(system: string, prompt: string, image: { da
   return call(system, [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } }, { type: 'text', text: prompt }] }], maxTokens);
 }
 
+/** checks a key with the smallest, cheapest call before it is kept */
+export async function testAiKey(apiKey: string): Promise<void> {
+  const { default: SDK } = await import('@anthropic-ai/sdk');
+  const client = new SDK({ apiKey: apiKey.trim(), dangerouslyAllowBrowser: true, maxRetries: 0 });
+  try {
+    await client.messages.create({ model: TEST_MODEL, max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] });
+  } catch (e) {
+    throw friendly(SDK, e);
+  }
+}
+
+function friendly(SDK: typeof Anthropic, e: unknown): unknown {
+  if (e instanceof SDK.AuthenticationError) return new Error(L('المفتاح غير صحيح — راجعه في الإعدادات.', 'The key is invalid — check it in settings.'));
+  if (e instanceof SDK.PermissionDeniedError) return new Error(L('المفتاح لا يملك صلاحية لهذا النموذج.', "This key can't use this model."));
+  if (e instanceof SDK.RateLimitError) return new Error(L('طلبات كثيرة — جرّب بعد دقيقة.', 'Too many requests — try again in a minute.'));
+  if (e instanceof SDK.APIConnectionError) return new Error(L('تعذر الاتصال — تأكد من الإنترنت.', "Couldn't connect — check your internet."));
+  if (e instanceof SDK.APIError) return new Error(L(`خطأ من الخدمة (${e.status}).`, `Service error (${e.status}).`));
+  return e;
+}
+
 async function call(system: string, messages: Anthropic.Beta.BetaMessageParam[], maxTokens: number): Promise<string> {
   const apiKey = getAiKey();
   if (!apiKey) throw new Error(L('أضف مفتاح Claude من الإعدادات أولًا.', 'Add your Claude key in settings first.'));
@@ -63,11 +84,6 @@ async function call(system: string, messages: Anthropic.Beta.BetaMessageParam[],
     if (!text) throw new Error(L('لم يصل رد من المدرب.', 'No reply from the coach.'));
     return text;
   } catch (e) {
-    if (e instanceof SDK.AuthenticationError) throw new Error(L('المفتاح غير صحيح — راجعه في الإعدادات.', 'The key is invalid — check it in settings.'));
-    if (e instanceof SDK.PermissionDeniedError) throw new Error(L('المفتاح لا يملك صلاحية لهذا النموذج.', "This key can't use this model."));
-    if (e instanceof SDK.RateLimitError) throw new Error(L('طلبات كثيرة — جرّب بعد دقيقة.', 'Too many requests — try again in a minute.'));
-    if (e instanceof SDK.APIConnectionError) throw new Error(L('تعذر الاتصال — تأكد من الإنترنت.', "Couldn't connect — check your internet."));
-    if (e instanceof SDK.APIError) throw new Error(L(`خطأ من الخدمة (${e.status}).`, `Service error (${e.status}).`));
-    throw e;
+    throw friendly(SDK, e);
   }
 }

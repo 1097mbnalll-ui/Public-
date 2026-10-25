@@ -13,8 +13,6 @@ import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { L, sz } from '../lib/i18n';
 
-export const STATUS_CHIP: Record<string, string> = { ok: 'green', tight: 'amber', behind: 'red', unknown: 'violet', done: 'green', past: 'blue' };
-
 /** "الفصل 3 - 24" / "Chapter 2: 30" → title + size */
 export function parseUnitLines(text: string, defSize: number) {
   return text
@@ -425,15 +423,6 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
         </div>
       )}
     </Sheet>
-  );
-}
-
-export function ProgressPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const steps = [0, 0.25, 0.5, 0.75, 1];
-  return (
-    <select className="select" style={{ width: 92, height: 32, padding: '0 10px', paddingInlineStart: 26, fontSize: 13 }} value={steps.reduce((b, x) => (Math.abs(x - value) < Math.abs(b - value) ? x : b), 0)} onChange={(e) => onChange(+e.target.value)} aria-label={L("التقدم", "Progress")}>
-      {steps.map((x) => <option key={x} value={x}>{x === 1 ? L('تم ✓', "Done ✓") : `${x * 100}%`}</option>)}
-    </select>
   );
 }
 

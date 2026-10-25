@@ -1,24 +1,27 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { applyTheme } from './lib/themes';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { applyTheme, AUTO } from './lib/themes';
 import { Icon } from './ui/Icon';
 import { useApp } from './lib/store';
 import { useRoute, go } from './ui/router';
 import { openSheet } from './ui/sheets';
-import { SheetHost, TimerBar, useHeartbeat, useQuotaLog, useShortcuts } from './ui/Shell';
+import { SheetHost, TimerBar, useHeartbeat, useQuotaLog } from './ui/Shell';
+import { useShortcuts } from './ui/shortcuts';
 import { Toasts } from './ui/toast';
 import { FocusScreen } from './ui/Focus';
 import { Today } from './pages/Today';
 import { Tasks } from './pages/Tasks';
 import { Work } from './pages/Work';
 import { Study } from './pages/Study';
-import { Insights } from './pages/Insights';
-import { Settings } from './pages/Settings';
-import { Import } from './pages/Import';
-import { Receive } from './pages/Receive';
-import { CoachPage } from './pages/Coach';
-import { Money } from './pages/Money';
-import { SyncJoin } from './pages/SyncJoin';
 import { Schedule } from './pages/Schedule';
+
+// pages that most visits never open load on demand (the service worker still caches them for offline)
+const Insights = lazy(() => import('./pages/Insights').then((m) => ({ default: m.Insights })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const Import = lazy(() => import('./pages/Import').then((m) => ({ default: m.Import })));
+const Receive = lazy(() => import('./pages/Receive').then((m) => ({ default: m.Receive })));
+const CoachPage = lazy(() => import('./pages/Coach').then((m) => ({ default: m.CoachPage })));
+const Money = lazy(() => import('./pages/Money').then((m) => ({ default: m.Money })));
+const SyncJoin = lazy(() => import('./pages/SyncJoin').then((m) => ({ default: m.SyncJoin })));
 import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
 import { CoachFab } from './ui/Coach';
@@ -55,6 +58,13 @@ export function App() {
   const lng = s.settings.lang;
   const theme = s.settings.theme;
   useLayoutEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => {
+    if (theme !== AUTO) return;
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => applyTheme(theme);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [theme]);
   useEffect(() => {
     document.documentElement.lang = lng === 'en' ? 'en' : 'ar';
     document.documentElement.dir = lng === 'en' ? 'ltr' : 'rtl';
@@ -133,7 +143,7 @@ export function App() {
         <div className="brand">
           <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مسار", "Masar")}</div>
         <button className="btn primary block side-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })}>
-          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'rgba(255,255,255,.4)', color: 'rgba(255,255,255,.85)' }}>N</span>
+          <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'currentColor', color: 'inherit', opacity: 0.8 }}>N</span>
         </button>
         {NAV.map((n) => (
           <button key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
@@ -150,7 +160,7 @@ export function App() {
       </aside>
 
       <main className={`main ${wide ? 'wide' : ''}`} key={page + (id || '')}>
-        {body}
+        <Suspense fallback={null}>{body}</Suspense>
       </main>
 
       <nav className="tabbar">
