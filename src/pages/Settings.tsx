@@ -319,6 +319,14 @@ function AvailabilityEditor() {
           ))}
         </div>
       </Collapse>
+      <div className="field">
+        <label htmlFor="study-mode">{L("نظام حساب المذاكرة", "How daily study is worked out")}</label>
+        <select id="study-mode" className="select" value={st.studyMode || 'smart'} onChange={(e) => A.updateSettings({ studyMode: e.target.value as 'smart' | 'even' })}>
+          <option value="smart">{L('الذكي المرن ⭐', 'Smart ⭐')}</option>
+          <option value="even">{L('التوزيع المتساوي', 'Even split')}</option>
+        </select>
+        <div className="faint tiny">{(st.studyMode || 'smart') === 'smart' ? L('يخلّص الدروس قبل الاختبار بيوم ويخلي آخر يوم مراجعة، ولما يزدحم الأسبوع يأجّل المواد اللي اختبارها بعيد لين يخف.', 'Finishes lessons a day early and keeps the last day for review; when a week is crowded, far-off exams wait until it eases.') : L('الباقي ÷ الأيام الباقية لكل اختبار — بسيط وثابت.', 'What’s left ÷ days left for each exam — simple and steady.')}</div>
+      </div>
       <div className="fields two">
         <div className="field">
           <label htmlFor="day-end">{L("ينتهي يومك عادةً", "Your day usually ends at")}</label>

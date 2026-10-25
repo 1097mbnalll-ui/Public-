@@ -243,6 +243,7 @@ describe('study planner across exams', () => {
 
   it('9 hours over 3 days is 3 a day; skip today and it’s 4.5 + 4.5', () => {
     const s = initialState();
+    s.settings.studyMode = 'even';
     s.settings.reviewFactor = 0;
     withCourse(s, [108], 3, 0); // 108 pages × 5 min = 540 min; study today, tomorrow and the day after
     const plan = planStudy(s, NOW);
@@ -266,6 +267,7 @@ describe('study planner across exams', () => {
 
   it('skips days with no study time and spreads over the rest', () => {
     const s = initialState();
+    s.settings.studyMode = 'even';
     s.settings.reviewFactor = 0;
     s.settings.studyCap = [150, 150, 150, 0, 150, 150, 150]; // no study on Wednesdays
     withCourse(s, [36], 3, 0); // 180 min, today (Tue), Wed (none), Thu

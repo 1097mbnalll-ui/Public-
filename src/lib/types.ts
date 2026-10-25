@@ -251,6 +251,8 @@ export interface Settings {
   reviewFactor: number;
   /** default minutes per size unit at difficulty 3, before any data */
   defaultPace: number;
+  /** how daily study is worked out: smart (safety day + spreads heavy weeks) or an even split */
+  studyMode?: 'smart' | 'even';
 }
 
 export interface Timer {

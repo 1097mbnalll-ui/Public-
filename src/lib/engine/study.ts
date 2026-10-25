@@ -74,6 +74,10 @@ export interface ExamPlan {
   suggestions: string[];
   /** planned minutes per day (expected pace) */
   alloc: Record<string, number>;
+  /** nothing planned today: the next day this exam gets study time */
+  nextDay?: string;
+  /** smart mode gave this exam a final-review day of its own */
+  safetyDay?: boolean;
 }
 
 export interface Portion {
@@ -218,7 +222,77 @@ function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, 
   return { learn, review, alloc, learnDone };
 }
 
+/**
+ * The smart quota. Same shares as the even split, except on days where the exams together ask
+ * for more than the lowest daily load that still meets every deadline: then the exams whose
+ * deadline is furthest away wait (they catch up on lighter days), so a heavy week isn't a wall.
+ * Deadlines are the same as the even split's — lessons by the review days, everything by the exam.
+ */
+function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): SimResult {
+  const learn = new Map(jobs.map((j) => [j.p.exam.id, j.learn]));
+  const review = new Map(jobs.map((j) => [j.p.exam.id, j.review]));
+  const alloc = new Map<string, Record<string, number>>(jobs.map((j) => [j.p.exam.id, {}]));
+  const learnDone = new Map<string, string>();
+  const end = jobs.reduce((m, j) => (j.lastDay > m ? j.lastDay : m), from);
+  const days: string[] = [];
+  for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
+  const tail = new Map<string, number>();
+  let acc = 0;
+  for (let i = days.length - 1; i >= 0; i--) tail.set(days[i], (acc += studyDay(days[i]) ? 1 : 0));
+  const between = (a: string, b: string) => (tail.get(a) || 0) - (tail.get(addDays(b, 1)) || 0);
+  const share = (left: number, day: string, until: string) => {
+    const all = between(day, until);
+    return all > 0 ? (studyDay(day) ? left / all : 0) : day === until ? left : 0;
+  };
+
+  for (const day of days) {
+    const asks = jobs
+      .filter((j) => day <= j.lastDay && (learn.get(j.p.exam.id)! + review.get(j.p.exam.id)!) > 0.5)
+      .map((j) => {
+        const id = j.p.exam.id;
+        const l = learn.get(id)!;
+        const r = review.get(id)!;
+        const learning = l > 0.5 && day <= j.learnEnd;
+        const want = Math.max(share(l + r, day, j.lastDay), learning ? share(l, day, j.learnEnd) : 0);
+        return { j, l, r, learning, want: Math.min(l + r, want), due: learning ? j.learnEnd : j.lastDay };
+      })
+      .filter((x) => x.want > 0);
+    if (asks.length > 1 && studyDay(day)) {
+      // the lowest load that meets every deadline: the most that's due by some day ÷ study days until then
+      const ends = [...new Set(asks.flatMap((x) => [x.j.learnEnd, x.j.lastDay]))].filter((d) => d >= day);
+      let lv = 0;
+      for (const D of ends) {
+        const due = asks.reduce((a, x) => a + (D >= x.j.lastDay ? x.l + x.r : x.learning && D >= x.j.learnEnd ? x.l : 0), 0);
+        lv = Math.max(lv, due / Math.max(1, between(day, D)));
+      }
+      let over = asks.reduce((a, x) => a + x.want, 0) - lv;
+      for (const x of [...asks].sort((a, b) => b.due.localeCompare(a.due))) {
+        if (over <= 0.5) break;
+        const cut = Math.min(x.want, over);
+        x.want -= cut;
+        over -= cut;
+      }
+    }
+    for (const x of asks) {
+      const id = x.j.p.exam.id;
+      let m = x.want;
+      const g = Math.min(x.l, m);
+      learn.set(id, x.l - g);
+      m -= g;
+      const rv = Math.min(x.r, m);
+      review.set(id, x.r - rv);
+      if (g + rv > 0) {
+        const a = alloc.get(id)!;
+        a[day] = (a[day] || 0) + g + rv;
+      }
+      if (x.l - g <= 0.5 && x.l > 0.5 && !learnDone.has(id)) learnDone.set(id, day);
+    }
+  }
+  return { learn, review, alloc, learnDone };
+}
+
 export function planStudy(state: AppState, now = Date.now()): StudyPlan {
+  const smart = state.settings.studyMode !== 'even';
   const today = todayKey(now);
   const exams = state.exams
     .filter((e) => e.score == null && e.date >= today)
@@ -243,7 +317,9 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     // an afternoon exam (12:00 or later) leaves its morning for study
     const studyOnExamDay = !!exam.time && exam.time >= '12:00';
     const lastDay = studyOnExamDay ? exam.date : addDays(exam.date, -1);
-    const learnEnd = addDays(lastDay, -(exam.reviewDays || 0));
+    // smart: with no review days set, the last day before the exam is kept for review anyway
+    const safety = smart && !(exam.reviewDays || 0) && diffDays(today, lastDay) >= 2;
+    const learnEnd = addDays(lastDay, -((exam.reviewDays || 0) || (safety ? 1 : 0)));
     const daysLeft = diffDays(today, exam.date);
 
     // review logged without a lesson ("general / review") during the review days counts against the review pass
@@ -298,6 +374,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
       reviewCompressed: false,
       suggestions: [],
       alloc: {},
+      safetyDay: safety,
     };
     const logged = state.quotaLog?.[addDays(today, -1)]?.[exam.id];
     if (logged != null) p.yesterday = { quota: logged, done: isCourseOwner ? studiedOn(state, course.id, addDays(today, -1)) : 0 };
@@ -313,7 +390,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   const todayCap = Math.min(studyCapFor(state, today), dayRecord(state, today).study + minutesLeftToday(state, now));
   const capOf = (day: string) => (day === today ? todayCap : studyCapFor(state, day));
   // the quota: what's needed, evenly over the days that have study time
-  const need = simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
+  const need = smart ? level(jobs, today, (d) => studyCapFor(state, d) > 0) : simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
   // the check: does it fit your study time? (expected and pessimistic pace)
   const fit = simulate(jobs, today, capOf, capOf);
   const high = simulate(jobs.map((j) => ({ ...j, learn: j.learn * (1 + j.p.pace.spread), review: j.review * (1 + j.p.pace.spread) })), today, capOf, capOf);
@@ -332,6 +409,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     const left = p.quota - p.doneToday;
     // under 10 minutes isn't a session worth starting: the share counts as done
     p.todayMinutes = left >= 10 ? round5(left) : 0;
+    if (!p.todayMinutes) p.nextDay = Object.keys(p.alloc).filter((d) => d > today && round5(p.alloc[d]) > 0).sort()[0];
     p.inReview = today > j.learnEnd && p.learnLeft <= 5;
     p.reviewCompressed = today > j.learnEnd && p.learnLeft > 5 && (p.exam.reviewDays || 0) > 0;
     const learnDays = Object.entries(p.alloc).filter(([d, m]) => d <= p.lastStudyDay && m > 0);

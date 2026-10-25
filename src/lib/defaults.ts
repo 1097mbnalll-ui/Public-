@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   nudges: true,
   reviewFactor: 0.2,
   defaultPace: 5,
+  studyMode: 'smart',
 };
 
 export function seedTemplates(): Template[] {
