@@ -418,6 +418,12 @@ function finish(ep: ExamPlan) {
   toast(L(`بالتوفيق 🤞 — «${ep.course.name} · ${ep.exam.title}» خلص وطلع من خطتك`, `Good luck 🤞 — “${ep.course.name} · ${ep.exam.title}” is done and off your plan`), { undoable: true });
 }
 
+/** the hours as a number with a small unit: <b>2:50</b> ساعة, under an hour <b>45</b> د */
+function Hours({ m }: { m: number }) {
+  const r = Math.round(m);
+  return r < 60 ? <span className="hn num"><b>{r}</b><small>{L('د', 'min')}</small></span> : <span className="hn num"><b>{Math.floor(r / 60)}:{String(r % 60).padStart(2, '0')}</b><small>{L('ساعة', 'h')}</small></span>;
+}
+
 /** «وش أذاكر اليوم»: today's total, then one row per subject — tap it for everything about it */
 function StudyHome({ plan }: { plan: StudyPlan }) {
   const today = todayKey();
@@ -438,10 +444,9 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
         {rows.length ? (
           <>
             <div className="sh-total">
-              <b className="num">{hrs(left || total)}</b>
+              <Hours m={left || total} />
               <span>{!left ? L('خلّصت مذاكرة اليوم ✓', 'Done for today ✓') : done > 0 ? L(`باقي من ${fmtMinutes(total)} · أنجزت ${Math.round((done / Math.max(1, total)) * 100)}%`, `left of ${fmtMinutes(total)} · ${Math.round((done / Math.max(1, total)) * 100)}% done`) : rows.length === 1 ? L('على مادة وحدة', 'on one subject') : L(`على ${rows.length} مواد`, `on ${rows.length} subjects`)}</span>
             </div>
-            <DayBar rows={rows.filter((ep) => ep.quota > 0)} />
             <div className="sh-rows">
               {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
             </div>
@@ -523,12 +528,9 @@ function SubjectRow({ ep }: { ep: ExamPlan }) {
           <span>{ep.postponed ? L(`أجّلتها لبكرة (${fmtMinutes(ep.postponed)})`, `Moved to tomorrow (${fmtMinutes(ep.postponed)})`) : done ? L('خلّصت حصتها اليوم ✓', 'Done for today ✓') : `${ep.inReview ? L('مراجعة: ', 'Review: ') : ''}${lessonsLine(ep)}`}</span>
           {pct > 0 && !done && <i className="p"><i style={{ width: `${pct}%`, background: ep.course.color }} /></i>}
         </span>
-        <span className="h num">{ep.postponed ? '⏭' : done ? '✓' : hrs(ep.todayMinutes)}</span>
+        <span className="h">{ep.postponed ? '⏭' : done ? '✓' : <Hours m={ep.todayMinutes} />}</span>
         <Icon name="chevron" size={14} className="chev-end" />
       </button>
-      {!done && !ep.postponed && (
-        <button className="sh-go" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}><Icon name="play" size={14} /></button>
-      )}
     </div>
   );
 }
