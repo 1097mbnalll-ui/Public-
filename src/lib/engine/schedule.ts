@@ -1,7 +1,7 @@
 // The weekly timetable (lectures, work shifts). Planning treats these blocks as busy:
 // free time shrinks by them, and planned items are placed in the gaps around them.
 import type { AppState, ClassBlock } from '../types';
-import { atTime, todayKey, weekday } from '../dates';
+import { addDays, atTime, todayKey, weekday } from '../dates';
 import { L, lang } from '../i18n';
 import { toWestern } from '../text';
 
@@ -65,7 +65,9 @@ export function busyBetween(state: AppState, day: string, from: number, to: numb
 /** free minutes in a day between 08:00 and the end of the day, outside the timetable */
 export function freeMinutes(state: AppState, day: string, all = false): number {
   const from = atTime(day, '08:00');
-  const to = atTime(day, state.settings.dayEnd || '23:30');
+  const end = state.settings.dayEnd || '23:30';
+  // a day that ends after midnight (01:00) ends the next morning — not 7 hours before it starts
+  const to = atTime(Number(end.slice(0, 2)) < 5 ? addDays(day, 1) : day, end);
   return Math.max(0, Math.round((to - from) / 60000) - busyBetween(state, day, from, to, all));
 }
 

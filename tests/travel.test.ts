@@ -79,3 +79,14 @@ describe('skipping a lecture', () => {
     expect(Math.abs(sum(after) - sum(before))).toBeLessThan(5);
   });
 });
+
+describe('a day that ends after midnight', () => {
+  it('still has free time around the lectures (it used to read as none)', async () => {
+    const { studyCapFor } = await import('../src/lib/engine/capacity');
+    const s = st([blk(0, '08:00', '09:50'), blk(0, '13:00', '14:50')]);
+    s.settings.dayEnd = '01:00';
+    // 08:00 → 01:00 is 17 h; home between the two lectures: busy 08:00–11:50 and 12:00–16:50
+    expect(freeMinutes(s, SUN)).toBe(1020 - 230 - 290);
+    expect(studyCapFor(s, SUN)).toBe(s.settings.studyCap[0]);
+  });
+});
