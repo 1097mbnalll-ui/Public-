@@ -135,7 +135,7 @@ function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: st
           <span className="chip"><Icon name="alert" size={12} />{L(" عاجلة", " Urgent")}</span>
         ) : it.level === 'important' ? (
           <span className="chip">{L("مهمة", "Important")}</span>
-        ) : it.must ? (
+        ) : it.hard ? (
           <span className="chip">{L("لا يتأجل", "Can't be postponed")}</span>
         ) : null}
       </div>
@@ -202,7 +202,7 @@ function PlanRow({ it, start, study, late }: { it: PlanItem; start?: number; stu
           {!late && it.level === 'urgent' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجلة · ", "Urgent · ")}</span>}
           {!late && it.level === 'important' && <span style={{ color: 'var(--amber)' }}>{it.must ? L('مهمة · لا تؤجلها أكثر · ', "Important · don't postpone again · ") : L('مهمة · اليوم أو بكرة · ', "Important · today or tomorrow · ")}</span>}
           {late ? `${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}` : metaLine(it)}
-          {it.must && !it.level && <span style={{ color: 'var(--red)' }}>{L(" · لا يتأجل", " · can't be postponed")}</span>}
+          {it.hard && !it.level && <span style={{ color: 'var(--red)' }}>{L(" · لا يتأجل", " · can't be postponed")}</span>}
         </div>
       </div>
       {start != null && <span className="faint tiny num hide-mobile">~{fmtTime(start)}</span>}

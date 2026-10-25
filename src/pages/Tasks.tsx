@@ -22,7 +22,7 @@ export function TaskRow({ t }: { t: Task }) {
   const meta: React.ReactNode[] = [];
   if (t.due) meta.push(<span key="d" style={overdue ? { color: 'var(--red)' } : t.due === today ? { color: 'var(--accent)' } : undefined}>{relDay(t.due)}{t.dueTime ? ` ${fmtClock(t.dueTime)}` : ''}</span>);
   if (t.priority >= 2) meta.push(<span key="p" style={{ color: t.priority === 3 ? 'var(--red)' : 'var(--amber)' }}>{PRIORITY_LABEL[t.priority]}</span>);
-  meta.push(<span key="a">{AREA_LABEL[t.area]}</span>);
+  meta.push(<span key="a">{t.label || AREA_LABEL[t.area]}</span>);
   if (t.estimate) meta.push(<span key="e">{fmtMinutes(t.estimate)}</span>);
   if (cl) meta.push(<span key="c">{cd}/{cl}{L(" خطوات", " steps")}</span>);
   if (t.waitingOn) meta.push(<span key="w" style={{ color: 'var(--violet)' }}>{L("بانتظار ", "Waiting on ")}{t.waitingOn}</span>);
@@ -39,7 +39,7 @@ export function TaskRow({ t }: { t: Task }) {
           {t.reminder && !t.reminder.fired && <> · <Icon name="bell" size={11} /></>}
         </div>
       </div>
-      {t.status === 'open' && t.plannedFor !== today && t.due !== today && (
+      {t.status === 'open' && t.plannedFor !== today && t.due !== today && t.priority < 3 && !(t.due && t.due < today) && (
         <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); A.planToday(t.id); toast(L('أُضيفت لخطة اليوم', "Added to today's plan")); }} title={L("اعمل عليها اليوم", "Work on it today")}>{L("لليوم", "Today")}</button>
       )}
     </div>
@@ -53,6 +53,8 @@ export function Tasks() {
   const route = useRoute();
   const [view, setView] = useState<View>('open');
   const [area, setArea] = useState<Area | 'all'>('all');
+  const [lab, setLab] = useState('');
+  const labels = useMemo(() => [...new Set(s.tasks.filter((t) => t.status === 'open').map((t) => t.label).filter((x): x is string => !!x))], [s.tasks]);
   const [q, setQ] = useState('');
   const today = todayKey();
   const onlyOverdue = route.query.get('f') === 'overdue';
@@ -62,14 +64,16 @@ export function Tasks() {
       s.tasks.filter(
         (t) =>
           (area === 'all' || t.area === area) &&
-          (!q || matches(`${t.title} ${t.notes} ${t.waitingOn || ''} ${t.checklist.map((c) => c.title).join(' ')}`, q)),
+          (!lab || t.label === lab) &&
+          (!q || matches(`${t.title} ${t.label || ''} ${t.notes} ${t.waitingOn || ''} ${t.checklist.map((c) => c.title).join(' ')}`, q)),
       ),
-    [s.tasks, area, q],
+    [s.tasks, area, q, lab],
   );
 
   const groups = useMemo(() => {
     const open = filtered.filter((t) => t.status === 'open' && !t.waitingOn);
-    const sorted = [...open].sort((a, b) => scoreItem(b, today, Date.now()).score - scoreItem(a, today, Date.now()).score);
+    // the most pressing first inside every group: priority, then the plan's score
+    const sorted = [...open].sort((a, b) => b.priority - a.priority || scoreItem(b, today, Date.now()).score - scoreItem(a, today, Date.now()).score);
     const g: { k: string; title: string; items: Task[] }[] = [
       { k: 'over', title: L('متأخرة', "Overdue"), items: [] },
       { k: 'today', title: L('اليوم', "Today"), items: [] },
@@ -81,8 +85,10 @@ export function Tasks() {
     for (const t of sorted) {
       const d = t.due ? diffDays(today, t.due) : null;
       const pinnedToday = t.plannedFor === today;
+      // urgent belongs to today whatever its date; important with no later date is today-or-tomorrow
+      const nowish = t.priority === 3 || (t.priority === 2 && (d == null || d <= 1));
       if (d != null && d < 0) g[0].items.push(t);
-      else if (d === 0 || pinnedToday) g[1].items.push(t);
+      else if (d === 0 || pinnedToday || nowish) g[1].items.push(t);
       else if (d === 1) g[2].items.push(t);
       else if (d != null && d <= 7) g[3].items.push(t);
       else if (d != null) g[4].items.push(t);
@@ -123,11 +129,14 @@ export function Tasks() {
             <div className="row grow" style={{ minWidth: 200, position: 'relative' }}>
               <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث في المهام…", "Search tasks…")} />
             </div>
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row wrap" style={{ gap: 6 }}>
               {(['all', 'study', 'work', 'life'] as const).map((a) => (
-                <button key={a} className={`chip btnish ${area === a ? 'on' : ''}`} onClick={() => setArea(a)}>
+                <button key={a} className={`chip btnish ${area === a && !lab ? 'on' : ''}`} onClick={() => { setArea(a); setLab(''); }}>
                   {a === 'all' ? L('الكل', "All") : AREA_LABEL[a]}
                 </button>
+              ))}
+              {labels.map((x) => (
+                <button key={x} className={`chip btnish ${lab === x ? 'on' : ''}`} onClick={() => { setLab(lab === x ? '' : x); setArea('all'); }}>{x}</button>
               ))}
             </div>
           </div>

@@ -30,6 +30,8 @@ export interface Task {
   title: string;
   notes: string;
   area: Area;
+  /** your own category on top of the area (e.g. «البيت», «السيارة») */
+  label?: string;
   priority: Priority;
   due?: string; // YYYY-MM-DD
   dueTime?: string; // HH:MM

@@ -71,6 +71,11 @@ export function TaskEditor({ id }: { id: string }) {
           <Seg value={t.area} onChange={(v: Area) => up({ area: v })} options={(['study', 'work', 'life'] as Area[]).map((a) => ({ v: a, l: AREA_LABEL[a] }))} />
           <Seg value={t.priority} onChange={(v: Priority) => up({ priority: v })} options={([0, 1, 2, 3] as Priority[]).map((p) => ({ v: p, l: PRIORITY_LABEL[p] }))} />
         </div>
+        <div className="field">
+          <label htmlFor="task-label">{L('تصنيفك (اختياري)', 'Your label (optional)')}</label>
+          <input id="task-label" className="input" list="task-labels" value={t.label || ''} onChange={(e) => up({ label: e.target.value || undefined })} placeholder={L('البيت، السيارة، المشروع…', 'Home, car, project…')} />
+          <datalist id="task-labels">{[...new Set(s.tasks.map((x) => x.label).filter(Boolean))].map((x) => <option key={x} value={x} />)}</datalist>
+        </div>
 
         <div className="fields two">
           <div className="field">

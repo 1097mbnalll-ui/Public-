@@ -2,7 +2,7 @@
 // plan can always explain itself.
 
 import type { AppState, Area, Priority, Procedure, Task } from '../types';
-import { addDays, diffDays, daysWord, todayKey } from '../dates';
+import { atTime, addDays, diffDays, daysWord, todayKey } from '../dates';
 import { calibration, taskTime } from './learning';
 import { availableFor, dayRecord, minutesLeftToday } from './capacity';
 import { planStudy, portionText, type StudyPlan } from './study';
@@ -73,6 +73,8 @@ export interface PlanItem {
   dueTime?: string;
   /** عاجلة = today, no matter what · مهمة = today or tomorrow at the latest */
   level?: 'urgent' | 'important';
+  /** you marked it «لا يحتمل التأجيل» */
+  hard?: boolean;
 }
 
 export interface DayPlan {
@@ -112,7 +114,10 @@ export function openTasks(state: AppState): Task[] {
 
 function belongsToday(c: PlanItem, state: AppState, today: string): boolean {
   if (c.kind === 'study' || c.level) return true;
-  const due = c.kind === 'task' ? state.tasks.find((t) => t.id === c.id)?.due : state.procedures.find((p) => p.id === c.id)?.due;
+  const t = c.kind === 'task' ? state.tasks.find((x) => x.id === c.id) : undefined;
+  const due = t ? t.due : state.procedures.find((p) => p.id === c.id)?.due;
+  // tomorrow at a set hour is an appointment, not work for today
+  if (t && t.due && t.due > today && t.dueTime) return false;
   return !!due && due <= addDays(today, 1);
 }
 
@@ -149,6 +154,9 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
   for (const t of openTasks(state)) {
     if (t.waitingOn) continue;
     if (t.plannedFor && t.plannedFor > today) continue;
+    // a later day at a set hour is an appointment (it shows under «القادم»), not work for today —
+    // unless you made it important, can't-wait or planned it for today
+    if (t.due && t.due > today && t.dueTime && t.priority <= 1 && !t.hard && t.plannedFor !== today) continue;
     const s = scoreItem(t, today, now);
     const time = taskTime(state, t, cals[t.area]);
     const pinned = t.plannedFor === today;
@@ -188,6 +196,7 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       must,
       dueTime: t.due === today ? t.dueTime : undefined,
       level: urgent ? 'urgent' : t.priority === 2 ? 'important' : undefined,
+      hard: t.hard,
     });
   }
 
@@ -242,7 +251,17 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
       load += c.minutes;
     } else later.push(c);
   }
-  items.sort((a, b) => (a.dueTime || '99').localeCompare(b.dueTime || '99') || Number(b.must) - Number(a.must) || b.score - a.score);
+  // order: anything due today within the next two hours (or already past its hour), then urgent,
+  // then the rest by need — a deadline later today keeps its place instead of jumping the queue
+  const soon = (i: PlanItem) => !!i.dueTime && atTime(today, i.dueTime) - now <= 2 * 3600_000;
+  items.sort(
+    (a, b) =>
+      Number(soon(b)) - Number(soon(a)) ||
+      (soon(a) && soon(b) ? (a.dueTime as string).localeCompare(b.dueTime as string) : 0) ||
+      Number(b.level === 'urgent') - Number(a.level === 'urgent') ||
+      Number(b.must) - Number(a.must) ||
+      b.score - a.score,
+  );
 
   const overBy = Math.max(0, load - remaining);
   return {

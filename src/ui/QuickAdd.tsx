@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Seg, Sheet } from './kit';
+import { Collapse, NumInput, Seg, Sheet, Switch } from './kit';
+import { ReminderField } from './ReminderField';
 import { Icon } from './Icon';
 import { useApp } from '../lib/store';
 import { parseQuick, parseSteps } from '../lib/parse';
 import { addProcedure, addSteps, addTask, addTaskFromTemplate, saveTemplate } from '../lib/actions';
-import { addDays, fmtClock, fmtMinutes, relDay, todayKey } from '../lib/dates';
+import { addDays, atTime, fmtClock, fmtMinutes, relDay, todayKey } from '../lib/dates';
 import { AREA_LABEL } from '../lib/engine/planner';
 import { kindInfo } from '../lib/engine/procedures';
 import { uid } from '../lib/text';
-import type { Area, Priority, Template, TemplateStep } from '../lib/types';
+import type { Area, Priority, Recurrence, Reminder, Template, TemplateStep } from '../lib/types';
 import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { go } from './router';
@@ -33,7 +34,17 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
   const [showSteps, setShowSteps] = useState(false);
   const [picked, setPicked] = useState<Template | null>(null);
   const [saveAsTpl, setSaveAsTpl] = useState(false);
+  // the rest is optional and lives under «خيارات أكثر»; undefined = take it from the text
+  const [time, setTime] = useState<string | null | undefined>(undefined);
+  const [label, setLabel] = useState('');
+  const [estimate, setEstimate] = useState<number | undefined>(undefined);
+  const [planned, setPlanned] = useState<string | undefined>(undefined);
+  const [hard, setHard] = useState<boolean | undefined>(undefined);
+  const [repeat, setRepeat] = useState('');
+  const [reminder, setReminder] = useState<Reminder | undefined>(undefined);
+  const [notes, setNotes] = useState('');
   const today = todayKey();
+  const labels = useMemo(() => [...new Set(s.tasks.map((t) => t.label).filter((x): x is string => !!x))].slice(0, 12), [s.tasks]);
 
   const p = useMemo(() => parseQuick(text, s.templates), [text, s.templates]);
   // typing a procedure template's name («معاملة …») switches to a procedure unless you chose the type yourself
@@ -45,6 +56,9 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
   const fArea: Area = area || p.area || tpl?.area || (isProc ? 'work' : 'life');
   const fPrio: Priority = prio ?? p.priority ?? 1;
   const fDue = day === undefined ? p.due : day || undefined;
+  const fTime = time === undefined ? p.dueTime : time || undefined;
+  const fEstimate = estimate ?? p.estimate ?? tpl?.estimate;
+  const fHard = hard ?? !!p.hard;
   const typedSteps = useMemo(() => parseSteps(stepsText), [stepsText]);
   const steps: TemplateStep[] = typedSteps.length ? typedSteps : tpl?.steps || [];
   const canSave = !!title || !!tpl;
@@ -68,7 +82,20 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
       else toast(L(`أُضيف الإجراء «${name}» بـ ${steps.length} خطوات`, `Added procedure “${name}” with ${steps.length} steps`), { buttons: [{ label: L('افتح', 'Open'), fn: () => go(`work/${id}`) }] });
       return;
     }
-    const base = { area: fArea, priority: fPrio, due: fDue, dueTime: p.dueTime, estimate: p.estimate ?? tpl?.estimate, hard: !!p.hard };
+    const rec: Recurrence | undefined = repeat ? { every: +repeat.split('-')[0], unit: repeat.split('-')[1] as Recurrence['unit'] } : undefined;
+    const base = {
+      area: fArea,
+      priority: fPrio,
+      due: fDue ?? (rec ? today : undefined),
+      dueTime: fDue || rec ? fTime : undefined,
+      estimate: fEstimate,
+      hard: fHard,
+      ...(label.trim() ? { label: label.trim() } : {}),
+      ...(planned ? { plannedFor: planned } : {}),
+      ...(rec ? { recurrence: rec } : {}),
+      ...(reminder ? { reminder } : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+    };
     const id =
       tpl && !typedSteps.length
         ? addTaskFromTemplate(tpl, { ...base, title: name })
@@ -123,7 +150,7 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
         />
         {(p.dueTime || (p.estimate && !isProc) || p.hard || typed) && (
           <div className="parse-chips">
-            {p.dueTime && <span className="chip blue"><Icon name="clock" size={13} /> {fmtClock(p.dueTime)}</span>}
+            {p.dueTime && time === undefined && <span className="chip blue"><Icon name="clock" size={13} /> {fmtClock(p.dueTime)}</span>}
             {p.estimate && !isProc && <span className="chip"><Icon name="hourglass" size={13} /> {fmtMinutes(p.estimate)}</span>}
             {p.hard && <span className="chip red">{L('لا يتأجل', "Can't be postponed")}</span>}
             {typed && <span className="chip violet"><Icon name="layers" size={13} /> {L(`من قالب «${typed.name}»`, `From template “${typed.name}”`)}</span>}
@@ -132,7 +159,7 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
 
         <div className="qa-row">
           <span className="qa-k">{L('الأولوية', 'Priority')}</span>
-          <Seg value={fPrio} onChange={(v: Priority) => setPrio(v)} options={[{ v: 1 as Priority, l: L('عادية', 'Normal') }, { v: 2 as Priority, l: L('مهمة', 'Important') }, { v: 3 as Priority, l: L('عاجلة', 'Urgent') }]} />
+          <Seg value={fPrio} onChange={(v: Priority) => setPrio(v)} options={[{ v: 0 as Priority, l: L('غير مهمة', 'Low') }, { v: 1 as Priority, l: L('عادية', 'Normal') }, { v: 2 as Priority, l: L('مهمة', 'Important') }, { v: 3 as Priority, l: L('عاجلة', 'Urgent') }]} />
         </div>
 
         <div className="qa-row">
@@ -142,9 +169,13 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
               <button key={d.l} className={`chip btnish ${(fDue || null) === d.k ? 'on' : ''}`} onClick={() => setDay(d.k)}>{d.l}</button>
             ))}
             <input type="date" className="input qa-date" value={fDue || ''} onChange={(e) => setDay(e.target.value || null)} aria-label={L('تاريخ', 'Date')} />
+            {fDue && <input type="time" className="input qa-date" value={fTime || ''} onChange={(e) => setTime(e.target.value || null)} aria-label={L('الساعة', 'Time')} />}
           </div>
         </div>
         {fDue && !dayChips.some((d) => d.k === fDue) && <div className="faint tiny" style={{ marginTop: -6 }}>{relDay(fDue)}</div>}
+        {!isProc && !fDue && !planned && fPrio <= 1 && (
+          <div className="faint tiny" style={{ marginTop: -6 }}>{L('بدون موعد وعادية: تطلع في «لو بقي وقت» مو في خطة اليوم. تبيها اليوم؟ اختر «اليوم» أو «مهمة».', 'No date and normal: it waits under “If there’s time”, not in today’s plan. Want it today? Pick “Today” or “Important”.')}</div>
+        )}
 
         {!isProc && (
           <div className="qa-row">
@@ -155,6 +186,64 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
               ))}
             </div>
           </div>
+        )}
+        {!isProc && (
+          <div className="qa-row">
+            <span className="qa-k">{L('تصنيفك', 'Your label')}</span>
+            <div className="row wrap" style={{ gap: 6 }}>
+              {labels.map((x) => (
+                <button key={x} className={`chip btnish ${label === x ? 'on' : ''}`} onClick={() => setLabel(label === x ? '' : x)}>{x}</button>
+              ))}
+              <input className="input qa-date" style={{ width: 130 }} value={labels.includes(label) ? '' : label} onChange={(e) => setLabel(e.target.value)} placeholder={L('جديد: البيت، السيارة…', 'New: home, car…')} aria-label={L('تصنيف جديد', 'New label')} />
+            </div>
+          </div>
+        )}
+
+        {!isProc && (
+          <Collapse title={L('خيارات أكثر: المدة، يوم العمل، لا يتأجل، التكرار، التذكير، ملاحظات', 'More: duration, work day, can’t wait, repeat, reminder, notes')}>
+            <div className="fields">
+              <div className="field">
+                <label>{L('كم تحتاج؟', 'How long?')}</label>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  {[15, 30, 60, 90, 120].map((m) => (
+                    <button key={m} className={`chip btnish ${fEstimate === m ? 'on' : ''}`} onClick={() => setEstimate(fEstimate === m ? undefined : m)}>{fmtMinutes(m)}</button>
+                  ))}
+                  <div style={{ width: 110 }}><NumInput value={fEstimate} onChange={setEstimate} placeholder={L('دقائق', 'minutes')} suffix={L('د', 'min')} /></div>
+                </div>
+              </div>
+              <div className="field">
+                <label>{L('متى تشتغل عليها؟', 'When will you work on it?')}</label>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  <button className={`chip btnish ${!planned ? 'on' : ''}`} onClick={() => setPlanned(undefined)}>{L('الخطة تختار', 'Let the plan pick')}</button>
+                  <button className={`chip btnish ${planned === today ? 'on' : ''}`} onClick={() => setPlanned(today)}>{L('اليوم', 'Today')}</button>
+                  <button className={`chip btnish ${planned === addDays(today, 1) ? 'on' : ''}`} onClick={() => setPlanned(addDays(today, 1))}>{L('غدًا', 'Tomorrow')}</button>
+                  <input type="date" className="input qa-date" value={planned || ''} onChange={(e) => setPlanned(e.target.value || undefined)} aria-label={L('يوم العمل', 'Work day')} />
+                </div>
+              </div>
+              <div className="row between">
+                <div>
+                  <div style={{ fontWeight: 500 }}>{L('لا يحتمل التأجيل', "Can't be postponed")}</div>
+                  <div className="faint tiny">{L('ما أقترح نقلها لما يزدحم اليوم.', "I won't suggest moving it when the day is full.")}</div>
+                </div>
+                <Switch on={fHard} onChange={setHard} label={L('لا يحتمل التأجيل', "Can't be postponed")} />
+              </div>
+              <div className="field">
+                <label>{L('تتكرر', 'Repeats')}</label>
+                <select className="select" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+                  <option value="">{L('لا', 'No')}</option>
+                  <option value="1-day">{L('يوميًا', 'Daily')}</option>
+                  <option value="1-week">{L('أسبوعيًا', 'Weekly')}</option>
+                  <option value="2-week">{L('كل أسبوعين', 'Every two weeks')}</option>
+                  <option value="1-month">{L('شهريًا', 'Monthly')}</option>
+                </select>
+              </div>
+              <ReminderField value={reminder} onChange={setReminder} title={title || L('مهمة', 'Task')} dueAt={fDue && fTime ? atTime(fDue, fTime) : undefined} />
+              <div className="field">
+                <label>{L('ملاحظات', 'Notes')}</label>
+                <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={L('تفاصيل، روابط، أرقام…', 'Details, links, numbers…')} />
+              </div>
+            </div>
+          </Collapse>
         )}
 
         {/* steps: optional; each line is a step, its type is recognised from the words */}
