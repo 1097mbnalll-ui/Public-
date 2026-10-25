@@ -344,6 +344,16 @@ function StudyWelcome() {
   );
 }
 
+/** what the smart mode did for this exam, in one short line (empty in the even split) */
+function smartLine(ep: ExamPlan, today: string, smart: boolean): string {
+  if (!smart) return '';
+  const day = (d: string) => relDay(d, today);
+  if (ep.safetyDay && today > ep.lastStudyDay) return L('🔁 يوم المراجعة — بدون دروس جديدة', '🔁 Review day — nothing new');
+  if (!ep.todayMinutes && !ep.doneToday && ep.nextDay) return L(`⏳ تنتظر لين يخف الأسبوع — تبدأ ${day(ep.nextDay)}`, `⏳ Waits until the week eases — starts ${day(ep.nextDay)}`);
+  if (ep.safetyDay) return L(`🛡️ الدروس تخلص ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} مراجعة`, `🛡️ Lessons done ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} is review`);
+  return '';
+}
+
 /** big number + unit for the hero: «2» «ساعات اليوم» / «45» «دقيقة اليوم» */
 function bigTime(m: number): [string, string] {
   if (m < 60) return [String(Math.round(m)), L('دقيقة اليوم', 'min today')];
@@ -368,6 +378,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
   const cap = studyCapFor(s, today);
   const behind = rows.filter((ep) => ep.status === 'behind');
   const ahead = hero && !hero.todayMinutes ? aheadLesson(plan) : null;
+  const smart = (s.settings.studyMode || 'smart') === 'smart';
 
   if (!hero && !unknown.length)
     return (
@@ -399,6 +410,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
             <div className="st-prog"><i style={{ width: `${Math.min(100, (hero.doneToday / hero.quota) * 100)}%` }} /><span>{L(`ذاكرت ${fmtMinutes(hero.doneToday)} من ${fmtMinutes(hero.quota)}`, `${fmtMinutes(hero.doneToday)} of ${fmtMinutes(hero.quota)} done`)}</span></div>
           )}
           {hero.todayMinutes > 0 && hero.portion.length > 0 && <div className="les">{hero.inReview ? '🔁 ' : '📖 '}{lessonsLine(hero)}</div>}
+          {smartLine(hero, today, smart) && <div className="smart-l">{smartLine(hero, today, smart)}</div>}
           {hero.todayMinutes > 0 ? (
             <div className="hb">
               <button className="p" onClick={() => startStudy(hero)}>▶ {L('ابدأ', 'Start')}</button>
@@ -419,7 +431,8 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
                 <span className="dot" style={{ background: ep.course.color }} />
                 <button className="grow" onClick={() => go(`study/${ep.course.id}`)}>
                   <b>{ep.course.name}</b>
-                  <span>🚩 {ep.exam.title} {whenText(ep)}{ep.inReview ? L(' · مراجعة', ' · review') : !ep.todayMinutes && ep.doneToday > 0 ? L(' · خلّصت حصتها', ' · done for today') : !ep.todayMinutes && ep.nextDay ? L(` · تبدأ ${relDay(ep.nextDay, today)}`, ` · starts ${relDay(ep.nextDay, today)}`) : ''}</span>
+                  <span>🚩 {ep.exam.title} {whenText(ep)}{ep.inReview ? L(' · مراجعة', ' · review') : !ep.todayMinutes && ep.doneToday > 0 ? L(' · خلّصت حصتها', ' · done for today') : !smart && !ep.todayMinutes && ep.nextDay ? L(` · تبدأ ${relDay(ep.nextDay, today)}`, ` · starts ${relDay(ep.nextDay, today)}`) : ''}</span>
+                  {smartLine(ep, today, smart) && <span className="smart-l">{smartLine(ep, today, smart)}</span>}
                 </button>
                 <span className={`hp num ${ep.todayMinutes ? '' : 'z'}`}>{ep.todayMinutes ? fmtMinutes(ep.todayMinutes) : ep.doneToday > 0 ? '✓' : '—'}</span>
                 {ep.todayMinutes > 0 && (
@@ -481,7 +494,11 @@ function StudyOverview() {
     <div>
       <PageTop
         title={L('الدراسة', 'Study')}
-        sub={(() => { const m = plan.exams.reduce((a, ep) => a + ep.todayMinutes, 0); return m ? L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`) : fmtDate(today); })()}
+        sub={(() => {
+          const m = plan.exams.reduce((a, ep) => a + ep.todayMinutes, 0);
+          const mode = (s.settings.studyMode || 'smart') === 'smart' ? L('🧠 الذكي المرن', '🧠 Smart') : L('⚖️ التوزيع المتساوي', '⚖️ Even split');
+          return <>{m ? L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`) : fmtDate(today)} · <button className="mode-chip" onClick={() => go('me')}>{mode}</button></>;
+        })()}
         actions={courses.length > 0 && <button className="btn sm" onClick={() => go('schedule')}><Icon name="week" size={15} /> {L('جدولي', 'Timetable')}</button>}
       />
       {!courses.length ? (

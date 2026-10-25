@@ -3393,3 +3393,7 @@ html[lang='ar'] * {
 .st-hero .t { display: block; color: #fff; font-size: 27px; font-weight: 800; margin: 6px 0 2px; text-align: start; }
 .st-row .grow { text-align: start; color: inherit; min-width: 0; }
 .st-row .icon-btn { flex: none; }
+
+.st-hero .smart-l { margin-top: 8px; font-size: 12.5px; font-weight: 700; opacity: .95; }
+.st-row .smart-l { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.mode-chip { font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-soft); padding: 2px 9px; border-radius: 10px; }
