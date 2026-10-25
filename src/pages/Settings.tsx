@@ -325,7 +325,7 @@ function AvailabilityEditor() {
           <option value="smart">{L('الذكي المرن ⭐', 'Smart ⭐')}</option>
           <option value="even">{L('التوزيع المتساوي', 'Even split')}</option>
         </select>
-        <div className="faint tiny">{(st.studyMode || 'smart') === 'smart' ? L('يخلّص الدروس قبل الاختبار بيوم ويخلي آخر يوم مراجعة، ولما يزدحم الأسبوع يأجّل المواد اللي اختبارها بعيد لين يخف.', 'Finishes lessons a day early and keeps the last day for review; when a week is crowded, far-off exams wait until it eases.') : L('الباقي ÷ الأيام الباقية لكل اختبار — بسيط وثابت.', 'What’s left ÷ days left for each exam — simple and steady.')}</div>
+        <div className="faint tiny">{(st.studyMode || 'smart') === 'smart' ? L('كل مادة من اليوم وكل يوم. يخلّص الدروس قبل الاختبار بيوم ويخلي آخر يوم مراجعة، ولما يزدحم الأسبوع يخفف المادة البعيدة شوي (40% بالكثير) بدون ما يوقفها.', 'Every subject from today, every day. Lessons end a day early with the last day for review; in a crowded week a far-off subject eases a little (40% at most) but never stops.') : L('الباقي ÷ الأيام الباقية لكل اختبار — بسيط وثابت.', 'What’s left ÷ days left for each exam — simple and steady.')}</div>
       </div>
       <div className="fields two">
         <div className="field">

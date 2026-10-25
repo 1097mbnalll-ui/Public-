@@ -349,7 +349,7 @@ function smartLine(ep: ExamPlan, today: string, smart: boolean): string {
   if (!smart) return '';
   const day = (d: string) => relDay(d, today);
   if (ep.safetyDay && today > ep.lastStudyDay) return L('🔁 يوم المراجعة — بدون دروس جديدة', '🔁 Review day — nothing new');
-  if (!ep.todayMinutes && !ep.doneToday && ep.nextDay) return L(`⏳ تنتظر لين يخف الأسبوع — تبدأ ${day(ep.nextDay)}`, `⏳ Waits until the week eases — starts ${day(ep.nextDay)}`);
+  if (!ep.todayMinutes && !ep.doneToday && ep.nextDay) return L(`📅 حصتها الجاية ${day(ep.nextDay)}`, `📅 Next share ${day(ep.nextDay)}`);
   if (ep.safetyDay) return L(`🛡️ الدروس تخلص ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} مراجعة`, `🛡️ Lessons done ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} is review`);
   return '';
 }
@@ -469,7 +469,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
           <div>
             {rows.map((ep) => <p key={ep.exam.id}>{whyLine(ep)}</p>)}
             <p>{(s.settings.studyMode || 'smart') === 'smart'
-              ? L('النظام الذكي: الدروس تخلص قبل الاختبار بيوم، ولما يزدحم الأسبوع المواد اللي اختبارها بعيد تنتظر لين يخف. تقدر تغيّره من الإعدادات.', 'Smart: lessons finish a day before the exam, and in a crowded week far-off exams wait until it eases. You can change this in settings.')
+              ? L('النظام الذكي: كل مادة تذاكرها كل يوم من اليوم. الدروس تخلص قبل الاختبار بيوم، ولما يزدحم الأسبوع المادة اللي اختبارها بعيد تخف شوي (40% بالكثير، وما توقف أبدًا) وتعوّض في الأيام الأخف. تقدر تغيّره من الإعدادات.', 'Smart: every subject is studied every day from today. Lessons finish a day before the exam, and in a crowded week a far-off exam eases a little (40% at most, never stops) and catches up on lighter days. You can change this in settings.')
               : L('التوزيع المتساوي: الباقي ÷ الأيام الباقية. إذا ذاكرت أقل اليوم، الباقي يتوزع على الأيام اللي بعده.', 'Even split: what’s left ÷ days left. Study less today and the rest spreads over the days after.')}</p>
           </div>
         </details>

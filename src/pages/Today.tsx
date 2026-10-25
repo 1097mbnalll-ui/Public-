@@ -82,10 +82,20 @@ function usePlanActions(study: StudyPlan) {
         const p = s.procedures.find((x) => x.id === it.id);
         const n = p && nextStep(p);
         if (n) toggleStepUI(it.id, n.id);
+        else if (p) {
+          // no step left to tick (or none at all): the procedure itself is done
+          A.completeProcedure(p.id);
+          toast(L(`أنجزت «${p.title}»`, `Completed “${p.title}”`), { undoable: true });
+        }
       } else {
         const ex = s.exams.find((e) => e.id === it.id);
         openSheet({ type: 'study-log', courseId: ex?.courseId, minutes: it.minutes });
       }
+    },
+    /** a procedure with a step to tick (otherwise «done» finishes it) */
+    hasStep(it: PlanItem) {
+      const p = it.kind === 'procedure' ? s.procedures.find((x) => x.id === it.id) : undefined;
+      return !!p && !!nextStep(p);
     },
     start(it: PlanItem) {
       if (it.kind === 'study') {
@@ -152,7 +162,7 @@ function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: st
             <Icon name="play" size={14} />{L(" ابدأ", " Start")}</button>
         )}
         <button className="btn" onClick={() => act.check(it)}>
-          <Icon name="check" size={16} /> {it.kind === 'study' ? L('سجّل ما ذاكرته', "Log what I studied") : it.kind === 'procedure' ? L('تمت الخطوة', "Step done") : L('أنجزتها', "Done it")}
+          <Icon name="check" size={16} /> {it.kind === 'study' ? L('سجّل ما ذاكرته', "Log what I studied") : it.kind === 'procedure' && act.hasStep(it) ? L('تمت الخطوة', "Step done") : it.kind === 'procedure' ? L('أنجزته', 'Done') : L('أنجزتها', "Done it")}
         </button>
         {(it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent' && (
           <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast(L('نُقل إلى الغد', "Moved to tomorrow"), { undoable: true })))}>{L("غدًا", "Tomorrow")}</button>

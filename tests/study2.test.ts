@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
-import { atTime } from '../src/lib/dates';
+import { addDays, atTime } from '../src/lib/dates';
 import { planStudy } from '../src/lib/engine/study';
 import type { AppState } from '../src/lib/types';
 
@@ -33,21 +33,31 @@ describe('study modes', () => {
     expect(t).toEqual({ عرب: 120, احص: 120, كيم: 180, انجل: 80 });
   });
 
-  it('smart: a safety day before each exam and a level load across a heavy week', () => {
+  it('smart: a safety day before each exam, and every subject is studied every day', () => {
     const s = example('smart');
     const p = planStudy(s, NOW);
     const t = today(s);
-    expect(t).toEqual({ عرب: 120, احص: 120, كيم: 120, انجل: 0 }); // 6 h, not 8 h 20
+    expect(t['عرب']).toBe(120);
+    expect(t['احص']).toBe(120);
+    expect(t['كيم']).toBe(240); // lessons done Tuesday, Wednesday is review
+    expect(t['انجل']).toBeGreaterThanOrEqual(80 * 0.6); // eased a little on a crowded day, never zero
     const chem = p.exams.find((e) => e.course.name === 'كيم')!;
-    expect(chem.lastStudyDay).toBe('2026-10-27'); // lessons done Tuesday, Wednesday is review
+    expect(chem.lastStudyDay).toBe('2026-10-27');
     expect(chem.safetyDay).toBe(true);
-    expect(p.exams.find((e) => e.course.name === 'انجل')!.nextDay).toBe('2026-10-28');
-    // the same 6 h a day until the heavy part is over
-    for (const d of ['2026-10-25', '2026-10-26', '2026-10-27']) expect(p.byDay[d].reduce((a, x) => a + x.minutes, 0)).toBe(360);
     // every minute is still planned before each exam
     for (const e of p.exams) {
       const sum = Object.values(p.byDay).flat().filter((x) => x.examId === e.exam.id).reduce((a, x) => a + x.minutes, 0);
       expect(Math.abs(sum - e.mid)).toBeLessThanOrEqual(30); // days are rounded to 5 minutes
+    }
+  });
+
+  it('an exam next week is studied from today, every day — not left to the last days', () => {
+    const s = example('smart');
+    const p = planStudy(s, NOW);
+    const eng = p.exams.find((e) => e.course.name === 'انجل')!;
+    for (let d = '2026-10-25'; d <= eng.lastStudyDay; d = addDays(d, 1)) {
+      const m = p.byDay[d]?.find((x) => x.examId === eng.exam.id)?.minutes || 0;
+      expect(m, d).toBeGreaterThan(0);
     }
   });
 

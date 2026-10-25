@@ -287,6 +287,18 @@ export function addLog(procId: string, text: string) {
   withProc(procId, (p) => p.log.push({ at: now(), text }));
 }
 
+/** finish a procedure as a whole (one with no steps, or when you're simply done with it) */
+export function completeProcedure(id: string) {
+  mutate((s) => {
+    const p = s.procedures.find((x) => x.id === id);
+    if (!p || p.completedAt) return;
+    for (const st of p.steps) if (!st.done) Object.assign(st, { done: true, doneAt: now() });
+    p.completedAt = now();
+    p.log.push({ at: now(), text: L('اكتمل الإجراء', 'Procedure completed') });
+    bumpDay(s, { done: 1 });
+  }, L('إنجاز إجراء', 'Complete procedure'));
+}
+
 export function archiveProcedure(id: string, archived = true) {
   withProc(id, (p) => {
     p.archived = archived;

@@ -225,9 +225,13 @@ function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, 
 /**
  * The smart quota. Same shares as the even split, except on days where the exams together ask
  * for more than the lowest daily load that still meets every deadline: then the exams whose
- * deadline is furthest away wait (they catch up on lighter days), so a heavy week isn't a wall.
+ * deadline is furthest away are eased a little (at most 40%, never to zero) and catch up on
+ * lighter days — every subject is studied every day, a heavy week just weighs a bit less.
  * Deadlines are the same as the even split's — lessons by the review days, everything by the exam.
  */
+/** how much of a far exam's daily share a crowded day may hold back */
+const MAX_EASE = 0.4;
+
 function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): SimResult {
   const learn = new Map(jobs.map((j) => [j.p.exam.id, j.learn]));
   const review = new Map(jobs.map((j) => [j.p.exam.id, j.review]));
@@ -265,10 +269,13 @@ function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): S
         const due = asks.reduce((a, x) => a + (D >= x.j.lastDay ? x.l + x.r : x.learning && D >= x.j.learnEnd ? x.l : 0), 0);
         lv = Math.max(lv, due / Math.max(1, between(day, D)));
       }
+      // ease the furthest exams a little — never more than 40% of their share, never to zero, and
+      // never an exam within 3 days: every subject keeps moving every day
       let over = asks.reduce((a, x) => a + x.want, 0) - lv;
       for (const x of [...asks].sort((a, b) => b.due.localeCompare(a.due))) {
         if (over <= 0.5) break;
-        const cut = Math.min(x.want, over);
+        if (diffDays(day, x.due) < 3) continue;
+        const cut = Math.min(x.want * MAX_EASE, over);
         x.want -= cut;
         over -= cut;
       }
