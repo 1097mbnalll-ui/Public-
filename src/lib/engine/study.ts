@@ -441,9 +441,12 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     const lessonsLate = p.learnLeft > 0.5 && (!p.finishDay || p.finishDay > j.learnEnd);
 
     p.quota = round5(p.alloc[today] || 0);
+    // the last day before the exam asks for everything left, rounded up — rounding must not leave a lesson unreviewed
+    const lastCall = today === j.lastDay && p.learnLeft + p.reviewLeft > 0.5;
+    if (lastCall) p.quota = Math.max(p.quota, p.doneToday + Math.ceil((p.learnLeft + p.reviewLeft) / 5) * 5);
     const left = p.quota - p.doneToday;
-    // under 10 minutes isn't a session worth starting: the share counts as done
-    p.todayMinutes = left >= 10 ? round5(left) : 0;
+    // under 10 minutes isn't a session worth starting: the share counts as done (except on the last day)
+    p.todayMinutes = left >= 10 || (lastCall && left > 0) ? (lastCall ? Math.ceil(left / 5) * 5 : round5(left)) : 0;
     if (!p.todayMinutes) p.nextDay = Object.keys(p.alloc).filter((d) => d > today && round5(p.alloc[d]) > 0).sort()[0];
     p.inReview = today > j.learnEnd && p.learnLeft <= 5;
     p.reviewCompressed = today > j.learnEnd && p.learnLeft > 5 && (p.exam.reviewDays || 0) > 0;
