@@ -3536,3 +3536,56 @@ html[lang='ar'] * {
 .tr-grid button small { font-size: 12.5px; font-weight: 700; }
 .tr-grid button.off { background: var(--hover); opacity: .75; }
 .tr-grid button.off small { color: var(--muted); text-decoration: line-through; }
+
+/* ================= motion: the iOS feel ================= */
+:root { --spring: cubic-bezier(0.32, 0.72, 0, 1); }
+
+/* pages: the tab bar and side bar stay put while the page moves */
+.tabbar { view-transition-name: tabbar; }
+.sidebar { view-transition-name: sidebar; }
+html[data-nav] .main { animation: none; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.42s; animation-timing-function: var(--spring); }
+html[data-nav="tab"]::view-transition-old(root) { animation: vt-out 0.16s ease-out both; }
+html[data-nav="tab"]::view-transition-new(root) { animation: vt-in 0.32s var(--spring) both; }
+/* going deeper: the new page comes in from the leading side (the left in Arabic) and the old one
+   eases back; going back reverses it, the old page on top */
+html[data-nav="push"]::view-transition-old(root) { animation: vt-push-old 0.42s var(--spring) both; }
+html[data-nav="push"]::view-transition-new(root) { animation: vt-push-new 0.42s var(--spring) both; }
+html[data-nav="pop"]::view-transition-old(root) { animation: vt-pop-old 0.36s var(--spring) both; z-index: 2; }
+html[data-nav="pop"]::view-transition-new(root) { animation: vt-pop-new 0.36s var(--spring) both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: scale(0.985); } }
+@keyframes vt-push-new { from { transform: translateX(-100%); } }
+@keyframes vt-push-old { to { transform: translateX(28%); opacity: 0.55; } }
+@keyframes vt-pop-old { to { transform: translateX(-100%); } }
+@keyframes vt-pop-new { from { transform: translateX(28%); opacity: 0.55; } }
+html[dir="ltr"][data-nav="push"]::view-transition-new(root) { animation-name: vt-push-new-ltr; }
+html[dir="ltr"][data-nav="push"]::view-transition-old(root) { animation-name: vt-push-old-ltr; }
+html[dir="ltr"][data-nav="pop"]::view-transition-old(root) { animation-name: vt-pop-old-ltr; }
+html[dir="ltr"][data-nav="pop"]::view-transition-new(root) { animation-name: vt-pop-new-ltr; }
+@keyframes vt-push-new-ltr { from { transform: translateX(100%); } }
+@keyframes vt-push-old-ltr { to { transform: translateX(-28%); opacity: 0.55; } }
+@keyframes vt-pop-old-ltr { to { transform: translateX(100%); } }
+@keyframes vt-pop-new-ltr { from { transform: translateX(-28%); opacity: 0.55; } }
+
+/* sheets rise on the iOS curve and slide back down when closed */
+.sheet { animation: sheet-rise 0.5s var(--spring); }
+@keyframes sheet-rise { from { transform: translateY(100%); } }
+html.sheet-closing .sheet { animation: sheet-sink 0.23s cubic-bezier(0.4, 0, 1, 1) forwards; }
+html.sheet-closing .sheet-backdrop { animation: fade-away 0.23s ease forwards; }
+@keyframes sheet-sink { to { transform: translateY(100%); } }
+@keyframes fade-away { to { opacity: 0; } }
+@media (min-width: 700px) {
+  .sheet { animation: sheet-in 0.38s var(--spring); }
+  html.sheet-closing .sheet { animation: sheet-out 0.2s ease-in forwards; }
+  @keyframes sheet-out { to { transform: scale(0.96); opacity: 0; } }
+}
+
+/* touch: what you press gives a little, then springs back */
+:is(.btn, .icon-btn, .chip.btnish, .sh-row-main, .sh-ex, .sx-course, .st-row, .tabbar .tab, .tr-days button, .tr-grid button, .tr-chips button, .m-cats button, .src3 button, .sh-try, .sx-q, .theme-opt) {
+  transition: transform 0.22s var(--spring), background-color 0.2s, opacity 0.2s, border-color 0.2s, color 0.2s;
+}
+:is(.btn, .icon-btn, .chip.btnish, .sh-row-main, .sh-ex, .sx-course, .st-row, .tabbar .tab, .tr-days button, .tr-grid button, .tr-chips button, .m-cats button, .src3 button, .sh-try, .sx-q, .theme-opt):active {
+  transform: scale(0.965);
+  transition-duration: 0.08s;
+}

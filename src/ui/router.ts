@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 
 export interface Route {
   page: string;
@@ -16,10 +17,28 @@ function parse(): Route {
 
 let current = parse();
 const ls = new Set<() => void>();
+export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Moving between pages animates like iOS: a page deeper in (a course, a task) slides in from the
+// leading side and back out the way it came; switching tabs cross-fades. The tab bar stays put.
 addEventListener('hashchange', () => {
-  current = parse();
-  ls.forEach((l) => l());
-  window.scrollTo({ top: 0 });
+  const next = parse();
+  const kind = next.id && !current.id ? 'push' : !next.id && current.id ? 'pop' : next.page === current.page && next.id === current.id ? 'same' : next.page === current.page ? 'push' : 'tab';
+  const apply = () => {
+    current = next;
+    ls.forEach((l) => l());
+    window.scrollTo({ top: 0 });
+  };
+  const start = (document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }).startViewTransition;
+  if (!start || kind === 'same' || reducedMotion() || document.visibilityState === 'hidden') return apply();
+  const root = document.documentElement;
+  root.dataset.nav = kind;
+  start
+    .call(document, () => flushSync(apply))
+    .finished.catch(() => {})
+    .finally(() => {
+      if (root.dataset.nav === kind) delete root.dataset.nav;
+    });
 });
 
 export function useRoute(): Route {

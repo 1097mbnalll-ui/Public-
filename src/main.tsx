@@ -14,8 +14,25 @@ import { loadOwnFont } from './lib/localFont';
 import { isNative, startNative } from './lib/native';
 
 // your own font (picked in settings) is ready before the first paint when it can be
+const openedAt = performance.now();
+
+/** the opening logo has its moment (~0.65 s from opening), then lifts away */
+function hideSplash() {
+  const el = document.getElementById('splash');
+  if (!el || el.classList.contains('going')) return;
+  el.classList.add('going');
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 560);
+  }, Math.max(0, 650 - (performance.now() - openedAt)));
+}
+
+// whatever happens while loading, the logo never stays up
+setTimeout(hideSplash, 4000);
+
 Promise.all([init(), loadOwnFont().catch(() => {})]).then(() => {
   createRoot(document.getElementById('root')!).render(<App />);
+  requestAnimationFrame(hideSplash);
   onSmsAdded((n) => toast(n === 1 ? L('📩 أُضيف مصروف من رسائل البنك', '📩 An expense was added from your bank messages') : L(`📩 أُضيفت ${n} مصاريف من رسائل البنك`, `📩 ${n} expenses added from your bank messages`), { undoable: true, ms: 6000 }));
   startSync();
   void startNative();

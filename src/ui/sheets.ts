@@ -31,26 +31,48 @@ const ls = new Set<() => void>();
 
 const notify = () => ls.forEach((l) => l());
 
-export function openSheet(s: SheetSpec) {
-  current = s;
-  pushOverlay(() => {
+let closing: ReturnType<typeof setTimeout> | null = null;
+
+/** let the sheet slide down before it goes (iOS-style), then remove it */
+function closeAnimated() {
+  const root = document.documentElement;
+  const done = () => {
+    closing = null;
+    root.classList.remove('sheet-closing');
     current = null;
     notify();
-  });
+  };
+  if (closing) return;
+  if (!document.querySelector('.sheet') || matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+  root.classList.add('sheet-closing');
+  closing = setTimeout(done, 230);
+}
+
+export function openSheet(s: SheetSpec) {
+  // opening another sheet while one is sliding away: the new one wins
+  if (closing) {
+    clearTimeout(closing);
+    closing = null;
+    document.documentElement.classList.remove('sheet-closing');
+  }
+  current = s;
+  pushOverlay(closeAnimated);
   notify();
 }
 
 // navigating to another screen closes any open sheet
 addEventListener('hashchange', () => {
   if (!current) return;
+  if (closing) clearTimeout(closing);
+  closing = null;
+  document.documentElement.classList.remove('sheet-closing');
   current = null;
   notify();
 });
 
 export function closeSheet() {
-  current = null;
   popOverlay();
-  notify();
+  closeAnimated();
 }
 
 export function useSheet() {

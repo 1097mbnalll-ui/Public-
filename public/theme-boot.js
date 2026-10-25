@@ -4,6 +4,7 @@ try {
   if (t) {
     var r = document.documentElement;
     r.style.background = t.bg;
+    r.style.setProperty('--boot-bg', t.bg);
     r.style.color = t.text;
     r.style.colorScheme = t.dark ? 'dark' : 'light';
     var m = document.querySelector('meta[name="theme-color"]');
