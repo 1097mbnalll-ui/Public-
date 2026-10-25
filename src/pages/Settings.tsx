@@ -20,6 +20,7 @@ import { L } from '../lib/i18n';
 import { AUTO, THEMES } from '../lib/themes';
 import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
 import { useSyncConf } from '../lib/sync';
+import { clearOwnFont, setOwnFont, useOwnFont } from '../lib/localFont';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -106,6 +107,8 @@ export function Settings() {
             </button>
           ))}
         </div>
+        <div className="divider" />
+        <OwnFont />
       </Section>
 
       <Section title={L("وقتك وجدولك", "Your time & timetable")} desc={L("الوقت الحر للمذاكرة والمهام خارج الدوام والمحاضرات. الخطة لا تحمّل يومك أكثر منه، ويمكنك تغيير يوم بعينه من صفحة «اليوم».", "Free time for study and tasks outside work and lectures. The plan never fills a day beyond it; you can change a single day from the “Today” page.")}>
@@ -413,5 +416,37 @@ function CoachSettings() {
         </div>
       </div>
     </>
+  );
+}
+
+/** your own Arabic font (خط ثمانية): picked from this device, kept in this browser only */
+function OwnFont() {
+  const on = useOwnFont();
+  const [busy, setBusy] = useState(false);
+  const pick = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const n = await setOwnFont([...files]);
+      toast(L(`تم ✓ — الخط مفعّل (${n} أوزان)`, `Done ✓ — the font is on (${n} weights)`));
+    } catch {
+      toast(L('ما لقيت ملفات خط فيها — اختر ملف الـzip نفسه، أو ملفات woff2 / otf.', "No font files found — pick the zip itself, or woff2 / otf files."), { ms: 7000 });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      <b>{L('الخط العربي', 'Arabic font')}</b>
+      <div className="small muted">{on ? L('خطك مفعّل على هذا الجهاز.', 'Your font is on for this device.') : L('تقدر تستخدم خط ثمانية (أو أي خط عندك): اختر ملف الـzip اللي حمّلته من موقعهم، أو ملفات الخط.', 'Use thmanyah (or any font you have): pick the zip you downloaded from them, or the font files.')}</div>
+      <div className="row wrap" style={{ gap: 8 }}>
+        <label className="btn sm">
+          {busy ? L('أجهّز الخط…', 'Preparing…') : on ? L('غيّر الخط', 'Change font') : L('اختر الخط من جهازك', 'Pick the font from this device')}
+          <input type="file" hidden multiple accept=".zip,.woff2,.woff,.otf,.ttf" onChange={(e) => { pick(e.target.files); e.target.value = ''; }} />
+        </label>
+        {on && <button className="btn sm ghost" onClick={async () => { await clearOwnFont(); toast(L('رجع الخط الأساسي', 'Back to the default font')); }}>{L('رجّع الخط الأساسي', 'Default font')}</button>}
+      </div>
+      <div className="faint tiny">{L('الملفات تنحفظ في هذا المتصفح بس — ما تنرفع لأي مكان ولا تنتقل مع المزامنة أو النسخة الاحتياطية (ترخيص الخط ما يسمح بنشره). على جهازك الثاني اخترها مرة وحدة.', "The files stay in this browser only — never uploaded, synced or backed up (the font's licence doesn't allow sharing it). On your other device, pick them once there.")}</div>
+    </div>
   );
 }
