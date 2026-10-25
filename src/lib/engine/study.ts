@@ -2,7 +2,7 @@
 // measured pace, then simulates the days until each exam against your real study capacity.
 
 import type { AppState, Course, Exam, Unit } from '../types';
-import { addDays, diffDays, fmtMinutes, todayKey } from '../dates';
+import { addDays, atTime, diffDays, fmtMinutes, todayKey } from '../dates';
 import { coursePace, diffFactor, type Pace } from './learning';
 import { availableFor, studyCapFor, studyCapToday } from './capacity';
 import { L, sz } from '../i18n';
@@ -47,6 +47,12 @@ export interface ExamPlan {
   portion: Portion[];
   /** inside the review days before the exam: no new material */
   inReview: boolean;
+  /** smart mode: today is the final-review day before the exam */
+  reviewToday?: boolean;
+  /** smart mode: new material is planned to be finished by this day */
+  learnEnd?: string;
+  /** with nothing planned today: the next day this exam gets study time */
+  nextDay?: string;
   /** yesterday's quota (as recorded) and what was actually studied */
   yesterday?: { quota: number; done: number };
   unreachable: Unit[];
@@ -232,15 +238,14 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     const isCourseOwner = owner.get(`course:${p.course.id}`) === p.exam.id;
     p.doneToday = isCourseOwner ? studiedOn(state, p.course.id, today) : 0;
     p.inReview = p.studyDays === 0 && p.daysLeft > 0;
-    p.quota = p.studyDays > 0 ? round5((p.mid + p.doneToday) / p.studyDays) : 0;
-    p.todayMinutes = p.quota > 0 ? round5(Math.max(0, p.quota - p.doneToday)) : 0;
     const logged = state.quotaLog?.[yday]?.[p.exam.id];
     if (logged != null) p.yesterday = { quota: logged, done: isCourseOwner ? studiedOn(state, p.course.id, yday) : 0 };
     if (p.status === 'done') {
       p.todayMinutes = 0;
       continue;
     }
-    if (p.daysLeft === 0) {
+    // an exam today is over once it starts; a morning one (or one without a time) leaves nothing to plan
+    if (p.daysLeft === 0 && !(p.exam.time && p.exam.time >= '12:00' && now < atTime(p.exam.date, p.exam.time))) {
       p.status = 'past';
       p.todayMinutes = 0;
       continue;
@@ -257,9 +262,6 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     }
     p.startBy = acc >= p.high ? d : undefined;
 
-    // today's quota as concrete material, in course order
-    p.portion = portionOf(p.work, p.todayMinutes);
-    p.todayUnits = p.portion.map((x) => p.work.find((w) => w.unit.id === x.unit.id)!);
     // units that won't be reached at the expected pace
     if (p.shortfall > 15) {
       let reach = p.mid - p.shortfall;
@@ -287,16 +289,82 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     }
   }
 
-  // the days ahead follow the same quota model as today, so every screen shows the same numbers
-  const byDay: StudyPlan['byDay'] = {};
+  // daily shares — independent of your free time: this is what each exam needs
+  const byDay = allocate(plans, today, state.settings.studyMode !== 'even');
   for (const p of plans) {
-    if (p.quota <= 0 || p.status === 'done' || p.status === 'past' || p.status === 'unknown') continue;
-    if (p.todayMinutes > 0) (byDay[today] ||= []).push({ examId: p.exam.id, minutes: p.todayMinutes });
-    const rest = p.studyDays > 1 ? round5(Math.max(0, p.mid - p.todayMinutes) / (p.studyDays - 1)) : 0;
-    if (rest > 0) for (let d = addDays(today, 1); d <= p.lastStudyDay; d = addDays(d, 1)) (byDay[d] ||= []).push({ examId: p.exam.id, minutes: rest });
+    if (p.status === 'unknown' || p.status === 'done' || p.status === 'past' || p.studyDays <= 0) continue;
+    p.quota = round5(byDay[today]?.find((x) => x.examId === p.exam.id)?.minutes || 0);
+    p.todayMinutes = p.quota > 0 ? round5(Math.max(0, p.quota - p.doneToday)) : 0;
+    // today's quota as concrete material, in course order
+    p.portion = portionOf(p.work, p.todayMinutes);
+    p.todayUnits = p.portion.map((x) => p.work.find((w) => w.unit.id === x.unit.id)!);
   }
+  if (byDay[today]) byDay[today] = plans.filter((p) => p.todayMinutes > 0).map((p) => ({ examId: p.exam.id, minutes: p.todayMinutes }));
+  for (const p of plans)
+    if (!p.todayMinutes) p.nextDay = Object.keys(byDay).filter((d) => d > today && byDay[d].some((x) => x.examId === p.exam.id)).sort()[0];
 
   return { exams: plans, byDay };
+}
+
+/**
+ * Day-by-day study minutes per exam, from today to the last study day.
+ *  even  — what's left ÷ the days left, for every exam (the simple split).
+ *  smart — the same, plus: new material ends a day early and that last day is a final review
+ *          (for exams 3+ study days away), and on days where the exams together ask for more than
+ *          the lowest daily load that still meets every deadline, the far-away exams wait.
+ * Studying less today simply raises the following days (the split is redone from what's left).
+ */
+function allocate(plans: ExamPlan[], today: string, smart: boolean): StudyPlan['byDay'] {
+  type Job = { p: ExamPlan; main: number; learnEnd: string; review: number; last: string };
+  const jobs: Job[] = [];
+  for (const p of plans) {
+    if (p.status === 'unknown' || p.status === 'done' || p.status === 'past' || p.studyDays <= 0) continue;
+    const start = p.mid + p.doneToday; // as the day began, so the quota doesn't shrink while you study
+    let review = 0;
+    let learnEnd = p.lastStudyDay;
+    if (smart && p.studyDays >= 3) {
+      review = Math.min(start / 2, Math.max(30, Math.min(180, p.total * 0.12)));
+      learnEnd = addDays(p.lastStudyDay, -1);
+    }
+    p.learnEnd = smart ? learnEnd : undefined;
+    p.reviewToday = smart && review > 0 && p.lastStudyDay === today;
+    jobs.push({ p, main: start - review, learnEnd, review, last: p.lastStudyDay });
+  }
+  const out: StudyPlan['byDay'] = {};
+  const end = jobs.reduce((m, j) => (j.last > m ? j.last : m), today);
+  for (let d = today; d <= end; d = addDays(d, 1)) {
+    const live = jobs.filter((j) => j.learnEnd >= d && j.main > 0.5);
+    const share = new Map(live.map((j) => [j, j.main / (diffDays(d, j.learnEnd) + 1)]));
+    if (smart && live.length > 1) {
+      // the lowest daily load that still meets every deadline (earliest deadline first)
+      const byEnd = [...live].sort((a, b) => a.learnEnd.localeCompare(b.learnEnd));
+      let level = 0;
+      let acc = 0;
+      for (const j of byEnd) {
+        acc += j.main;
+        level = Math.max(level, acc / (diffDays(d, j.learnEnd) + 1));
+      }
+      let over = [...share.values()].reduce((a, x) => a + x, 0) - level;
+      // trim the furthest exams first — they have room to catch up later
+      for (const j of [...byEnd].reverse()) {
+        if (over <= 0.5) break;
+        const cut = Math.min(share.get(j)!, over);
+        share.set(j, share.get(j)! - cut);
+        over -= cut;
+      }
+    }
+    for (const j of jobs) {
+      let m = share.get(j) || 0;
+      j.main -= m;
+      // the final-review day: the review block plus anything not finished in time
+      if (d === j.last) {
+        m += j.review + Math.max(0, j.main);
+        j.main = 0;
+      }
+      if (m > 0.5) (out[d] ||= []).push({ examId: j.p.exam.id, minutes: d === today ? m : round5(m) });
+    }
+  }
+  return out;
 }
 
 export const EXAM_STATUS_LABEL: Record<ExamStatus, string> = {

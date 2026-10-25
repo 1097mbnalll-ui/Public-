@@ -306,6 +306,14 @@ function AvailabilityEditor() {
           <input type="time" className="input" value={st.dayEnd} onChange={(e) => A.updateSettings({ dayEnd: e.target.value || '23:30' })} />
         </div>
         <div className="field">
+          <label>{L("نظام حساب المذاكرة", "How daily study is worked out")}</label>
+          <select className="select" value={st.studyMode || 'smart'} onChange={(e) => A.updateSettings({ studyMode: e.target.value as 'smart' | 'even' })}>
+            <option value="smart">{L('الذكي المرن ⭐', 'Smart ⭐')}</option>
+            <option value="even">{L('التوزيع المتساوي', 'Even split')}</option>
+          </select>
+          <div className="faint tiny">{(st.studyMode || 'smart') === 'smart' ? L('يخلّص الجديد قبل الاختبار بيوم ويخلي آخر يوم مراجعة، ويوزّع ضغط الأسابيع الثقيلة على المواد البعيدة.', 'Finishes new material a day early, keeps the last day for review, and spreads heavy weeks onto far-off exams.') : L('الباقي ÷ الأيام الباقية لكل اختبار — بسيط وثابت.', 'What’s left ÷ days left for each exam — simple and steady.')}</div>
+        </div>
+        <div className="field">
           <label>{L("وقت المراجعة فوق المذاكرة", "Review time on top of study")}</label>
           <select className="select" value={st.reviewFactor} onChange={(e) => A.updateSettings({ reviewFactor: +e.target.value })}>
             {[0, 0.1, 0.2, 0.3, 0.5].map((x) => <option key={x} value={x}>{Math.round(x * 100)}%</option>)}
