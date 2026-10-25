@@ -8,7 +8,7 @@ import { pomodoro } from '../lib/engine/focus';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
-import { L } from '../lib/i18n';
+import { L, szn } from '../lib/i18n';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const mmss = (ms: number) => {
@@ -109,7 +109,14 @@ export function FocusScreen() {
     const n = pr && nextStep(pr);
     if (n) sub = L(`الخطوة التالية: ${n.title}`, `Next step: ${n.title}`);
   } else if (t.unitId) {
-    sub = s.units.find((u) => u.id === t.unitId)?.title || '';
+    // the lesson, and how much of it is left — the goal of the session
+    const u = s.units.find((x) => x.id === t.unitId);
+    const c = u && s.courses.find((x) => x.id === u.courseId);
+    if (u) {
+      const left = Math.round(u.size * (1 - Math.min(1, u.progress)) * 10) / 10;
+      const title = t.label.endsWith(u.title) ? '' : `${u.title} · `;
+      sub = left > 0 ? L(`${title}باقي ${szn(left, c?.sizeLabel)}`, `${title}${szn(left, c?.sizeLabel)} left`) : L(`${title}مراجعة`, `${title}review`);
+    }
   }
 
   const sessionThoughts = s.thoughts.filter((x) => x.at >= t.startedAt - t.acc);

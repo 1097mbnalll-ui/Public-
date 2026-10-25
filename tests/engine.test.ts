@@ -194,7 +194,7 @@ describe('daily study quota', () => {
     const ep = planStudy(s, NOW).exams[0];
     expect(Math.abs(ep.quota - before)).toBeLessThanOrEqual(5);
     expect(ep.doneToday).toBe(30);
-    expect(ep.todayMinutes).toBe(Math.max(0, ep.quota - 30));
+    expect(ep.todayMinutes).toBe(ep.quota - 30 >= 10 ? ep.quota - 30 : 0);
   });
 
   it('grows the next day when yesterday’s quota was not studied', () => {

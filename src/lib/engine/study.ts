@@ -11,7 +11,7 @@ import type { AppState, Course, Exam, Unit } from '../types';
 import { addDays, atTime, diffDays, fmtMinutes, todayKey } from '../dates';
 import { coursePace, diffFactor, type Pace } from './learning';
 import { availableFor, dayRecord, minutesLeftToday, studyCapFor } from './capacity';
-import { L, sz } from '../i18n';
+import { L, szn } from '../i18n';
 
 export type ExamStatus = 'unknown' | 'done' | 'ok' | 'tight' | 'behind' | 'past';
 
@@ -330,7 +330,8 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
 
     p.quota = round5(p.alloc[today] || 0);
     const left = p.quota - p.doneToday;
-    p.todayMinutes = left >= 5 ? round5(left) : 0;
+    // under 10 minutes isn't a session worth starting: the share counts as done
+    p.todayMinutes = left >= 10 ? round5(left) : 0;
     p.inReview = today > j.learnEnd && p.learnLeft <= 5;
     p.reviewCompressed = today > j.learnEnd && p.learnLeft > 5 && (p.exam.reviewDays || 0) > 0;
     const learnDays = Object.entries(p.alloc).filter(([d, m]) => d <= p.lastStudyDay && m > 0);
@@ -396,5 +397,5 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
 export function portionText(x: Portion, sizeLabel: string): string {
   if (x.review) return L(`${x.unit.title} (مراجعة)`, `${x.unit.title} (review)`);
   if (x.whole) return x.unit.progress > 0 ? L(`${x.unit.title} (الباقي)`, `${x.unit.title} (the rest)`) : L(`${x.unit.title} (كامل)`, `${x.unit.title} (whole)`);
-  return `${x.unit.title}: ${x.amount} ${sz(sizeLabel)}`;
+  return `${x.unit.title} (${szn(x.amount, sizeLabel)})`;
 }

@@ -668,7 +668,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         <WrapUp plan={plan} now={now} />
         {hero}
-        <StudyToday plan={study} />
+        <StudyToday plan={study} compact />
         {lateList}
         {timelineTile}
       </>
@@ -692,7 +692,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     main = (
       <>
         {hero}
-        <StudyToday plan={study} />
+        <StudyToday plan={study} compact />
         {lateList}
         <DaySummary plan={plan} phase={phase} />
         {timelineTile}
