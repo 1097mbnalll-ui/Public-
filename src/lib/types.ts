@@ -185,8 +185,10 @@ export interface StudySession {
   unitId?: string;
   date: string;
   minutes: number;
-  /** material covered in this session, in the course's size units */
+  /** new material covered in this session, in the course's size units (0 for review) */
   amount: number;
+  /** went over a lesson that was already studied */
+  review?: boolean;
   at: number;
 }
 

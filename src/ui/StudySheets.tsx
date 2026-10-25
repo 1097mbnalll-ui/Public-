@@ -92,16 +92,20 @@ export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: 
             <div style={{ width: 110 }}><NumInput value={mins} onChange={setMins} suffix={L("د", "min")} /></div>
           </div>
         </div>
-        <div className="field">
-          <label>{L("كم أنجزت؟ (", "How much did you cover? (")}{sz(course?.sizeLabel)})</label>
-          <div className="row wrap" style={{ gap: 6 }}>
-            {unit && left > 0 && (
-              <button className={`chip btnish ${amount === left ? 'on' : ''}`} onClick={() => setAmount(left)}>{L("أنهيت الدرس (", "Finished the lesson (")}{left})</button>
-            )}
-            <div style={{ width: 130 }}><NumInput value={amount} onChange={setAmount} placeholder={L("مثال: 12", "e.g. 12")} /></div>
+        {unit && left <= 0 ? (
+          <div className="faint small">{L("هذا الدرس منتهي — الجلسة تنحسب مراجعة له، وتنشال مراجعته من خطتك.", "This lesson is finished — the session counts as its review and comes off your plan.")}</div>
+        ) : (
+          <div className="field">
+            <label>{L("كم أنجزت؟ (", "How much did you cover? (")}{sz(course?.sizeLabel)})</label>
+            <div className="row wrap" style={{ gap: 6 }}>
+              {unit && left > 0 && (
+                <button className={`chip btnish ${amount === left ? 'on' : ''}`} onClick={() => setAmount(left)}>{L("أنهيت الدرس (", "Finished the lesson (")}{left})</button>
+              )}
+              <div style={{ width: 130 }}><NumInput value={amount} onChange={setAmount} placeholder={L("مثال: 12", "e.g. 12")} /></div>
+            </div>
+            <div className="faint tiny">{unit ? L("هذا الرقم هو ما يجعل تقدير وقت المذاكرة مبنيًا على سرعتك الحقيقية.", "This number is what makes study estimates match your real speed.") : L("بدون درس محدد: تنحسب الدقائق، ولا تأثر على سرعتك. في أيام المراجعة تنخصم من المراجعة.", "Without a lesson the minutes count, but not towards your speed. During review days they come off the review.")}</div>
           </div>
-          <div className="faint tiny">{L("هذا الرقم هو ما يجعل تقدير وقت المذاكرة مبنيًا على سرعتك الحقيقية. اتركه فارغًا إن كانت الجلسة مراجعة.", "This number is what makes study estimates match your real speed. Leave it empty if the session was review.")}</div>
-        </div>
+        )}
       </div>
     </Sheet>
   );
@@ -117,9 +121,9 @@ export function examSentence(ep: ExamPlan): { text: string; tone: 'green' | 'amb
     case 'past':
       return { text: L('الاختبار اليوم — بالتوفيق', "The exam is today — good luck"), tone: 'blue' };
     case 'ok':
-      return { text: L(`على المسار — ~${fmtMinutes(ep.quota || ep.requiredDaily)} يوميًا تكفي، وتنهي ${fmtDate(ep.finishDay || ep.lastStudyDay, false)}`, `On track — ~${fmtMinutes(ep.quota || ep.requiredDaily)} a day is enough, finishing ${fmtDate(ep.finishDay || ep.lastStudyDay, false)}`), tone: 'green' };
+      return { text: L(`على المسار — ~${fmtMinutes(ep.requiredDaily || ep.quota)} يوميًا تكفي، وتنهي ${fmtDate(ep.finishDay || ep.lastStudyDay, false)}`, `On track — ~${fmtMinutes(ep.requiredDaily || ep.quota)} a day is enough, finishing ${fmtDate(ep.finishDay || ep.lastStudyDay, false)}`), tone: 'green' };
     case 'tight':
-      return { text: L(`ممكن لكن بلا هامش — التزم بـ ~${fmtMinutes(ep.quota || ep.requiredDaily)} يوميًا`, `Possible but no margin — keep to ~${fmtMinutes(ep.quota || ep.requiredDaily)} a day`), tone: 'amber' };
+      return { text: L(`ممكن لكن بلا هامش — التزم بـ ~${fmtMinutes(ep.requiredDaily || ep.quota)} يوميًا`, `Possible but no margin — keep to ~${fmtMinutes(ep.requiredDaily || ep.quota)} a day`), tone: 'amber' };
     case 'behind':
       return { text: L(`الوقت لا يكفي بوتيرتك الحالية — ينقصك ~${fmtMinutes(ep.shortfall)}`, `Not enough time at your current pace — ~${fmtMinutes(ep.shortfall)} short`), tone: 'red' };
   }
@@ -164,7 +168,10 @@ export function ExamPlanView({ ep }: { ep: ExamPlan }) {
       {ep.todayUnits.length > 0 && (
         <div className="small"><span className="muted">{L("ابدأ اليوم بـ: ", "Start today with: ")}</span>{ep.todayUnits.map((w) => w.unit.title).join(L('، ', ", "))}</div>
       )}
-      {ep.reviewCompressed && <div className="notice amber">{L("لم يعد هناك وقت لأيام المراجعة؛ الخطة تستخدم كل الأيام المتبقية للمذاكرة.", "No time left for the review days; the plan uses every remaining day for study.")}</div>}
+      {active && ep.mid > 0 && (
+        <div className="faint tiny">{L(`الباقي: دروس ~${fmtMinutes(ep.learnLeft)} · مراجعة ~${fmtMinutes(ep.reviewLeft)}`, `Left: lessons ~${fmtMinutes(ep.learnLeft)} · review ~${fmtMinutes(ep.reviewLeft)}`)}{ep.finishDay && ep.learnLeft > 0 ? L(` · تخلص الدروس ${fmtDate(ep.finishDay, false)}`, ` · lessons done ${fmtDate(ep.finishDay, false)}`) : ''}</div>
+      )}
+      {ep.reviewCompressed && <div className="notice amber">{L("الدروس ما خلصت قبل أيام المراجعة — الخطة تكمّلها فيها، وبعدها تراجع.", "The lessons weren't done before the review days — the plan finishes them there, then reviews.")}</div>}
       {ep.suggestions.length > 0 && ep.status !== 'unknown' && (
         <div className={`notice ${ep.status === 'behind' ? 'red' : 'amber'}`}>
           <Icon name={ep.status === 'behind' ? 'alert' : 'info'} size={18} />
@@ -496,7 +503,7 @@ export function quotaMessage(examId: string): string | null {
   const ep = planStudy(getState()).exams.find((e) => e.exam.id === examId);
   if (!ep) return null;
   if (ep.status === 'unknown') return L('حُفظ الاختبار — حدد دروسه لأحسب حصتك اليومية', "Exam saved — set its lessons so I can work out your daily quota");
-  if (ep.inReview) return L('حُفظ الاختبار — أنت في أيام المراجعة', "Exam saved — you're in the review days");
+  if (ep.inReview) return L(`حُفظ الاختبار — أنت في أيام المراجعة، حصتك اليوم ~${fmtMinutes(ep.quota)}`, `Exam saved — you're in the review days, ~${fmtMinutes(ep.quota)} today`);
   if (ep.quota <= 0) return null;
-  return L(`حصتك من ${ep.course.name}: ~${fmtMinutes(ep.quota)} يوميًا حتى ${fmtDate(ep.lastStudyDay, false)}${ep.status === 'behind' ? ' — الوقت ضيق جدًا' : ''}`, `Your ${ep.course.name} quota: ~${fmtMinutes(ep.quota)} a day until ${fmtDate(ep.lastStudyDay, false)}${ep.status === 'behind' ? ' — time is very tight' : ''}`);
+  return L(`حصتك من ${ep.course.name} اليوم: ~${fmtMinutes(ep.quota)} (معدلها ~${fmtMinutes(ep.requiredDaily)} يوميًا حتى ${fmtDate(ep.lastStudyDay, false)})${ep.status === 'behind' ? ' — الوقت ضيق جدًا' : ''}`, `Your ${ep.course.name} quota today: ~${fmtMinutes(ep.quota)} (about ${fmtMinutes(ep.requiredDaily)} a day until ${fmtDate(ep.lastStudyDay, false)})${ep.status === 'behind' ? ' — time is very tight' : ''}`);
 }

@@ -163,9 +163,9 @@ function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: st
 
 /** study required today, exam by exam, with the actual lessons */
 function StudyTile({ study }: { study: StudyPlan }) {
-  const rows = study.exams.filter((ep) => ep.status === 'unknown' || ep.inReview || ep.quota > 0);
+  const rows = study.exams.filter((ep) => ep.status === 'unknown' || ep.quota > 0);
   if (!rows.length) return null;
-  const left = rows.reduce((a, ep) => a + (ep.inReview ? 0 : ep.todayMinutes), 0);
+  const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
   return (
     <div className="tile">
       <div className="k2 row between">
@@ -181,18 +181,11 @@ function StudyTile({ study }: { study: StudyPlan }) {
                 <span className="grow">{ep.course.name}: <span style={{ color: 'var(--violet)' }}>{L('حدد الدروس المطلوبة لأحسب حصتك', 'Set the required lessons so I can work out your quota')}</span></span>
               </button>
             );
-          if (ep.inReview)
-            return (
-              <div key={ep.exam.id}>
-                <div className="row" style={{ gap: 8 }}><span className="dot" style={{ background: ep.course.color }} /><b>{ep.course.name}</b></div>
-                <div className="faint small">{L('أيام المراجعة: لا مادة جديدة — راجع ملخصاتك وحل أسئلة سابقة.', 'Review days: no new material — go over your summaries and past questions.')}</div>
-              </div>
-            );
           const doneAll = ep.todayMinutes <= 0;
           return (
             <div key={ep.exam.id}>
               <div className="row between">
-                <span className="row" style={{ gap: 8, minWidth: 0 }}><span className="dot" style={{ background: ep.course.color }} /><b className="ellipsis">{ep.course.name}</b></span>
+                <span className="row" style={{ gap: 8, minWidth: 0 }}><span className="dot" style={{ background: ep.course.color }} /><b className="ellipsis">{ep.course.name}</b>{ep.inReview && <span className="faint tiny">{L('مراجعة', 'Review')}</span>}</span>
                 <span className="row" style={{ gap: 6 }}>
                   <span className="num" style={{ fontWeight: 700, color: doneAll ? 'var(--green)' : undefined }}>{doneAll ? '✓' : fmtMinutes(ep.todayMinutes)}</span>
                   {!doneAll && (
@@ -204,7 +197,7 @@ function StudyTile({ study }: { study: StudyPlan }) {
               </div>
               <div style={{ margin: '6px 0' }}><Bar value={ep.quota ? ep.doneToday / ep.quota : 0} color={ep.course.color} /></div>
               {!doneAll && ep.portion.length > 0 && <div className="faint tiny" style={{ lineHeight: 1.7 }}>{ep.portion.map((x) => portionText(x, ep.course.sizeLabel)).join(L('، ', ', '))}</div>}
-              {ep.status === 'behind' || ep.status === 'tight' ? <div className="tiny" style={{ marginTop: 4, color: ep.status === 'behind' ? 'var(--red)' : 'var(--amber)' }}>{L('الحصة أكبر لأن الوقت ضيق — ', 'The quota is bigger because time is tight — ')}<button className="linkish" onClick={() => go('study')}>{L('افتح الخطة', 'open the plan')}</button></div> : null}
+              {ep.status === 'behind' || ep.status === 'tight' ? <div className="tiny" style={{ marginTop: 4, color: ep.status === 'behind' ? 'var(--red)' : 'var(--amber)' }}>{ep.status === 'behind' ? L(`وقتك ما يكفي — ينقصك ~${fmtMinutes(ep.shortfall)} — `, `Not enough time — ~${fmtMinutes(ep.shortfall)} short — `) : L('بلا هامش — لا تفوّت حصة — ', 'No margin — don’t skip a session — ')}<button className="linkish" onClick={() => go('study')}>{L('افتح الخطة', 'open the plan')}</button></div> : null}
             </div>
           );
         })}

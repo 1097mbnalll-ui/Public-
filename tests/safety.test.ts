@@ -48,12 +48,27 @@ describe('course pack from an untrusted link', () => {
   });
 });
 
-import { addTask, completeTask, reopenTask } from '../src/lib/actions';
+import { addTask, addUnits, completeTask, logStudy, reopenTask } from '../src/lib/actions';
 import { getState } from '../src/lib/store';
 import { minutesLeftToday } from '../src/lib/engine/capacity';
 import { parseExpense } from '../src/lib/engine/money';
 import { atTime, todayKey } from '../src/lib/dates';
 import { initialState } from '../src/lib/defaults';
+
+describe('logging study', () => {
+  it('counts only the new material a lesson had left, and a session on a finished lesson as its review', () => {
+    const [id] = addUnits('cx', [{ title: 'L1', size: 10 }]);
+    logStudy('cx', id, 30, 40); // "40 pages" on a 10-page lesson
+    let u = getState().units.find((x) => x.id === id)!;
+    expect(u.progress).toBe(1);
+    expect(getState().sessions.at(-1)!.amount).toBe(10);
+    logStudy('cx', id, 15, 10);
+    u = getState().units.find((x) => x.id === id)!;
+    expect(u.reviewed).toBe(true);
+    expect(getState().sessions.at(-1)!.review).toBe(true);
+    expect(getState().sessions.at(-1)!.amount).toBe(0);
+  });
+});
 
 describe('recurring tasks', () => {
   it('complete → reopen → complete leaves exactly one next occurrence', () => {
