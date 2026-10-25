@@ -310,7 +310,17 @@ export interface ClassBlock {
 
 // ---------------- Money ----------------
 
-export type ExpenseCat = 'food' | 'coffee' | 'delivery' | 'transport' | 'shopping' | 'subs' | 'bills' | 'fun' | 'study' | 'health' | 'other';
+export type BuiltinCat = 'food' | 'coffee' | 'delivery' | 'transport' | 'shopping' | 'subs' | 'bills' | 'fun' | 'study' | 'health' | 'other';
+/** a built-in category, or the id of one you made */
+export type ExpenseCat = BuiltinCat | (string & {});
+
+/** a category you made, with your own emoji */
+export interface CustomCat {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+}
 /** «يستحق؟» — the user's own verdict on a purchase */
 export type Worth = 'yes' | 'meh' | 'no';
 
@@ -354,6 +364,8 @@ export interface MoneyState {
   payday?: number;
   /** monthly limit per category */
   limits?: Partial<Record<ExpenseCat, number>>;
+  /** your own categories */
+  cats?: CustomCat[];
 }
 
 export interface AppState {

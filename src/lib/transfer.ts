@@ -171,6 +171,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     ...theirs.money,
     ...mine.money,
     swaps: { ...theirs.money?.swaps, ...mine.money?.swaps },
+    cats: unionById(mine.money?.cats || [], theirs.money?.cats || []),
     smsSeen: [...new Set([...(theirs.money?.smsSeen || []), ...(mine.money?.smsSeen || [])])].slice(-3000),
     ...(mine.money?.goal || theirs.money?.goal ? { goal: mine.money?.goal && theirs.money?.goal ? { ...mine.money.goal, saved: Math.max(mine.money.goal.saved, theirs.money.goal.saved) } : mine.money?.goal || theirs.money?.goal } : {}),
   };

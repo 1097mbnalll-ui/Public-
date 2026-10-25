@@ -3002,6 +3002,13 @@ html[lang='ar'] * {
 .m-link { color: var(--accent); font-weight: 700; font-size: 13px; text-align: center; padding: 4px; }
 .m-sms { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .m-sms .grow b { display: block; font-size: 14px; }
+.m-sms.old { opacity: .55; }
+.m-newcat { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: var(--hover); }
+.m-emoji-in { width: 52px; flex: none; text-align: center; font-size: 22px; padding: 6px; }
+.m-emojis { display: flex; flex-wrap: wrap; gap: 6px; }
+.m-emojis button { width: 38px; height: 38px; border-radius: 12px; font-size: 19px; background: var(--card, #fff); border: 2px solid transparent; }
+.m-emojis button.on { border-color: var(--accent); }
+.m-newcat .chip .x { margin-inline-start: 4px; font-weight: 800; opacity: .6; background: none; border: 0; color: inherit; cursor: pointer; }
 .m-sms .grow span { display: block; }
 
 /* save view */

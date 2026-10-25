@@ -6,7 +6,7 @@ import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, addMonths, fmtDate, todayKey } from '../lib/dates';
-import { CAT_ORDER, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, suggestBudget } from '../lib/engine/money';
+import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, suggestBudget } from '../lib/engine/money';
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
 import { L } from '../lib/i18n';
@@ -43,6 +43,7 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
   const [title, setTitle] = useState(existing?.title ?? parsed?.title ?? '');
   const [cat, setCat] = useState<ExpenseCat>(existing?.cat ?? parsed?.cat ?? 'other');
   const [catPicked, setCatPicked] = useState(!!existing);
+  const [newCat, setNewCat] = useState(false);
   const [day, setDay] = useState(existing?.day ?? parsed?.day ?? today);
   const [worth, setWorth] = useState<Worth | undefined>(existing?.worth);
 
@@ -112,13 +113,18 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
           <input type="date" className="input m-date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value)} />
         </div>
         <div className="m-cats">
-          {CAT_ORDER.map((c) => (
+          {allCats().map((c) => (
             <button key={c} className={cat === c ? 'on' : ''} onClick={() => { setCat(c); setCatPicked(true); }}>
               <i>{catInfo(c).emoji}</i>
               {catInfo(c).label}
             </button>
           ))}
+          <button className={newCat ? 'on' : ''} onClick={() => setNewCat(!newCat)}>
+            <i>＋</i>
+            {L('تصنيفك', 'Your own')}
+          </button>
         </div>
+        {newCat && <NewCat onDone={(id) => { setNewCat(false); if (id) { setCat(id); setCatPicked(true); } }} />}
         <div className="field">
           <label>{L('يستحق؟', 'Worth it?')} <span className="faint tiny">{L('(اختياري)', '(optional)')}</span></label>
           <div className="m-worth">
@@ -138,6 +144,44 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
   );
 }
 
+const EMOJIS = ['🎁', '🐱', '👶', '🏠', '🚗', '💇', '🏋️', '✈️', '🕌', '💍', '🧸', '🍰', '🎓', '💻', '📱', '🌸', '🧴', '🎉', '🤝', '💰'];
+
+/** make a category: pick an emoji (or type any), give it a name — and manage the ones you made */
+function NewCat({ onDone }: { onDone: (id?: string) => void }) {
+  const s = useApp();
+  const [name, setName] = useState('');
+  const [emoji, setEmoji] = useState('🎁');
+  const mine = s.money.cats || [];
+  const save = () => {
+    if (!name.trim()) return toast(L('اكتب اسم التصنيف', 'Name the category'));
+    if ([...CAT_ORDER, ...mine.map((c) => c.id)].some((c) => catInfo(c).label.trim() === name.trim())) return toast(L('هذا التصنيف موجود', 'That category exists'));
+    onDone(A.addCat(name, emoji, CAT_COLORS[mine.length % CAT_COLORS.length]));
+  };
+  return (
+    <div className="m-newcat">
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input m-emoji-in" value={emoji} onChange={(e) => setEmoji([...e.target.value.trim()].slice(-2).join(''))} aria-label={L('الإيموجي', 'Emoji')} />
+        <input className="input grow" value={name} onChange={(e) => setName(e.target.value)} placeholder={L('اسم التصنيف (هدايا، قطتي…)', 'Name (gifts, my cat…)')} autoFocus onKeyDown={(e) => e.key === 'Enter' && save()} />
+        <button className="btn primary sm" onClick={save}>{L('أضف', 'Add')}</button>
+      </div>
+      <div className="m-emojis">
+        {EMOJIS.map((x) => <button key={x} className={emoji === x ? 'on' : ''} onClick={() => setEmoji(x)}>{x}</button>)}
+      </div>
+      <div className="faint tiny">{L('تبي إيموجي ثاني؟ اضغط على المربع الأول واكتبه من كيبورد الإيموجي.', 'Want another? Tap the first box and type it from the emoji keyboard.')}</div>
+      {mine.length > 0 && (
+        <div className="row wrap" style={{ gap: 6 }}>
+          {mine.map((c) => (
+            <span key={c.id} className="chip">
+              {c.emoji} {c.name}
+              <button className="x" aria-label={L('احذف', 'Delete')} onClick={() => { A.deleteCat(c.id); toast(L(`انحذف «${c.name}» — مصاريفه صارت «أخرى»`, `Deleted “${c.name}” — its expenses are now “Other”`), { undoable: true }); }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** bank SMS → pick which purchases to add. Text can be pasted, or read from the file the
  *  Shortcuts automation keeps appending to; messages imported before are skipped. */
 export function SmsSheet() {
@@ -146,12 +190,16 @@ export function SmsSheet() {
   const [fromFile, setFromFile] = useState(false);
   const seen = useMemo(() => new Set(s.money.smsSeen || []), [s.money.smsSeen]);
   const all = useMemo(() => parseBankSms(text), [text]);
-  const found = all.filter((f) => !seen.has(f.key));
-  const old = all.length - found.length;
-  // the same amount on the same day is probably already logged
-  const dup = (f: (typeof found)[number]) => s.expenses.some((e) => e.day === f.day && Math.abs(e.amount - f.amount) < 0.01);
+  type Found = (typeof all)[number];
+  // already in: imported from this message before, or the same amount logged that day (or the day
+  // either side, when the bank's date and yours differ around midnight)
+  const near = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) <= 86_400_000;
+  const added = (f: Found) => seen.has(f.key) || s.expenses.some((e) => Math.abs(e.amount - f.amount) < 0.01 && (e.day === f.day || (near(e.day, f.day) && (e.source === 'sms' || e.title.trim() === f.title.trim()))));
+  // new ones first, then what's already in — shown, but not ticked
+  const found = [...all.filter((f) => !added(f)), ...all.filter(added)];
+  const fresh = found.filter((f) => !added(f)).length;
   const [skip, setSkip] = useState<Record<string, boolean>>({});
-  const isOn = (f: (typeof found)[number]) => (skip[f.key] === undefined ? !dup(f) : !skip[f.key]);
+  const isOn = (f: Found) => (skip[f.key] === undefined ? !added(f) : !skip[f.key]);
   const chosen = found.filter(isOn);
 
   const readFile = async (file?: File) => {
@@ -189,15 +237,20 @@ export function SmsSheet() {
           </>
         )}
         {text.trim() && !all.length && <div className="notice amber">{L('ما لقيت عمليات شراء فيها مبلغ.', "Couldn't find purchases with an amount.")}</div>}
-        {old > 0 && <div className="faint small">{L(`${old} رسائل استوردتها قبل — تجاهلتها.`, `${old} messages were imported before — skipped.`)}</div>}
-        {all.length > 0 && !found.length && <div className="notice">{L('ما فيه رسائل جديدة ✓', 'No new messages ✓')}</div>}
+        {all.length > 0 && (
+          <div className={fresh ? 'faint small' : 'notice'}>
+            {fresh
+              ? L(`${fresh} جديدة عليها ✓${all.length > fresh ? ` · ${all.length - fresh} مضافة قبل بدون ✓` : ''}`, `${fresh} new, ticked${all.length > fresh ? ` · ${all.length - fresh} already added, unticked` : ''}`)
+              : L('كلها مضافة قبل ✓ — ما فيه جديد', 'All already added ✓ — nothing new')}
+          </div>
+        )}
         {found.map((f) => (
-          <label key={f.key} className="m-sms">
+          <label key={f.key} className={`m-sms ${added(f) ? 'old' : ''}`}>
             <input type="checkbox" checked={isOn(f)} onChange={() => setSkip({ ...skip, [f.key]: isOn(f) })} />
             <span className="em">{catInfo(f.cat).emoji}</span>
             <span className="grow">
               <b>{f.title}</b>
-              <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${f.time}` : ''}{dup(f) ? L(' · يمكن مسجّل', ' · maybe logged') : ''}</span>
+              <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${f.time}` : ''}{added(f) ? L(' · مضافة ✓', ' · already added ✓') : ''}</span>
             </span>
             <b className="money">{fmtMoney(f.amount)}</b>
           </label>
@@ -233,7 +286,7 @@ export function MoneySettingsSheet() {
   // the categories you actually spend on come first
   const spent = new Map<ExpenseCat, number>();
   for (const e of s.expenses) spent.set(e.cat, (spent.get(e.cat) || 0) + e.amount);
-  const cats = [...CAT_ORDER].filter((c) => c !== 'other').sort((x, y) => (spent.get(y) || 0) - (spent.get(x) || 0));
+  const cats = allCats().filter((c) => c !== 'other').sort((x, y) => (spent.get(y) || 0) - (spent.get(x) || 0));
   return (
     <Sheet
       title={L('الميزانية والهدف', 'Budget & goal')}

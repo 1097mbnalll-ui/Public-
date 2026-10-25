@@ -648,7 +648,7 @@ export function readCoursePack(raw: any): CoursePack {
     .slice(0, 1000)
     .map((e: any) => {
       const title = typeof e.title === 'string' ? e.title.trim().slice(0, 100) : '';
-      return { title, amount: Math.round(Number(e.amount) * 100) / 100, day: day.test(e.date || e.day) ? e.date || e.day : todayKey(), cat: CAT_ORDER.includes(e.cat) ? e.cat : guessCat(title) };
+      return { title, amount: Math.round(Number(e.amount) * 100) / 100, day: day.test(e.date || e.day) ? e.date || e.day : todayKey(), cat: (CAT_ORDER as string[]).includes(e.cat) ? e.cat : guessCat(title) };
     });
   const schedule = readSchedule(raw?.schedule || []);
   const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
@@ -782,6 +782,24 @@ export function updateMoney(patch: Partial<MoneyState>) {
   mutate((s) => {
     Object.assign(s.money, patch);
   });
+}
+
+/** a category of your own (name + emoji); returns its id */
+export function addCat(name: string, emoji: string, color: string): string {
+  const id = 'cat_' + uid();
+  mutate((s) => {
+    s.money.cats = [...(s.money.cats || []), { id, name: name.trim().slice(0, 24), emoji: emoji.trim() || '🏷️', color }];
+  });
+  return id;
+}
+
+/** remove your category — its expenses move to «أخرى» */
+export function deleteCat(id: string) {
+  mutate((s) => {
+    s.money.cats = (s.money.cats || []).filter((c) => c.id !== id);
+    for (const e of s.expenses) if (e.cat === id) e.cat = 'other';
+    if (s.money.limits) delete s.money.limits[id];
+  }, L('حذف تصنيف', 'Delete category'));
 }
 
 export function setGoal(goal: MoneyState['goal']) {

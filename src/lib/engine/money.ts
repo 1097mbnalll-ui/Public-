@@ -1,13 +1,14 @@
 // «مصاريفي»: daily allowance from the monthly budget, «يستحق؟» verdicts, cheaper / free swaps
 // worked out from what was actually spent, and the report. Everything is computed locally.
-import type { AppState, Expense, ExpenseCat, Subscription } from '../types';
+import type { AppState, BuiltinCat, CustomCat, Expense, ExpenseCat, Subscription } from '../types';
+import { getState } from '../store';
 import { addDays, addMonths, diffDays, parseKey, todayKey } from '../dates';
 import { L, lang } from '../i18n';
 import { toWestern } from '../text';
 
-export const CAT_ORDER: ExpenseCat[] = ['coffee', 'food', 'delivery', 'transport', 'shopping', 'subs', 'bills', 'study', 'fun', 'health', 'other'];
+export const CAT_ORDER: BuiltinCat[] = ['coffee', 'food', 'delivery', 'transport', 'shopping', 'subs', 'bills', 'study', 'fun', 'health', 'other'];
 
-const CAT_META: Record<ExpenseCat, { emoji: string; ar: string; en: string; color: string; bg: string }> = {
+const CAT_META: Record<BuiltinCat, { emoji: string; ar: string; en: string; color: string; bg: string }> = {
   coffee: { emoji: '☕', ar: 'قهوة', en: 'Coffee', color: '#F7B84B', bg: '#FFF0E0' },
   food: { emoji: '🍔', ar: 'أكل', en: 'Food', color: '#FF8FA8', bg: '#FFE7EC' },
   delivery: { emoji: '🛵', ar: 'توصيل', en: 'Delivery', color: '#B36BF0', bg: '#F2E8FF' },
@@ -21,10 +22,19 @@ const CAT_META: Record<ExpenseCat, { emoji: string; ar: string; en: string; colo
   other: { emoji: '🧾', ar: 'أخرى', en: 'Other', color: '#A9A3C6', bg: '#F1EFF8' },
 };
 
+const customCats = (): CustomCat[] => getState().money?.cats || [];
+
 export const catInfo = (c: ExpenseCat) => {
-  const m = CAT_META[c] || CAT_META.other;
+  const own = customCats().find((x) => x.id === c);
+  if (own) return { emoji: own.emoji, ar: own.name, en: own.name, color: own.color, bg: `${own.color}22`, label: own.name };
+  const m = CAT_META[c as BuiltinCat] || CAT_META.other;
   return { ...m, label: lang() === 'en' ? m.en : m.ar };
 };
+
+/** the built-in categories, then yours */
+export const allCats = (): ExpenseCat[] => [...CAT_ORDER.filter((c) => c !== 'other'), ...customCats().map((x) => x.id), 'other'];
+
+export const CAT_COLORS = ['#F06BB5', '#5B9BFF', '#7ED9A6', '#F7B84B', '#B36BF0', '#F08A5D', '#2FA9D6', '#E8B04A'];
 
 export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('en-US')} ${L('ر.س', 'SAR')}`;
 export const fmtNum = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -44,6 +54,9 @@ const KEYWORDS: [ExpenseCat, RegExp][] = [
 ];
 
 export function guessCat(text: string): ExpenseCat {
+  // your own categories first: «هدايا» typed in the title means your «🎁 هدايا»
+  const t = text.trim().toLowerCase();
+  if (t) for (const x of customCats()) if (x.name.trim() && t.includes(x.name.trim().toLowerCase())) return x.id;
   for (const [c, re] of KEYWORDS) if (re.test(text)) return c;
   return 'other';
 }
