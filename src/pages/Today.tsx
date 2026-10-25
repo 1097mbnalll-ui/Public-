@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Bar, Check, Collapse, Empty, Ring, Seg, useNow } from '../ui/kit';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Bar, Check, Collapse, Empty, Seg, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { useApp, useSaveStatus } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, daysWord, fmtClock, fmtDate, fmtMinutes, fmtTime, relDay, timeAgo, todayKey } from '../lib/dates';
+import { addDays, atTime, daysWord, fmtClock, fmtDate, fmtMinutes, fmtTime, relDay, timeAgo, todayKey } from '../lib/dates';
 import { planDay, suggestDeferrals, weekLoad, type DayPlan, type PlanItem } from '../lib/engine/planner';
 import { planStudy, portionText, type StudyPlan } from '../lib/engine/study';
 import { buildInsights, type Insight } from '../lib/engine/insights';
@@ -16,10 +16,12 @@ import { openRef } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
-import { isNight, workStart } from '../lib/engine/capacity';
+import { dayPhase, isNight, workStart, type DayPhase } from '../lib/engine/capacity';
 import { advance, blockLabel, blocksOn, nowBlock, skipBusy } from '../lib/engine/schedule';
 import { InstallCard } from '../ui/InstallCard';
 import { MoneyTile } from './Money';
+import { fmtNum, moneyToday } from '../lib/engine/money';
+import type { AppState } from '../lib/types';
 
 function greeting(h: number) {
   if (h < 5) return L('ليلة هادئة', "Quiet night");
@@ -94,7 +96,19 @@ function usePlanActions(study: StudyPlan) {
   };
 }
 
-function metaLine(it: PlanItem) {
+/** open items whose time has passed: due on an earlier day, or today at a time already gone */
+function lateLabels(s: AppState, now: number): Map<string, string> {
+  const today = todayKey(now);
+  const out = new Map<string, string>();
+  const label = (due: string, time?: string) =>
+    due < today ? L(`فات موعدها ${relDay(due, today)}`, `Was due ${relDay(due, today).toLowerCase()}`) : time && atTime(today, time) < now ? L(`فات موعدها ${fmtClock(time)}`, `Was due ${fmtClock(time)}`) : '';
+  for (const t of s.tasks) if (t.status === 'open' && t.due) { const l = label(t.due, t.dueTime); if (l) out.set(t.id, l); }
+  for (const p of s.procedures) if (!p.archived && !p.completedAt && p.due) { const l = label(p.due); if (l) out.set(p.id, l); }
+  return out;
+}
+
+function metaLine(it: PlanItem, late?: string) {
+  if (late) return [late, `${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}`, ...(it.sub ? [it.sub] : [])].join(' · ');
   const parts: string[] = [];
   if (it.dueTime) parts.push(fmtClock(it.dueTime));
   parts.push(`${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}`);
@@ -106,7 +120,7 @@ function metaLine(it: PlanItem) {
   return parts.join(' · ');
 }
 
-function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
+function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: string }) {
   const s = useApp();
   const act = usePlanActions(study);
   const running = s.timer?.refId === it.id;
@@ -114,7 +128,9 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
     <div className="tile hero-t">
       <div className="row between" style={{ alignItems: 'flex-start' }}>
         <span className="k">{running ? L('تعمل عليه الآن', "Working on it now") : isNight(Date.now()) ? L('أول شيء الصبح', 'First thing in the morning') : L('ابدأ بهذا', "Start with this")}</span>
-        {it.level === 'urgent' ? (
+        {late ? (
+          <span className="chip"><Icon name="alert" size={12} />{L(' متأخرة', ' Late')}</span>
+        ) : it.level === 'urgent' ? (
           <span className="chip"><Icon name="alert" size={12} />{L(" عاجلة", " Urgent")}</span>
         ) : it.level === 'important' ? (
           <span className="chip">{L("مهمة", "Important")}</span>
@@ -126,7 +142,7 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
         {it.courseColor && <span className="dot" style={{ background: '#fff', marginInlineEnd: 8, verticalAlign: 'middle' }} />}
         {it.title}
       </div>
-      <div className="m">{metaLine(it)}</div>
+      <div className="m">{metaLine(it, late)}</div>
       {/* the reason is already in the meta line unless the line shows lesson details instead */}
       {it.sub && it.reasons.length > 0 && <div className="m2">{it.level ? it.reasons[0] : it.reasons.join(' · ')}</div>}
       <div className="row wrap" style={{ marginTop: 14, gap: 8 }}>
@@ -140,25 +156,6 @@ function NextUp({ it, study }: { it: PlanItem; study: StudyPlan }) {
         {(it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent' && (
           <button className="btn ghost" onClick={() => (it.kind === 'task' ? deferTaskUI(it.id) : (A.deferMany([it.id]), toast(L('نُقل إلى الغد', "Moved to tomorrow"), { undoable: true })))}>{L("غدًا", "Tomorrow")}</button>
         )}
-      </div>
-    </div>
-  );
-}
-
-/** «يومك»: how far the day has got, as a ring */
-function RingTile({ plan }: { plan: DayPlan }) {
-  const done = plan.doneMinutes;
-  const left = plan.load;
-  const p = done + left ? done / (done + left) : 0;
-  return (
-    <div className="tile">
-      <div className="k2"><Icon name="clock" size={14} /> {L('وقتي', 'My time')}</div>
-      <div className="col" style={{ gap: 8, alignItems: 'flex-start' }}>
-        <Ring value={p} size={76} stroke={9} />
-        <div>
-          <div className="tv num">{left ? fmtMinutes(left) : '✓'}</div>
-          <div className="faint tiny">{left ? L('باقي عليك', 'left to do') : L('ما بقي شيء', 'nothing left')}{done ? L(` · أنجزت ${fmtMinutes(done)}`, ` · ${fmtMinutes(done)} done`) : ''}</div>
-        </div>
       </div>
     </div>
   );
@@ -240,7 +237,7 @@ function WeekTile({ study }: { study: StudyPlan }) {
   );
 }
 
-function PlanRow({ it, start, study }: { it: PlanItem; start?: number; study: StudyPlan }) {
+function PlanRow({ it, start, study, late }: { it: PlanItem; start?: number; study: StudyPlan; late?: string }) {
   const act = usePlanActions(study);
   return (
     <div className="r tap" onClick={() => act.open(it)} style={it.level === 'urgent' ? { boxShadow: startEdge('var(--red)') } : undefined}>
@@ -252,9 +249,10 @@ function PlanRow({ it, start, study }: { it: PlanItem; start?: number; study: St
           {it.title}
         </div>
         <div className="sub">
-          {it.level === 'urgent' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجلة · ", "Urgent · ")}</span>}
-          {it.level === 'important' && <span style={{ color: 'var(--amber)' }}>{it.must ? L('مهمة · لا تؤجلها أكثر · ', "Important · don't postpone again · ") : L('مهمة · اليوم أو بكرة · ', "Important · today or tomorrow · ")}</span>}
-          {metaLine(it)}
+          {late && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{late}{' · '}</span>}
+          {!late && it.level === 'urgent' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>{L("عاجلة · ", "Urgent · ")}</span>}
+          {!late && it.level === 'important' && <span style={{ color: 'var(--amber)' }}>{it.must ? L('مهمة · لا تؤجلها أكثر · ', "Important · don't postpone again · ") : L('مهمة · اليوم أو بكرة · ', "Important · today or tomorrow · ")}</span>}
+          {late ? `${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}` : metaLine(it)}
           {it.must && !it.level && <span style={{ color: 'var(--red)' }}>{L(" · لا يتأجل", " · can't be postponed")}</span>}
         </div>
       </div>
@@ -264,7 +262,8 @@ function PlanRow({ it, start, study }: { it: PlanItem; start?: number; study: St
   );
 }
 
-function DaySummary({ plan }: { plan: DayPlan }) {
+/** the day in one tile: what's left, how far you've got, and the one sentence that ties them together */
+function DaySummary({ plan, phase }: { plan: DayPlan; phase: DayPhase }) {
   const s = useApp();
   const [edit, setEdit] = useState(false);
   const override = s.dayOverrides[plan.today];
@@ -274,14 +273,12 @@ function DaySummary({ plan }: { plan: DayPlan }) {
   const usedUp = plan.capacity - done <= 0;
 
   // one sentence that explains how the numbers relate
-  let status: React.ReactNode;
+  let status: ReactNode;
   let tone = 'var(--muted)';
   const start = workStart(Date.now());
   // the finish time steps over today's lectures / shifts
   const finish = advance(s, start, left);
   if (!left) status = L('ما بقي عليك شيء اليوم ✓', 'Nothing left for today ✓');
-  else if (isNight(Date.now()))
-    status = L(`الوقت متأخر — نام الحين. خطتك (${fmtMinutes(left)}) تبدأ الصبح، وتخلص تقريبًا ${fmtTime(finish)}.`, `It's late — go to sleep. Your plan (${fmtMinutes(left)}) starts in the morning and ends around ${fmtTime(finish)}.`);
   else if (!plan.overloaded)
     status = L(`يكفيك الوقت: تخلص تقريبًا ${fmtTime(finish)}${plan.remaining - left > 0 ? `، ويبقى لك ${fmtMinutes(plan.remaining - left)} فراغ` : ''}.`, `You have enough time: done around ${fmtTime(finish)}${plan.remaining - left > 0 ? `, with ${fmtMinutes(plan.remaining - left)} to spare` : ''}.`);
   else {
@@ -293,21 +290,41 @@ function DaySummary({ plan }: { plan: DayPlan }) {
         : L(`باقي من وقتك ${fmtMinutes(plan.remaining)} وعليك ${fmtMinutes(left)} — يزيد ${fmtMinutes(plan.overBy)}.`, `You have ${fmtMinutes(plan.remaining)} left and ${fmtMinutes(left)} to do — ${fmtMinutes(plan.overBy)} too much.`);
   }
 
+  // mornings start with the shape of the day: lectures, shifts and how many things are on it
+  let dayLine = '';
+  if (phase === 'morning') {
+    const parts = blocksOn(s, plan.today)
+      .filter((x) => x.to > Date.now())
+      .map((x) => `${x.b.kind === 'work' ? L('دوام', 'Shift') : x.b.title} ${fmtClock(x.b.start)}`);
+    const n = plan.items.filter((i) => i.kind !== 'study').length;
+    if (n) parts.push(L(n === 1 ? 'مهمة واحدة' : n === 2 ? 'مهمتان' : `${n} مهام`, n === 1 ? '1 task' : `${n} tasks`));
+    dayLine = parts.join(' · ');
+  }
+
   return (
     <div className="tile summary-t">
+      {dayLine && <div className="day-line">{L('اليوم: ', 'Today: ')}{dayLine}</div>}
+      <div className="row between" style={{ alignItems: 'flex-end', gap: 12 }}>
+        <div>
+          <div className="tv num">{left ? fmtMinutes(left) : '✓'}</div>
+          <div className="faint tiny">{left ? L('باقي عليك', 'left to do') : L('ما بقي شيء', 'nothing left')}</div>
+        </div>
+        {done > 0 && <div className="faint small">{L(`أنجزت ${fmtMinutes(done)}`, `${fmtMinutes(done)} done`)}</div>}
+      </div>
+      <Bar value={done + left ? done / (done + left) : 0} />
       <div className="small" style={{ color: tone }}>{status}</div>
-      <div className="row between wrap" style={{ gap: 8 }}>
-        <button className="btn sm ghost" onClick={() => setEdit(!edit)} style={{ paddingInline: 6 }}>
-          <Icon name="clock" size={13} /> {L(`وقتك اليوم: ${fmtMinutes(plan.capacity)}`, `Your time today: ${fmtMinutes(plan.capacity)}`)}{override != null ? L(' (معدّل)', ' (changed)') : ''} <Icon name="edit" size={13} />
-        </button>
+      <div className="row wrap" style={{ gap: 8 }}>
         {plan.overloaded &&
           (movable.length ? (
-            <button className="btn sm" onClick={autoReplanUI}>
+            <button className="btn sm primary" onClick={autoReplanUI}>
               <Icon name="layers" size={14} /> {L(`أجّل اللي يتأجل لبكرة (${movable.length})`, `Move what can wait to tomorrow (${movable.length})`)}
             </button>
           ) : (
             <span className="faint tiny">{L('كل الباقي عاجل أو مطلوب — زد وقتك اليوم لو تقدر.', 'Everything left is urgent or required — add time today if you can.')}</span>
           ))}
+        <button className="btn sm ghost" onClick={() => setEdit(!edit)} style={{ paddingInline: 6 }}>
+          <Icon name="clock" size={13} /> {L(`وقتك اليوم: ${fmtMinutes(plan.capacity)}`, `Your time today: ${fmtMinutes(plan.capacity)}`)}{override != null ? L(' (معدّل)', ' (changed)') : ''} <Icon name="edit" size={13} />
+        </button>
       </div>
       {edit && (
         <div className="col" style={{ gap: 8, paddingTop: 4 }}>
@@ -322,6 +339,103 @@ function DaySummary({ plan }: { plan: DayPlan }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** tasks and procedures still open today that are allowed to slip to tomorrow */
+const canMove = (it: PlanItem) => (it.kind === 'task' || it.kind === 'procedure') && !it.must && it.level !== 'urgent';
+
+function moveLeftUI(items: PlanItem[]) {
+  A.deferMany(items.map((i) => i.id));
+  toast(L(items.length === 1 ? `نقلت «${items[0].title}» لبكرة` : `نقلت ${items.length} لبكرة`, items.length === 1 ? `Moved “${items[0].title}” to tomorrow` : `Moved ${items.length} to tomorrow`), { undoable: true });
+}
+
+/** the evening: what got done, what's left, and one tap to carry it over */
+function WrapUp({ plan, now }: { plan: DayPlan; now: number }) {
+  const s = useApp();
+  const today = todayKey(now);
+  const done = s.tasks.filter((t) => t.status === 'done' && t.completedAt && todayKey(t.completedAt) === today);
+  const open = plan.items.filter((i) => i.kind !== 'study');
+  const movable = open.filter(canMove);
+  const stuck = open.filter((i) => !canMove(i));
+  const m = moneyToday(s, now);
+  return (
+    <div className="tile wrap-t">
+      <div className="k2"><Icon name="check" size={14} /> {L('ختام اليوم', 'Wrapping up the day')}</div>
+      <div className="small">
+        {done.length || plan.doneMinutes
+          ? L(`أنجزت ${done.length ? (done.length === 1 ? 'مهمة' : `${done.length} مهام`) : ''}${done.length && plan.doneMinutes ? ' · ' : ''}${plan.doneMinutes ? fmtMinutes(plan.doneMinutes) : ''} ✓`, `Done: ${done.length ? `${done.length} task${done.length > 1 ? 's' : ''}` : ''}${done.length && plan.doneMinutes ? ' · ' : ''}${plan.doneMinutes ? fmtMinutes(plan.doneMinutes) : ''} ✓`)
+          : L('ما سجّلت إنجاز اليوم — عادي، بكرة يوم جديد.', "Nothing logged today — that's fine, tomorrow's a new day.")}
+      </div>
+      {done.length > 0 && <div className="faint tiny">{done.slice(0, 4).map((t) => t.title).join(L('، ', ', '))}{done.length > 4 ? L(` و${done.length - 4} غيرها`, ` and ${done.length - 4} more`) : ''}</div>}
+      {stuck.length > 0 && (
+        <div className="small" style={{ color: 'var(--red)' }}>
+          {L('باقي اليوم ولا يتأجل: ', "Still due today and can't wait: ")}{stuck.map((i) => `«${i.title}»`).join(L('، ', ', '))}
+        </div>
+      )}
+      {movable.length > 0 && (
+        <div className="row wrap" style={{ gap: 8 }}>
+          <button className="btn sm primary" onClick={() => moveLeftUI(movable)}>
+            <Icon name="layers" size={14} /> {L(`انقل الباقي لبكرة (${movable.length})`, `Move what's left to tomorrow (${movable.length})`)}
+          </button>
+        </div>
+      )}
+      {(m.spentToday > 0 || m.allowance !== undefined) && (
+        <button className="linkish small" style={{ alignSelf: 'flex-start', textDecoration: 'none' }} onClick={() => go('money')}>
+          {L(`صرفت اليوم ${fmtNum(m.spentToday)} ر.س`, `Spent today: ${fmtNum(m.spentToday)} SAR`)}
+          {m.allowance !== undefined ? L(` من ${fmtNum(m.allowance)}`, ` of ${fmtNum(m.allowance)}`) : ''}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** tomorrow's first appointment and first thing to do */
+function Tomorrow({ now, plan }: { now: number; plan: DayPlan }) {
+  const s = useApp();
+  // after midnight "tomorrow" is already today, and today's plan starts at 8
+  const day = isNight(now) ? todayKey(now) : addDays(todayKey(now), 1);
+  const tplan = useMemo(() => (isNight(now) ? plan : planDay(s, atTime(day, '08:00'))), [s, now, plan, day]);
+  const first = blocksOn(s, day)[0];
+  const it = tplan.items[0];
+  if (!first && !it) return null;
+  return (
+    <div className="tile">
+      <div className="k2"><Icon name="cal" size={14} /> {isNight(now) ? L('الصبح', 'In the morning') : L('بكرة', 'Tomorrow')}</div>
+      <div className="col" style={{ gap: 6 }}>
+        {first && <div className="small">{first.b.kind === 'work' ? '💼' : '🎓'} {first.b.title} <span className="faint">· {fmtClock(first.b.start)}{first.b.place ? ` · ${first.b.place}` : ''}</span></div>}
+        {it && <div className="small">▶︎ {L('أول شيء: ', 'First: ')}<b>{it.title}</b> <span className="faint">· {fmtMinutes(it.minutes)}</span></div>}
+        {tplan.items.length > 1 && <div className="faint tiny">{L(`وبعدها ${tplan.items.length - 1} — بترتيبها لك الصبح`, `then ${tplan.items.length - 1} more — laid out for you in the morning`)}</div>}
+      </div>
+    </div>
+  );
+}
+
+/** after your day ends: rest, with tomorrow in one glance */
+function NightTile({ plan, now }: { plan: DayPlan; now: number }) {
+  // before midnight what's still open is today's; after it, today's plan is the morning's
+  const movable = isNight(now) ? [] : plan.items.filter(canMove);
+  // something urgent due before midnight is the one thing worth saying at this hour
+  const tonight = isNight(now) ? [] : plan.items.filter((i) => i.level === 'urgent' && i.dueTime && atTime(todayKey(now), i.dueTime) > now);
+  return (
+    <div className="tile hero-t night-t">
+      <span className="k">{isNight(now) ? L('ليلة هادئة 🌙', 'Quiet night 🌙') : L('خلص يومك 🌙', 'Your day is over 🌙')}</span>
+      <div className="t">{L('نم الحين', 'Time to sleep')}</div>
+      <div className="m">{plan.doneMinutes ? L(`اشتغلت اليوم ${fmtMinutes(plan.doneMinutes)} — يكفي.`, `You worked ${fmtMinutes(plan.doneMinutes)} today — that's enough.`) : L('الباقي ينتظرك الصبح، مرتّب.', "What's left waits for the morning, in order.")}</div>
+      {tonight.map((i) => (
+        <div key={i.id} className="m2">{L(`قبل لا تنام: «${i.title}» موعده ${fmtClock(i.dueTime as string)} الليلة`, `Before you sleep: “${i.title}” is due ${fmtClock(i.dueTime as string)} tonight`)}</div>
+      ))}
+      <div className="row wrap" style={{ marginTop: 14, gap: 8 }}>
+        {movable.length > 0 && (
+          <button className="btn primary" onClick={() => moveLeftUI(movable)}>
+            <Icon name="layers" size={14} /> {L(`انقل الباقي لبكرة (${movable.length})`, `Move what's left to tomorrow (${movable.length})`)}
+          </button>
+        )}
+        <button className="btn" onClick={() => openSheet({ type: 'quick' })}>
+          <Icon name="plus" size={14} /> {L('شي في بالك؟ سجّله', 'On your mind? Note it')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -387,7 +501,7 @@ function Thoughts() {
               <div className="lbl">{t.text}</div>
               <div className="sub">{t.during ? L(`أثناء «${t.during}» · `, `During “${t.during}” · `) : ''}{timeAgo(t.at)}</div>
             </span>
-            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast(L('صارت مهمة', "Turned into a task"), { buttons: [{ label: L('تفاصيل', "Details"), fn: () => openSheet({ type: 'task', id }) }] }); }}>{L("مهمة", "Important")}</button>
+            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast(L('صارت مهمة', "Turned into a task"), { buttons: [{ label: L('تفاصيل', "Details"), fn: () => openSheet({ type: 'task', id }) }] }); }}>{L("حوّلها لمهمة", "Make it a task")}</button>
             <button className="icon-btn sm" onClick={() => { A.removeThought(t.id); toast(L('حُذفت', "Deleted"), { undoable: true }); }} aria-label={L("حذف", "Delete")}><Icon name="x" size={14} /></button>
           </div>
         ))}
@@ -399,15 +513,94 @@ function Thoughts() {
 function Alerts({ list }: { list: Insight[] }) {
   const [all, setAll] = useState(false);
   if (!list.length) return null;
-  const shown = all ? list : list.slice(0, 3);
+  const shown = all ? list : list.slice(0, 1);
   return (
     <section>
       <div className="group-title">
         <span>{L("يحتاج قرارك", "Needs your decision")}</span>
-        {list.length > 3 && <button onClick={() => setAll(!all)}>{all ? L('أقل', "Less") : L(`الكل (${list.length})`, `All (${list.length})`)}</button>}
+        {list.length > 1 && <button onClick={() => setAll(!all)}>{all ? L('أقل', "Less") : L(`الكل (${list.length})`, `All (${list.length})`)}</button>}
       </div>
       <div className="rows">{shown.map((i) => <AlertRow key={i.id} i={i} />)}</div>
     </section>
+  );
+}
+
+/** missed reminders and focus-session thoughts: things that came in and need sorting */
+function MissedReminders({ now }: { now: number }) {
+  const s = useApp();
+  if (!s.missed.length) return null;
+  return (
+    <section>
+      <div className="group-title">
+        <span>{L("تذكيرات فاتتك", "Missed reminders")}</span>
+        <button onClick={A.clearMissed}>{L("مسح", "Clear")}</button>
+      </div>
+      <div className="rows">
+        {s.missed.slice(-4).reverse().map((m) => (
+          <button key={m.id + m.at} className="r" onClick={() => m.ref && openRef(m.ref)}>
+            <span className="ic"><Icon name="bell" size={15} /></span>
+            <span className="main-t"><div className="lbl">{m.title}</div></span>
+            <span className="val tiny">{timeAgo(m.at, now)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProceduresLink() {
+  const s = useApp();
+  const open = s.procedures.filter((p) => !p.archived && !p.completedAt);
+  if (!open.length) return null;
+  const waiting = open.filter((p) => procStage(p) === 'waiting').length;
+  return (
+    <section>
+      <div className="rows">
+        <button className="r" onClick={() => go('work')}>
+          <span className="ic" style={{ color: 'var(--work)' }}><Icon name="work" size={16} /></span>
+          <span className="main-t">
+            <div className="lbl">{L("إجراءات العمل", "Work procedures")}</div>
+            <div className="sub">
+              {open.length}{L(" مفتوحة", " open")}{waiting ? L(` · ${waiting} بانتظار رد`, ` · ${waiting} waiting for a reply`) : ''}
+            </div>
+          </span>
+          <Icon name="chevron" size={16} className="chev-end" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function DoneToday({ now }: { now: number }) {
+  const s = useApp();
+  const today = todayKey(now);
+  const done = s.tasks.filter((t) => t.status === 'done' && t.completedAt && todayKey(t.completedAt) === today);
+  if (!done.length) return null;
+  return (
+    <Collapse title={L("أنجزت اليوم", "Done today")} count={done.length}>
+      <div className="rows">
+        {done.map((t) => (
+          <div key={t.id} className="r done tap" onClick={() => openSheet({ type: 'task', id: t.id })}>
+            <Check on onClick={() => A.reopenTask(t.id)} />
+            <span className="main-t"><div className="lbl">{t.title}</div></span>
+            {t.spent > 0 && <span className="faint tiny">{fmtMinutes(t.spent)}</span>}
+          </div>
+        ))}
+      </div>
+    </Collapse>
+  );
+}
+
+/** everything that isn't for right now, one tap away */
+function More({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <details className="more-t">
+      <summary className="collapse-head">
+        <Icon name="chevron" size={16} className="chev" />
+        {title || L('المزيد', 'More')}
+      </summary>
+      <div className="stack" style={{ marginTop: 10 }}>{children}</div>
+    </details>
   );
 }
 
@@ -416,22 +609,20 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const now = useNow();
   const study = useMemo(() => planStudy(s, now), [s, now]);
   const plan = useMemo(() => planDay(s, now, study), [s, now, study]);
+  const phase = dayPhase(s, now);
   const insights = useMemo(() => {
     const planned = new Set(plan.items.map((i) => i.id));
-    // urgent items already sit in the hero / «عاجل» tile / list — don't repeat them as alerts
+    // urgent items already sit in the hero / list, and an overloaded day is told once, in the summary tile
     return buildInsights(s, plan, study, now).filter((i) => {
-      if (i.id.startsWith('week-heavy') || i.id.startsWith('urgent:')) return false;
+      if (i.id.startsWith('week-heavy') || i.id.startsWith('urgent:') || i.id.startsWith('overload:')) return false;
       if (i.id.startsWith('urgent-proc:')) return !planned.has(i.id.split(':')[1]);
       return true;
     });
   }, [s, plan, study, now]);
+  const late = useMemo(() => lateLabels(s, now), [s, now]);
   const today = todayKey(now);
   const h = new Date(now).getHours();
-  const doneToday = s.tasks.filter((t) => t.status === 'done' && t.completedAt && todayKey(t.completedAt) === today);
-  const waiting = s.procedures.filter((p) => !p.archived && !p.completedAt && procStage(p) === 'waiting').length;
   const [first, ...afterFirst] = plan.items;
-  // study is listed in full under «المذاكرة المطلوبة اليوم», so it isn't repeated here
-  const rest = afterFirst.filter((i) => i.kind !== 'study');
   const empty = !s.tasks.length && !s.procedures.length && !s.courses.length;
 
   // start times count study blocks too and step over lectures, so the clock stays honest
@@ -442,6 +633,9 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     startOf.set(i, at);
     t = advance(s, at, i.minutes);
   }
+  // study is listed in full under «المذاكرة المطلوبة اليوم», and late items get their own list — neither is repeated here
+  const lateRest = afterFirst.filter((i) => i.kind !== 'study' && late.has(i.id));
+  const rest = afterFirst.filter((i) => i.kind !== 'study' && !late.has(i.id));
   // today's remaining lectures / shifts, shown in place among the planned items
   const classes = blocksOn(s, today).filter((x) => x.to > workStart(now));
   const inClass = nowBlock(s, now);
@@ -449,6 +643,127 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     ...rest.map((it) => ({ kind: 'item' as const, it, at: startOf.get(it) ?? 0 })),
     ...classes.filter((x) => x.b.id !== inClass?.b.id).map((x) => ({ kind: 'class' as const, x })),
   ].sort((a, b) => (a.kind === 'item' ? a.at : a.x.from) - (b.kind === 'item' ? b.at : b.x.from));
+
+  const hero = (
+    <div>
+      {inClass && (
+        <div className="class-now">
+          🎓 {L(`الحين: ${inClass.b.title} — حتى ${fmtClock(inClass.b.end)}`, `Now: ${inClass.b.title} — until ${fmtClock(inClass.b.end)}`)}
+          {first ? <span className="faint">{L(` · بعدها: ${first.title}`, ` · then: ${first.title}`)}</span> : null}
+        </div>
+      )}
+      {first ? <NextUp it={first} study={study} late={late.get(first.id)} /> : (
+        <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
+      )}
+    </div>
+  );
+  const lateList = lateRest.length > 0 && (
+    <section>
+      <div className="group-title"><span style={{ color: 'var(--red)' }}>{L('فاتك', 'Overdue')}</span><span className="faint">{lateRest.length}</span></div>
+      <div className="rows">{lateRest.map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} late={late.get(it.id)} />)}</div>
+    </section>
+  );
+  const timelineTile = timeline.length > 0 && (
+    <div className="tile">
+      <div className="k2 row between"><span>{phase === 'evening' ? L('الباقي اليوم', 'Left today') : L('بعدها', 'After that')}</span><span className="faint">{rest.length}</span></div>
+      <div className="rows flat">
+        {timeline.map((r) =>
+          r.kind === 'item' ? (
+            <PlanRow key={r.it.kind + r.it.id} it={r.it} start={r.at} study={study} />
+          ) : (
+            <div key={r.x.b.id} className="r class-r">
+              <span className="class-ic">{r.x.b.kind === 'work' ? '💼' : '🎓'}</span>
+              <div className="main-t">
+                <div className="lbl">{r.x.b.title}</div>
+                <div className="sub">{blockLabel(r.x.b)} · {fmtClock(r.x.b.start)}–{fmtClock(r.x.b.end)}{r.x.b.place ? ` · ${r.x.b.place}` : ''}</div>
+              </div>
+              <span className="faint tiny num">{fmtTime(r.x.from)}</span>
+            </div>
+          ),
+        )}
+      </div>
+    </div>
+  );
+  const laterList = plan.later.length > 0 && (
+    <Collapse title={L("لو بقي وقت", "If there's time")} count={plan.later.length}>
+      <div className="rows">{plan.later.slice(0, 12).map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} />)}</div>
+    </Collapse>
+  );
+  const alerts = insights.length > 0 && <Alerts list={insights} />;
+
+  let main: ReactNode;
+  let side: ReactNode;
+  if (phase === 'night') {
+    main = (
+      <>
+        <NightTile plan={plan} now={now} />
+        <Tomorrow now={now} plan={plan} />
+      </>
+    );
+    side = (
+      <More title={L('خطة اليوم كاملة', "Today's full plan")}>
+        {hero}
+        {lateList}
+        {timelineTile}
+        {alerts}
+        <MissedReminders now={now} />
+        <Thoughts />
+        <Upcoming study={study} />
+        <ProceduresLink />
+      </More>
+    );
+  } else if (phase === 'evening') {
+    main = (
+      <>
+        <WrapUp plan={plan} now={now} />
+        {hero}
+        {lateList}
+        {timelineTile}
+      </>
+    );
+    side = (
+      <>
+        <Tomorrow now={now} plan={plan} />
+        <MissedReminders now={now} />
+        <Thoughts />
+        {alerts}
+        <More>
+          {laterList}
+          <StudyTile study={study} />
+          <Upcoming study={study} />
+          <WeekTile study={study} />
+          <ProceduresLink />
+        </More>
+      </>
+    );
+  } else {
+    // morning: lay out the day · daytime: get through it, and sort what came in
+    main = (
+      <>
+        {hero}
+        {lateList}
+        <DaySummary plan={plan} phase={phase} />
+        {timelineTile}
+      </>
+    );
+    side = (
+      <>
+        <MissedReminders now={now} />
+        {phase === 'day' && <Thoughts />}
+        <StudyTile study={study} />
+        {alerts}
+        <More>
+          {laterList}
+          <DoneToday now={now} />
+          <Upcoming study={study} />
+          <MoneyTile now={now} />
+          <WeekTile study={study} />
+          {phase === 'morning' && <Thoughts />}
+          <ProceduresLink />
+        </More>
+      </>
+    );
+  }
 
   return (
     <div>
@@ -482,114 +797,10 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       ) : (
         <div className="stack">
           <InstallCard />
-          {/* two independent columns on laptops (no gaps between uneven tiles); one flowing grid on phones, ordered by `o-*` */}
-          <div className="bento">
-            <div className="bcol">
-              <div className="o1 bwide">
-                {inClass && (
-                  <div className="class-now">
-                    🎓 {L(`الحين: ${inClass.b.title} — حتى ${fmtClock(inClass.b.end)}`, `Now: ${inClass.b.title} — until ${fmtClock(inClass.b.end)}`)}
-                    {first ? <span className="faint">{L(` · بعدها: ${first.title}`, ` · then: ${first.title}`)}</span> : null}
-                  </div>
-                )}
-                {first ? <NextUp it={first} study={study} /> : (
-                  <div className="tile hero-t"><div className="t">{L("لا شيء ملح اليوم", "Nothing pressing today")}</div><div className="m">{L("تقدر تتقدم في شيء من «لو بقي وقت» أو ترتاح.", "Make progress on something under “If there's time”, or rest.")}</div></div>
-                )}
-              </div>
-              {/* under the hero: «وقتي» on the right, the day's status beside it */}
-              <div className="bpair">
-                <div className="o2"><RingTile plan={plan} /></div>
-                <div className="o3"><DaySummary plan={plan} /></div>
-              </div>
-              {timeline.length > 0 && (
-                <div className="o7 bwide tile">
-                  <div className="k2 row between"><span>{L("بعدها", "After that")}</span><span className="faint">{rest.length}</span></div>
-                  <div className="rows flat">
-                    {timeline.map((r) =>
-                      r.kind === 'item' ? (
-                        <PlanRow key={r.it.kind + r.it.id} it={r.it} start={r.at} study={study} />
-                      ) : (
-                        <div key={r.x.b.id} className="r class-r">
-                          <span className="class-ic">{r.x.b.kind === 'work' ? '💼' : '🎓'}</span>
-                          <div className="main-t">
-                            <div className="lbl">{r.x.b.title}</div>
-                            <div className="sub">{blockLabel(r.x.b)} · {fmtClock(r.x.b.start)}–{fmtClock(r.x.b.end)}{r.x.b.place ? ` · ${r.x.b.place}` : ''}</div>
-                          </div>
-                          <span className="faint tiny num">{fmtTime(r.x.from)}</span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="bcol">
-              {insights.length > 0 && <div className="o4 bwide"><Alerts list={insights} /></div>}
-              <div className="o6 bwide"><StudyTile study={study} /></div>
-              <MoneyTile now={now} />
-              <div className="o8 bwide"><WeekTile study={study} /></div>
-            </div>
-          </div>
-
-          <div className="two-col">
-          <div className="stack" style={{ minWidth: 0 }}>
-            {plan.later.length > 0 && (
-              <Collapse title={L("لو بقي وقت", "If there's time")} count={plan.later.length}>
-                <div className="rows">{plan.later.slice(0, 12).map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} />)}</div>
-              </Collapse>
-            )}
-            {doneToday.length > 0 && (
-              <Collapse title={L("أنجزت اليوم", "Done today")} count={doneToday.length}>
-                <div className="rows">
-                  {doneToday.map((t) => (
-                    <div key={t.id} className="r done tap" onClick={() => openSheet({ type: 'task', id: t.id })}>
-                      <Check on onClick={() => A.reopenTask(t.id)} />
-                      <span className="main-t"><div className="lbl">{t.title}</div></span>
-                      {t.spent > 0 && <span className="faint tiny">{fmtMinutes(t.spent)}</span>}
-                    </div>
-                  ))}
-                </div>
-              </Collapse>
-            )}
-          </div>
-
-          <div className="stack" style={{ minWidth: 0 }}>
-            {s.missed.length > 0 && (
-              <section>
-                <div className="group-title">
-                  <span>{L("تذكيرات فاتتك", "Missed reminders")}</span>
-                  <button onClick={A.clearMissed}>{L("مسح", "Clear")}</button>
-                </div>
-                <div className="rows">
-                  {s.missed.slice(-4).reverse().map((m) => (
-                    <button key={m.id + m.at} className="r" onClick={() => m.ref && openRef(m.ref)}>
-                      <span className="ic"><Icon name="bell" size={15} /></span>
-                      <span className="main-t"><div className="lbl">{m.title}</div></span>
-                      <span className="val tiny">{timeAgo(m.at, now)}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-            <Thoughts />
-            <Upcoming study={study} />
-            {s.procedures.some((p) => !p.archived && !p.completedAt) && (
-              <section>
-                <div className="rows">
-                  <button className="r" onClick={() => go('work')}>
-                    <span className="ic" style={{ color: 'var(--work)' }}><Icon name="work" size={16} /></span>
-                    <span className="main-t">
-                      <div className="lbl">{L("إجراءات العمل", "Work procedures")}</div>
-                      <div className="sub">
-                        {s.procedures.filter((p) => !p.archived && !p.completedAt).length}{L(" مفتوحة", " open")}{waiting ? L(` · ${waiting} بانتظار رد`, ` · ${waiting} waiting for a reply`) : ''}
-                      </div>
-                    </span>
-                    <Icon name="chevron" size={16} className="chev-end" />
-                  </button>
-                </div>
-              </section>
-            )}
-          </div>
+          {/* the main column is what this time of day is for; the side holds the rest */}
+          <div className="two-col today-cols">
+            <div className="stack" style={{ minWidth: 0 }}>{main}</div>
+            <div className="stack" style={{ minWidth: 0 }}>{side}</div>
           </div>
         </div>
       )}
