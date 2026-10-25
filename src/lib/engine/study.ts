@@ -116,6 +116,25 @@ export function studiedOn(state: AppState, courseId: string, day: string): numbe
   return state.sessions.filter((x) => x.courseId === courseId && x.date === day).reduce((a, x) => a + x.minutes, 0);
 }
 
+/**
+ * What you studied on a day, measured the way the plan measures: the material covered, at your
+ * current pace. Finish today's pages in half the time and today's share still reads as done (not
+ * "10 minutes left"); take longer and it doesn't read as more than the share. Sessions with no
+ * material (timer only, general review) count their minutes.
+ */
+export function coveredOn(state: AppState, course: Course, pace: number, reviewFactor: number, day: string): number {
+  let m = 0;
+  for (const x of state.sessions) {
+    if (x.courseId !== course.id || x.date !== day) continue;
+    const u = x.unitId ? state.units.find((v) => v.id === x.unitId) : undefined;
+    const per = pace * diffFactor(u?.difficulty || course.difficulty);
+    if (u && x.review) m += u.size * per * reviewFactor;
+    else if (u && x.amount > 0) m += x.amount * per;
+    else m += x.minutes;
+  }
+  return m;
+}
+
 /** cut `minutes` out of the work: lessons in course order first, then their review */
 export function portionOf(work: UnitWork[], minutes: number): Portion[] {
   const out: Portion[] = [];
@@ -343,7 +362,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   for (const exam of exams) {
     const course = state.courses.find((c) => c.id === exam.courseId);
     if (!course) continue;
-    const pace = coursePace(state, course);
+    const pace = coursePace(state, course, today);
     const units = state.units.filter((u) => exam.unitIds.includes(u.id) && owner.get(u.id) === exam.id).sort((a, b) => a.order - b.order);
     const allUnits = state.units.filter((u) => exam.unitIds.includes(u.id));
     const work = units.map((u) => unitWork(u, course, pace.pace, rf));
@@ -374,7 +393,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     const total = allUnits.reduce((a, u) => a + u.size * pace.pace * diffFactor(u.difficulty || course.difficulty) * (1 + rf), 0);
     const remainingAll = allUnits.reduce((a, u) => a + unitMinutes(u, course, pace.pace, rf), 0);
     const isCourseOwner = owner.get(`course:${course.id}`) === exam.id;
-    const doneToday = isCourseOwner ? studiedOn(state, course.id, today) : 0;
+    const doneToday = isCourseOwner ? coveredOn(state, course, pace.pace, rf, today) : 0;
     const over = daysLeft === 0 && (!studyOnExamDay || now >= atTime(exam.date, exam.time as string) - 3600_000);
     const lastStudyDay = learnEnd >= today ? learnEnd : lastDay;
 
@@ -411,9 +430,11 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
       safetyDay: safety,
     };
     const logged = state.quotaLog?.[addDays(today, -1)]?.[exam.id];
-    if (logged != null) p.yesterday = { quota: logged, done: isCourseOwner ? studiedOn(state, course.id, addDays(today, -1)) : 0 };
+    if (logged != null) p.yesterday = { quota: logged, done: isCourseOwner ? coveredOn(state, course, pace.pace, rf, addDays(today, -1)) : 0 };
     plans.push(p);
-    if (p.status === 'unknown' || p.status === 'past' || p.status === 'done' || lastDay < today) continue;
+    // finished today: it still holds the time you gave it today — otherwise that time reads as free
+    // and the other subjects' shares jump up the moment you finish this one
+    if (p.status === 'unknown' || p.status === 'past' || (p.status === 'done' && doneToday <= 0.5) || lastDay < today) continue;
     // today is planned from where the day started: what you studied today goes back in, so the
     // quota holds still while you work through it
     const learning = learnLeft > 0.5 && today <= learnEnd;
@@ -454,6 +475,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     p.requiredDaily = learnDays.length ? round5(learnDays.reduce((a, [, m]) => a + m, 0) / learnDays.length) : p.quota;
 
     p.status = p.shortfall > 15 ? 'behind' : p.shortfallHigh > 15 || (lessonsLate && j.learnEnd >= today && (p.exam.reviewDays || 0) > 0) ? 'tight' : 'ok';
+    if (p.mid <= 0.5) p.status = 'done';
 
     // latest start day for the pessimistic estimate, walking back from the last day
     let acc = 0;

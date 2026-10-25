@@ -76,7 +76,7 @@ export interface Pace {
   source: 'data' | 'guess' | 'global' | 'default';
 }
 
-function observed(state: AppState, course: Course): { minutes: number; norm: number; n: number } {
+function observed(state: AppState, course: Course, before?: string): { minutes: number; norm: number; n: number } {
   let minutes = 0;
   let norm = 0;
   let n = 0;
@@ -84,6 +84,7 @@ function observed(state: AppState, course: Course): { minutes: number; norm: num
     // only sessions on a lesson that covered new material say how fast you learn: review and
     // "general" sessions are faster or unmeasured and would make the plan too optimistic
     if (s.courseId !== course.id || s.review || !s.unitId || s.amount <= 0 || s.minutes <= 0) continue;
+    if (before && s.date >= before) continue;
     // ignore physically implausible entries (e.g. a 1-minute timer logged as 20 pages)
     const raw = s.minutes / s.amount;
     if (raw < 0.25 || raw > 60) continue;
@@ -95,8 +96,10 @@ function observed(state: AppState, course: Course): { minutes: number; norm: num
   return { minutes, norm, n };
 }
 
-export function coursePace(state: AppState, course: Course): Pace {
-  const obs = observed(state, course);
+/** `before`: only sessions before that day count — the study plan uses the pace you had when the
+ *  day started, so today's pages don't shift under you; what you show today counts from tomorrow */
+export function coursePace(state: AppState, course: Course, before?: string): Pace {
+  const obs = observed(state, course, before);
   let prior: number;
   let source: Pace['source'];
   let priorWeight = 2;
@@ -110,7 +113,7 @@ export function coursePace(state: AppState, course: Course): Pace {
     let cnt = 0;
     for (const c of state.courses) {
       if (c.id === course.id) continue;
-      const o = observed(state, c);
+      const o = observed(state, c, before);
       m += o.minutes;
       nn += o.norm;
       cnt += o.n;

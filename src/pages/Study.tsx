@@ -165,7 +165,7 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
               <div className="sx-total num">{left ? fmtMinutes(left) : L('خلصت ✓', 'Done ✓')}</div>
             </div>
             <div className="sx-today-meta">
-              {done > 0 ? L(`ذاكرت ${fmtMinutes(done)} من ${fmtMinutes(total)}`, `${fmtMinutes(done)} of ${fmtMinutes(total)} done`) : rows.length === 1 ? L('مادة واحدة', 'One course') : L(`${rows.length} مواد`, `${rows.length} courses`)}
+              {done > 0 ? L(`أنجزت ${Math.min(100, Math.round((done / Math.max(1, total)) * 100))}% من مذاكرة اليوم كلها`, `${Math.min(100, Math.round((done / Math.max(1, total)) * 100))}% of all today's study done`) : rows.length === 1 ? L('مادة واحدة', 'One course') : L(`${rows.length} مواد`, `${rows.length} courses`)}
             </div>
           </div>
           <DayBar rows={rows} />
@@ -433,7 +433,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
             <div className="big"><span>{hero.doneToday > 0 ? L('✓ خلّصت حصتها اليوم', "✓ Today's share done") : hero.nextDay ? L(`تبدأ ${relDay(hero.nextDay, today)}`, `Starts ${relDay(hero.nextDay, today)}`) : L('ما عليك لها شي اليوم', 'Nothing for it today')}</span></div>
           )}
           {hero.doneToday > 0 && hero.quota > 0 && (
-            <div className="st-prog"><i style={{ width: `${Math.min(100, (hero.doneToday / hero.quota) * 100)}%` }} /><span>{L(`ذاكرت ${fmtMinutes(hero.doneToday)} من ${fmtMinutes(hero.quota)}`, `${fmtMinutes(hero.doneToday)} of ${fmtMinutes(hero.quota)} done`)}</span></div>
+            <div className="st-prog"><i style={{ width: `${Math.min(100, (hero.doneToday / hero.quota) * 100)}%` }} /><span>{L(`أنجزت ${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% من حصتها اليوم`, `${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% of its share done today`)}</span></div>
           )}
           {hero.todayMinutes > 0 && hero.portion.length > 0 && <div className="les">{hero.inReview ? '🔁 ' : '📖 '}{lessonsLine(hero)}</div>}
           {smartLine(hero, today, smart) && <div className="smart-l">{smartLine(hero, today, smart)}</div>}
@@ -516,8 +516,9 @@ function StudyOverview() {
         title={L('الدراسة', 'Study')}
         sub={(() => {
           const m = plan.exams.reduce((a, ep) => a + ep.todayMinutes, 0);
+          const started = plan.exams.some((ep) => ep.quota > 0 && ep.doneToday > 0);
           const mode = (s.settings.studyMode || 'smart') === 'smart' ? L('🧠 الذكي المرن', '🧠 Smart') : L('⚖️ التوزيع المتساوي', '⚖️ Even split');
-          return <>{m ? L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`) : fmtDate(today)} · <button className="mode-chip" onClick={() => go('me')}>{mode}</button></>;
+          return <>{m ? (started ? L(`باقي اليوم: ${fmtMinutes(m)}`, `Left today: ${fmtMinutes(m)}`) : L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`)) : fmtDate(today)} · <button className="mode-chip" onClick={() => go('me')}>{mode}</button></>;
         })()}
         actions={courses.length > 0 && <button className="btn sm" onClick={() => go('schedule')}><Icon name="week" size={15} /> {L('جدولي', 'Timetable')}</button>}
       />

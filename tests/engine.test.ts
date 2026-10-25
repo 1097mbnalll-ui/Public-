@@ -1,3 +1,4 @@
+import { diffFactor } from '../src/lib/engine/learning';
 import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
 import { parseQuick, parseSteps } from '../src/lib/parse';
@@ -193,8 +194,10 @@ describe('daily study quota', () => {
     s.days[TODAY] = { done: 0, minutes: 30, study: 30 };
     const ep = planStudy(s, NOW).exams[0];
     expect(Math.abs(ep.quota - before)).toBeLessThanOrEqual(5);
-    expect(ep.doneToday).toBe(30);
-    expect(ep.todayMinutes).toBe(ep.quota - 30 >= 10 ? ep.quota - 30 : 0);
+    // what you did counts as the material it covered (5 pages at the plan's pace), not the clock
+    expect(ep.doneToday).toBeCloseTo(5 * ep.pace.pace * diffFactor(3), 5);
+    const left = ep.quota - ep.doneToday;
+    expect(ep.todayMinutes).toBe(left >= 10 ? Math.round(left / 5) * 5 : 0);
   });
 
   it('grows the next day when yesterday’s quota was not studied', () => {
