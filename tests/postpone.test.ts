@@ -59,3 +59,13 @@ describe('postponing a subject to tomorrow', () => {
     expect(planStudy(s, NOW).exams.find((e) => e.exam.id === 'e0')!.canPostpone).toBe(true);
   });
 });
+
+describe('finishing an exam', () => {
+  it('a finished exam leaves the plan, with or without a grade', () => {
+    const s = build();
+    s.exams[0].finished = true;
+    const p = planStudy(s, NOW);
+    expect(p.exams.map((e) => e.exam.id)).toEqual(['e1']);
+    expect(Object.values(p.byDay).flat().some((x) => x.examId === 'e0')).toBe(false);
+  });
+});

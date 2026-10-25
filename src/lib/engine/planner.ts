@@ -353,7 +353,7 @@ export function weekLoad(state: AppState, now = Date.now(), days = 7, study?: St
       items.push({ title: p.title, minutes: m, kind: 'procedure' });
     }
     const exams = state.exams
-      .filter((e) => e.date === day && e.score == null)
+      .filter((e) => e.date === day && e.score == null && !e.finished)
       .map((e) => `${state.courses.find((c) => c.id === e.courseId)?.name || ''} — ${e.title}`);
     out.push({ day, capacity, study: studyM, tasks: tasksM, exams, items, overloaded: studyM + tasksM > capacity + 10 });
   }

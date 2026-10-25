@@ -178,6 +178,8 @@ export interface Exam {
   reviewDays: number;
   weight?: number; // % of course grade
   score?: number; // result % once known
+  /** you sat it (with or without a grade): it leaves the plan and stops asking */
+  finished?: boolean;
   createdAt: number;
 }
 

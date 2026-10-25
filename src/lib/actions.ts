@@ -456,6 +456,14 @@ export function saveExam(e: Omit<Exam, 'id' | 'createdAt'> & { id?: string }): s
   return id;
 }
 
+/** you sat the exam: it leaves the plan (a grade can still be added later) */
+export function finishExam(id: string, finished = true) {
+  mutate((s) => {
+    const e = s.exams.find((x) => x.id === id);
+    if (e) e.finished = finished || undefined;
+  }, finished ? L('إنهاء اختبار', 'Finish exam') : undefined);
+}
+
 export function deleteExam(id: string) {
   mutate((s) => {
     s.exams = s.exams.filter((e) => e.id !== id);

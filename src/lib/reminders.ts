@@ -57,7 +57,7 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
       out.push({ id, title: L(`عاجل: ${p.title}`, `Urgent: ${p.title}`), body: next ? L(`الخطوة التالية: ${next.title}`, `Next step: ${next.title}`) : L('ضروري اليوم.', "Needed today."), at, ref: `work/${p.id}`, kind: 'auto' });
   }
   for (const e of state.exams) {
-    if (e.score != null) continue;
+    if (e.score != null || e.finished) continue;
     const at = atTime(addDays(e.date, -1), '20:00');
     const id = `exam:${e.id}`;
     const course = state.courses.find((c) => c.id === e.courseId);

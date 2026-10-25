@@ -203,7 +203,7 @@ function spread(jobs: Job[], from: string, postponed: (day: string, examId: stri
 export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   const today = todayKey(now);
   const exams = state.exams
-    .filter((e) => e.score == null && e.date >= today)
+    .filter((e) => e.score == null && !e.finished && e.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
 
   // each unit belongs to the earliest upcoming exam that includes it (midterm before final)

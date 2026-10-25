@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Bar, Collapse, Empty, Ring, useNow } from '../ui/kit';
+import { Bar, Collapse, Empty, Ring, Sheet, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, daysWord, diffDays, fmtClock, fmtDate, fmtMinutes, relDay, todayKey } from '../lib/dates';
 import { planStudy, portionText, postponePreview, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
 import { coursePace } from '../lib/engine/learning';
-import { openSheet } from '../ui/sheets';
+import { closeSheet, openSheet } from '../ui/sheets';
 import { go, useRoute } from '../ui/router';
 import { LessonRow, parseUnitLines } from '../ui/StudySheets';
 import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
-import { L, sz, szn } from '../lib/i18n';
+import { L, lang, sz, szn } from '../lib/i18n';
 import type { AppState, Course, Unit } from '../lib/types';
 
 // «الدراسة» answers three things, in this order:
@@ -294,7 +294,7 @@ function DaysAhead({ plan }: { plan: StudyPlan }) {
   const [all, setAll] = useState(false);
   const days = Object.keys(plan.byDay).filter((d) => d > today).sort();
   if (!days.length) return null;
-  const shown = all ? days : days.slice(0, 7);
+  const shown = all ? days : days.slice(0, 5);
   const ep = (id: string) => plan.exams.find((e) => e.exam.id === id)!;
   return (
     <section>
@@ -305,12 +305,13 @@ function DaysAhead({ plan }: { plan: StudyPlan }) {
           const total = list.reduce((a, x) => a + x.minutes, 0);
           return (
             <div key={d} className="st-day">
-              <div className="dt"><b>{relDay(d, today)}</b><span className="num">{fmtMinutes(total)}</span></div>
+              <b className="dd">{relDay(d, today)}</b>
               <div className="ch">
                 {list.map((x) => (
-                  <span key={x.examId} style={{ ['--c' as string]: ep(x.examId).course.color }}>{ep(x.examId).course.name} <b className="num">{fmtMinutes(x.minutes)}</b></span>
+                  <span key={x.examId} style={{ ['--c' as string]: ep(x.examId).course.color }} title={ep(x.examId).course.name}><i />{hrs(x.minutes)}</span>
                 ))}
               </div>
+              <span className="tt num">{hrs(total)}</span>
             </div>
           );
         })}
@@ -404,93 +405,68 @@ function leftLine(ep: ExamPlan, today: string): string {
   return L(`⏳ باقي ${fmtMinutes(left)} على ${n === 1 ? 'يوم واحد' : daysWord(n)}${rd ? ` · آخر ${daysWord(rd)} مراجعة` : ''}`, `⏳ ${fmtMinutes(left)} left over ${daysWord(n)}${rd ? ` · last ${daysWord(rd)} for review` : ''}`);
 }
 
-/** big number + unit for the hero: «2» «ساعات اليوم» / «45» «دقيقة اليوم» */
-function bigTime(m: number): [string, string] {
-  if (m < 60) return [String(Math.round(m)), L('دقيقة اليوم', 'min today')];
-  const h = Math.round((m / 60) * 2) / 2;
-  return [String(h).replace('.5', '½'), h === 1 ? L('ساعة اليوم', 'hour today') : L('ساعات اليوم', 'hours today')];
+/** study time read as hours: «2:50 ساعة», under an hour «45 د» */
+function hrs(m: number): string {
+  const r = Math.round(m);
+  if (r < 60) return L(`${r} د`, `${r} min`);
+  return L(`${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')} ساعة`, `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')} h`);
 }
 
-/**
- * S1: «مادة اليوم» — the nearest exam that needs study today, its hours in large type, its
- * lessons and Start — then the other exams nearest first, each with today's share.
- */
-function StudyS1({ plan }: { plan: StudyPlan }) {
-  const today = todayKey();
-  const active = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'done' && ep.status !== 'unknown');
-  const hero = active.find((ep) => ep.todayMinutes > 0) || active[0];
-  const rest = active.filter((ep) => ep !== hero);
-  const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
-  const rows = plan.exams.filter((ep) => ep.quota > 0);
-  const ahead = hero && !hero.todayMinutes ? aheadLesson(plan) : null;
-  if (!hero && !unknown.length)
-    return (
-      <section className="tile sx-today">
-        <div className="sx-calm">
-          <b>{L('أضف موعد اختبار', 'Add an exam date')}</b>
-          <span>{L('من موعد الاختبار ودروسه أحسب كم تذاكر كل يوم، وأقولك من وين تبدأ.', "From the exam date and its lessons I work out how much to study each day, and where to start.")}</span>
-          <button className="btn sm primary" onClick={() => openSheet({ type: 'exam' })}><Icon name="plus" size={14} /> {L('موعد اختبار', 'Exam date')}</button>
-        </div>
-      </section>
-    );
+/** «خلّصت الاختبار»: it leaves the plan; the grade is optional */
+function finish(ep: ExamPlan) {
+  A.finishExam(ep.exam.id);
+  toast(L(`بالتوفيق 🤞 — «${ep.course.name} · ${ep.exam.title}» خلص وطلع من خطتك`, `Good luck 🤞 — “${ep.course.name} · ${ep.exam.title}” is done and off your plan`), { undoable: true });
+}
 
-  const [num, unit] = bigTime(hero?.todayMinutes || 0);
+/** «وش أذاكر اليوم»: today's total, then one row per subject — tap it for everything about it */
+function StudyHome({ plan }: { plan: StudyPlan }) {
+  const today = todayKey();
+  const active = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'unknown' && ep.lastDay >= today);
+  const rows = active.filter((ep) => ep.quota > 0 || ep.postponed || ep.todayMinutes > 0);
+  const later = active.filter((ep) => !rows.includes(ep) && ep.status !== 'done');
+  const total = rows.reduce((a, ep) => a + ep.quota, 0);
+  const left = rows.reduce((a, ep) => a + ep.todayMinutes, 0);
+  const done = rows.reduce((a, ep) => a + Math.min(ep.quota, ep.doneToday), 0);
+  const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
+  const upcoming = plan.exams.filter((ep) => ep.status !== 'unknown').sort((a, b) => a.exam.date.localeCompare(b.exam.date) || (a.exam.time || '').localeCompare(b.exam.time || ''));
+  const ahead = !left && total > 0 ? aheadLesson(plan) : null;
+
   return (
     <>
-      {hero && (
-        <section className="st-hero" aria-label={L('مادة اليوم', "Today's subject")}>
-          <button className="k" onClick={() => openSheet({ type: 'exam', id: hero.exam.id })}>
-            <span>📌 {L('مادة اليوم', "Today's subject")}</span>
-            <span>🚩 {hero.exam.title} {whenText(hero)}</span>
-          </button>
-          <button className="t" onClick={() => go(`study/${hero.course.id}`)}>{hero.course.name}</button>
-          {hero.todayMinutes > 0 ? (
-            <div className="big"><b className="num">{num}</b><span>{hero.inReview ? L('مراجعة اليوم', 'review today') : unit}</span></div>
-          ) : (
-            <div className="big"><span>{hero.postponed ? L('⏭️ مؤجّلة لبكرة', '⏭️ Moved to tomorrow') : hero.doneToday > 0 ? L('✓ خلّصت حصتها اليوم', "✓ Today's share done") : hero.nextDay ? L(`تبدأ ${relDay(hero.nextDay, today)}`, `Starts ${relDay(hero.nextDay, today)}`) : L('ما عليك لها شي اليوم', 'Nothing for it today')}</span></div>
-          )}
-          {hero.doneToday > 0 && hero.quota > 0 && (
-            <div className="st-prog"><i style={{ width: `${Math.min(100, (hero.doneToday / hero.quota) * 100)}%` }} /><span>{L(`أنجزت ${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% من حصتها اليوم`, `${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% of its share done today`)}</span></div>
-          )}
-          {hero.todayMinutes > 0 && hero.portion.length > 0 && <div className="les">{hero.inReview ? '🔁 ' : '📖 '}{lessonsLine(hero)}</div>}
-          {leftLine(hero, today) && <div className="smart-l">{leftLine(hero, today)}</div>}
-          {hero.todayMinutes > 0 ? (
-            <div className="hb">
-              <button className="p" onClick={() => startStudy(hero)}>▶ {L('ابدأ', 'Start')}</button>
-              <button className="g" onClick={() => openSheet({ type: 'study-log', courseId: hero.course.id, unitId: hero.portion[0]?.unit.id })}>{L('سجّل', 'Log')}</button>
+      <section className="sh-today" aria-label={L('وش أذاكر اليوم', 'What to study today')}>
+        <h2 className="sh-h">{L('وش أذاكر اليوم', 'What to study today')}</h2>
+        {rows.length ? (
+          <>
+            <div className="sh-total">
+              <b className="num">{hrs(left || total)}</b>
+              <span>{!left ? L('خلّصت مذاكرة اليوم ✓', 'Done for today ✓') : done > 0 ? L(`باقي من ${fmtMinutes(total)} · أنجزت ${Math.round((done / Math.max(1, total)) * 100)}%`, `left of ${fmtMinutes(total)} · ${Math.round((done / Math.max(1, total)) * 100)}% done`) : rows.length === 1 ? L('على مادة وحدة', 'on one subject') : L(`على ${rows.length} مواد`, `on ${rows.length} subjects`)}</span>
             </div>
-          ) : ahead ? (
-            <div className="hb"><button className="p" onClick={() => startStudy(ahead.ep, ahead.unit)}>▶ {L(`تقدّم: ${ahead.unit.title}`, `Get ahead: ${ahead.unit.title}`)}</button></div>
-          ) : null}
-          <Postpone ep={hero} />
-        </section>
-      )}
-
-      {rest.length > 0 && (
-        <section>
-          <div className="group-title"><span>{L('بعدها — الأقرب فالأقرب', 'Then — nearest first')}</span><span className="faint">{rest.length}</span></div>
-          <div className="stack" style={{ gap: 9 }}>
-            {rest.map((ep) => (
-              <div key={ep.exam.id} className="st-row">
-                <span className="dot" style={{ background: ep.course.color }} />
-                <button className="grow" onClick={() => go(`study/${ep.course.id}`)}>
-                  <b>{ep.course.name}</b>
-                  <span>🚩 {ep.exam.title} {whenText(ep)}{ep.inReview ? L(' · مراجعة', ' · review') : !ep.todayMinutes && ep.doneToday > 0 ? L(' · خلّصت حصتها', ' · done for today') : ''}</span>
-                  {leftLine(ep, today) && <span className="smart-l">{leftLine(ep, today)}</span>}
-                </button>
-                <span className={`hp num ${ep.todayMinutes ? '' : 'z'}`}>{ep.todayMinutes ? fmtMinutes(ep.todayMinutes) : ep.postponed ? '⏭️' : ep.doneToday > 0 ? '✓' : '—'}</span>
-                {ep.todayMinutes > 0 && (
-                  <button className="icon-btn sm" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}><Icon name="play" size={13} /></button>
-                )}
-                <div className="st-row-pp"><Postpone ep={ep} /></div>
-              </div>
-            ))}
+            <DayBar rows={rows.filter((ep) => ep.quota > 0)} />
+            <div className="sh-rows">
+              {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
+            </div>
+            {ahead && (
+              <button className="sh-ahead" onClick={() => startStudy(ahead.ep, ahead.unit)}>
+                <Icon name="play" size={13} /> {L(`عندك وقت؟ تقدّم في ${ahead.ep.course.name}: ${ahead.unit.title}`, `Got time? Get ahead in ${ahead.ep.course.name}: ${ahead.unit.title}`)}
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="sh-empty">
+            {active.length ? L('ما عليك مذاكرة اليوم.', 'Nothing to study today.') : L('أضف موعد اختبار ودروسه، وأقولك كل يوم وش تذاكر وكم.', "Add an exam and its lessons, and I'll tell you every day what to study and for how long.")}
+            {!active.length && <button className="btn sm primary" onClick={() => openSheet({ type: 'exam' })}><Icon name="plus" size={14} /> {L('موعد اختبار', 'Exam date')}</button>}
           </div>
-        </section>
-      )}
+        )}
+        {later.map((ep) => (
+          <button key={ep.exam.id} className="sh-later" onClick={() => openSheet({ type: 'study-subject', examId: ep.exam.id })}>
+            <span className="sx-dot" style={{ background: ep.course.color }} />
+            {ep.course.name} <span className="faint">{ep.nextDay ? L(`· حصتها الجاية ${relDay(ep.nextDay, today)}`, `· next share ${relDay(ep.nextDay, today)}`) : ''}</span>
+          </button>
+        ))}
+      </section>
 
       {unknown.map((ep) => (
-        <button key={ep.exam.id} className="sx-q sx-ask" onClick={() => openSheet({ type: 'exam', id: ep.exam.id })}>
+        <button key={ep.exam.id} className="sx-q sx-ask" onClick={() => openSheet({ type: 'study-subject', examId: ep.exam.id })}>
           <span className="sx-dot" style={{ background: ep.course.color }} />
           <span className="sx-q-main">
             <b>{ep.course.name} · {ep.exam.title}</b>
@@ -500,18 +476,162 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
         </button>
       ))}
 
-      <DaysAhead plan={plan} />
-
-      {rows.length > 0 && (
-        <details className="sx-why">
-          <summary>{L('ليش هالأرقام؟', 'Why these numbers?')}</summary>
-          <div>
-            {rows.map((ep) => <p key={ep.exam.id}>{whyLine(ep)}</p>)}
-            <p>{L('كل مادة لحالها: الساعات الباقية ÷ الأيام الباقية لاختبارها، وكل يوم محسوب. الدروس تخلص قبل أيام المراجعة اللي حددتها للاختبار. إذا ذاكرت أقل يوم، الباقي يتوزع على الأيام اللي بعده؛ وإذا أجّلت مادة، حصتها كلها تروح لبكرة.', 'Each subject on its own: hours left ÷ days left to its exam, every day counted. Lessons finish before the exam’s review days. Study less one day and the rest spreads over the days after; postpone a subject and its whole share moves to tomorrow.')}</p>
+      {upcoming.length > 0 && (
+        <section>
+          <div className="group-title">
+            <span className="sh-h2">{L('مواعيد الاختبارات', 'Exam dates')}</span>
+            <button onClick={() => openSheet({ type: 'exam' })}>{L('+ اختبار', '+ Exam')}</button>
           </div>
-        </details>
+          <div className="sh-exams">
+            {upcoming.map((ep) => {
+              const d = new Date(`${ep.exam.date}T12:00:00`);
+              const soon = ep.daysLeft <= 1;
+              return (
+                <button key={ep.exam.id} className={`sh-ex ${soon ? 'soon' : ''}`} onClick={() => openSheet({ type: 'study-subject', examId: ep.exam.id })}>
+                  <span className="dt"><b className="num">{d.getDate()}</b><span>{d.toLocaleDateString(lang() === 'en' ? 'en' : 'ar-SA-u-ca-gregory-nu-latn', { month: 'long' })}</span></span>
+                  <span className="m">
+                    <b><span className="sx-dot" style={{ background: ep.course.color }} />{ep.course.name} · {ep.exam.title}</b>
+                    <span>{fmtDate(ep.exam.date).split(' ')[0]}{ep.exam.time ? ` ${fmtClock(ep.exam.time)}` : ''}{ep.status === 'done' ? L(' · جاهز ✓', ' · ready ✓') : ep.mid > 0.5 ? L(` · باقي ${hrs(ep.mid)}`, ` · ${hrs(ep.mid)} left`) : ''}</span>
+                  </span>
+                  {ep.status === 'past' || ep.daysLeft === 0 ? (
+                    <span className="left done" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); finish(ep); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); finish(ep); } }}>{L('خلّصته ✓', 'Done ✓')}</span>
+                  ) : (
+                    <span className="left">{whenText(ep)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
+
+      <DaysAhead plan={plan} />
     </>
+  );
+}
+
+/** one subject in «وش أذاكر اليوم»: what to study, how long, and where it stands */
+function SubjectRow({ ep }: { ep: ExamPlan }) {
+  const done = ep.todayMinutes <= 0 && !ep.postponed;
+  const pct = Math.min(100, (ep.doneToday / Math.max(1, ep.quota)) * 100);
+  return (
+    <div className={`sh-row ${done ? 'done' : ''} ${ep.postponed ? 'moved' : ''}`}>
+      <button className="sh-row-main" onClick={() => openSheet({ type: 'study-subject', examId: ep.exam.id })} aria-label={L(`تفاصيل ${ep.course.name}`, `${ep.course.name} details`)}>
+        <span className="bar" style={{ background: ep.course.color }} />
+        <span className="m">
+          <b>{ep.course.name} <small className="cd">{whenText(ep)}</small></b>
+          <span>{ep.postponed ? L(`أجّلتها لبكرة (${fmtMinutes(ep.postponed)})`, `Moved to tomorrow (${fmtMinutes(ep.postponed)})`) : done ? L('خلّصت حصتها اليوم ✓', 'Done for today ✓') : `${ep.inReview ? L('مراجعة: ', 'Review: ') : ''}${lessonsLine(ep)}`}</span>
+          {pct > 0 && !done && <i className="p"><i style={{ width: `${pct}%`, background: ep.course.color }} /></i>}
+        </span>
+        <span className="h num">{ep.postponed ? '⏭' : done ? '✓' : hrs(ep.todayMinutes)}</span>
+        <Icon name="chevron" size={14} className="chev-end" />
+      </button>
+      {!done && !ep.postponed && (
+        <button className="sh-go" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}><Icon name="play" size={14} /></button>
+      )}
+    </div>
+  );
+}
+
+/** everything about one subject's exam, and all of it editable: the exam, the sum, the lessons */
+export function SubjectSheet({ examId }: { examId: string }) {
+  const s = useApp();
+  const now = useNow();
+  const plan = useMemo(() => planStudy(s, now), [s, now]);
+  const ep = plan.exams.find((e) => e.exam.id === examId);
+  const exam = s.exams.find((e) => e.id === examId);
+  const course = exam && s.courses.find((c) => c.id === exam.courseId);
+  const [title, setTitle] = useState('');
+  const [minutes, setMinutes] = useState('');
+  if (!exam || !course) return <Sheet title={L('المادة', 'Subject')} onClose={closeSheet}><div className="muted">{L('ما لقيت الاختبار.', "Couldn't find the exam.")}</div></Sheet>;
+  const today = todayKey(now);
+  const units = s.units.filter((u) => exam.unitIds.includes(u.id)).sort((a, b) => a.order - b.order);
+  const inMinutes = /دقيق|دقائق|min/i.test(course.sizeLabel);
+  const pace = coursePace(s, course).pace;
+  const todays = new Set((ep?.portion || []).map((x) => x.unit.id));
+  const save = (patch: Partial<typeof exam>) => A.saveExam({ ...exam, ...patch });
+  const daysLeftN = ep ? Math.max(1, diffDays(today, ep.lastDay) + 1) : 0;
+  const addLesson = () => {
+    const size = Number(minutes.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))));
+    if (!title.trim() || !(size > 0)) return toast(L('اكتب اسم الدرس ومدته', 'Enter the lesson name and length'));
+    const ids = A.addUnits(course.id, [{ title: title.trim(), size }]);
+    save({ unitIds: [...exam.unitIds, ...ids] });
+    setTitle('');
+    setMinutes('');
+  };
+  const toggle = (u: Unit) => {
+    const finished = u.progress >= 1 && u.reviewed;
+    A.updateUnit(u.id, finished ? { progress: 0, reviewed: false } : { progress: 1, reviewed: true });
+  };
+  return (
+    <Sheet title={course.name} onClose={closeSheet} footer={<button className="btn ghost grow" onClick={() => { closeSheet(); go(`study/${course.id}`); }}>{L('صفحة المادة كاملة', 'Full course page')}</button>}>
+      <div className="ss">
+        <section className="ss-card">
+          <div className="ss-lb">{L('موعد الاختبار', 'Exam')}</div>
+          <div className="ss-two">
+            <input className="input" value={exam.title} aria-label={L('اسم الاختبار', 'Exam name')} onChange={(e) => save({ title: e.target.value })} />
+            <input className="input" type="date" value={exam.date} aria-label={L('تاريخ الاختبار', 'Exam date')} onChange={(e) => e.target.value && save({ date: e.target.value })} />
+          </div>
+          <div className="ss-two">
+            <label className="ss-fld"><span>{L('الساعة', 'Time')}</span><input className="input" type="time" value={exam.time || ''} onChange={(e) => save({ time: e.target.value || undefined })} /></label>
+            <label className="ss-fld"><span>{L('أيام مراجعة قبله', 'Review days before')}</span>
+              <span className="ss-step"><button onClick={() => save({ reviewDays: Math.max(0, (exam.reviewDays || 0) - 1) })} aria-label={L('أقل', 'Fewer')}>−</button><b className="num">{exam.reviewDays || 0}</b><button onClick={() => save({ reviewDays: Math.min(7, (exam.reviewDays || 0) + 1) })} aria-label={L('أكثر', 'More')}>+</button></span>
+            </label>
+          </div>
+        </section>
+
+        {(exam.date <= today || ep?.status === 'past') && !exam.finished && (
+          <button className="btn primary" onClick={() => { closeSheet(); if (ep) finish(ep); else A.finishExam(exam.id); }}>{L('خلّصت الاختبار ✓', 'I sat the exam ✓')}</button>
+        )}
+        {ep && ep.status !== 'unknown' && ep.status !== 'past' && (
+          <section className="ss-card">
+            <div className="ss-sum num">
+              <div><b>{hrs(ep.mid)}</b><span>{L('باقية', 'left')}</span></div>
+              <div><b>{daysLeftN}</b><span>{daysLeftN === 1 ? L('يوم', 'day') : daysLeftN === 2 ? L('يومين', 'days') : daysLeftN <= 10 ? L('أيام', 'days') : L('يومًا', 'days')}</span></div>
+              <div className="acc"><b>{hrs(ep.quota || ep.requiredDaily)}</b><span>{L('اليوم', 'today')}</span></div>
+            </div>
+            {leftLine(ep, today) && <div className="ss-why">{leftLine(ep, today)}</div>}
+            {ep.finishDay && ep.learnLeft > 0.5 && <div className="ss-why">{L(`📌 لو التزمت، تخلص الدروس ${relDay(ep.finishDay, today)}${ep.exam.reviewDays ? ' وتبقى لك أيام المراجعة' : ''}.`, `📌 Keep to it and the lessons are done ${relDay(ep.finishDay, today)}.`)}</div>}
+            {ep.status === 'done' ? <div className="ss-ok">{L('خلّصت كل دروسها ومراجعتها ✓', 'All lessons and review done ✓')}</div> : (
+              <>
+                {ep.todayMinutes > 0 && <div className="ss-les">📖 {lessonsLine(ep)}</div>}
+                <div className="row wrap" style={{ gap: 8, alignItems: 'center' }}>
+                  {ep.todayMinutes > 0 && <button className="btn primary" onClick={() => { closeSheet(); startStudy(ep); }}><Icon name="play" size={14} /> {L('ابدأ حصة اليوم', "Start today's share")}</button>}
+                  <button className="btn" onClick={() => openSheet({ type: 'study-log', courseId: course.id, unitId: ep.portion[0]?.unit.id })}>{L('سجّل', 'Log')}</button>
+                </div>
+                <Postpone ep={ep} />
+              </>
+            )}
+          </section>
+        )}
+
+        <section className="ss-card">
+          <div className="ss-lb">{L(`الدروس · ${inMinutes ? 'دقائق كل درس' : `بـ${course.sizeLabel}`}`, `Lessons · ${inMinutes ? 'minutes each' : course.sizeLabel}`)}</div>
+          {units.map((u) => {
+            const finished = u.progress >= 1 && u.reviewed;
+            return (
+              <div key={u.id} className={`ss-ls ${finished ? 'ok' : ''} ${todays.has(u.id) ? 'td' : ''}`}>
+                <button className={`ss-bx ${finished ? 'on' : u.progress > 0 ? 'half' : ''}`} onClick={() => toggle(u)} aria-label={finished ? L(`ارجع ${u.title} غير منتهي`, `Mark ${u.title} not done`) : L(`خلّصت ${u.title}`, `Mark ${u.title} done`)}>{finished ? '✓' : ''}</button>
+                <button className="t" onClick={() => openSheet({ type: 'unit', id: u.id })}>
+                  <bdi>{u.title}</bdi>
+                  {todays.has(u.id) && <em>{L('اليوم', 'today')}</em>}
+                  {!finished && u.progress > 0 && <small className="num">{Math.round(u.progress * 100)}%</small>}
+                </button>
+                <label className="ss-min">
+                  <input className="num" inputMode="numeric" value={u.size} aria-label={L(`مدة ${u.title}`, `${u.title} length`)} onChange={(e) => { const v = Number(e.target.value.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))); if (v > 0) A.updateUnit(u.id, { size: v }); }} />
+                  <span>{inMinutes ? L('د', 'm') : `~${fmtMinutes(unitMinutes(u, course, pace, 0))}`}</span>
+                </label>
+              </div>
+            );
+          })}
+          <div className="ss-add">
+            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={L('درس جديد', 'New lesson')} onKeyDown={(e) => e.key === 'Enter' && addLesson()} />
+            <input className="input num" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder={inMinutes ? L('دقائق', 'min') : course.sizeLabel} onKeyDown={(e) => e.key === 'Enter' && addLesson()} />
+            <button className="btn sm primary" onClick={addLesson}>{L('أضف', 'Add')}</button>
+          </div>
+        </section>
+      </div>
+    </Sheet>
   );
 }
 
@@ -524,7 +644,7 @@ function StudyOverview() {
   // the nearest exam first, then courses with no exam
   const order = (c: Course) => nextExam(plan, c.id)?.exam.date || '9999';
   const sorted = [...courses].sort((a, b) => order(a).localeCompare(order(b)));
-  const ungraded = s.exams.filter((e) => e.date < today && e.score == null && e.unitIds.length).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const ungraded = s.exams.filter((e) => e.date < today && e.score == null && !e.finished && e.unitIds.length).sort((a, b) => b.date.localeCompare(a.date))[0];
   const ungradedCourse = ungraded && s.courses.find((c) => c.id === ungraded.courseId);
 
   return (
@@ -534,7 +654,7 @@ function StudyOverview() {
         sub={(() => {
           const m = plan.exams.reduce((a, ep) => a + ep.todayMinutes, 0);
           const started = plan.exams.some((ep) => ep.quota > 0 && ep.doneToday > 0);
-          return <>{m ? (started ? L(`باقي اليوم: ${fmtMinutes(m)}`, `Left today: ${fmtMinutes(m)}`) : L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`)) : fmtDate(today)}</>;
+          return <>{fmtDate(today)}{m && started ? L(` · باقي ${hrs(m)}`, ` · ${hrs(m)} left`) : ''}</>;
         })()}
         actions={courses.length > 0 && <button className="btn sm" onClick={() => go('schedule')}><Icon name="week" size={15} /> {L('جدولي', 'Timetable')}</button>}
       />
@@ -543,7 +663,7 @@ function StudyOverview() {
       ) : (
         <div className="sx-cols">
           <div className="stack" style={{ minWidth: 0 }}>
-            <StudyS1 plan={plan} />
+            <StudyHome plan={plan} />
           </div>
           <div className="stack" style={{ minWidth: 0 }}>
             <section>
@@ -566,6 +686,7 @@ function StudyOverview() {
                     <Icon name="chevron" size={14} className="chev-end" />
                   </button>
                 )}
+                {ungraded && <button className="sh-later" style={{ justifySelf: 'start', padding: '6px 14px' }} onClick={() => { A.finishExam(ungraded.id); toast(L('تمام — طلع من القائمة', 'Done — off the list'), { undoable: true }); }}>{L('ما أعرف درجتي بعد — خلّصته ✓', "Don't know my grade yet — mark it done ✓")}</button>}
               </div>
             </section>
             <WeekStrip />

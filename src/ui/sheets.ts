@@ -22,7 +22,8 @@ export type SheetSpec =
   | { type: 'money-settings' }
   | { type: 'sub'; id?: string }
   | { type: 'sync' }
-  | { type: 'block'; id?: string };
+  | { type: 'block'; id?: string }
+  | { type: 'study-subject'; examId: string };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

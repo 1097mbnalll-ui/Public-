@@ -19,6 +19,7 @@ import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
+import { SubjectSheet } from '../pages/Study';
 import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
@@ -68,6 +69,8 @@ export function SheetHost() {
       return <SyncSheet />;
     case 'sub':
       return <SubSheet key={sh.id || 'new'} id={sh.id} />;
+    case 'study-subject':
+      return <SubjectSheet key={sh.examId} examId={sh.examId} />;
   }
 }
 
