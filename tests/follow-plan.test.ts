@@ -30,20 +30,13 @@ function study(s: AppState, cid: string, m: number, day: string) {
 }
 const f = (m: number) => `${Math.floor(m / 60)}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 
-// four exams close together (the user's case), timetable with travel: take the suggested study time,
-// study exactly what each day asks, and every exam is reached with all lessons learned and reviewed
+// four exams close together, timetable with travel: study exactly what each day asks, and every exam is reached with all lessons learned and reviewed
 it('following the plan exactly gets every exam ready', () => {
   const s = build();
   const out: string[] = [];
   for (let day = '2026-10-25'; day <= '2026-11-08'; day = addDays(day, 1)) {
     const now = atTime(day, day === '2026-10-25' ? '15:00' : '08:00');
-    let p = planStudy(s, now);
-    let note = '';
-    if (p.boost && p.exams.some((e) => e.status === 'behind')) {
-      for (let d = day; d <= p.boost.until; d = addDays(d, 1)) s.studyOverrides[d] = p.boost.minutes;
-      note = ` [اعتمدت ${f(p.boost.minutes)} لين ${p.boost.until.slice(5)}${p.boost.enough ? '' : ' — ما يكفي، ينقص ' + f(p.boost.short)}]`;
-      p = planStudy(s, now);
-    }
+    const p = planStudy(s, now);
     const cells: string[] = [];
     let tot = 0;
     for (const e of p.exams) {
@@ -59,7 +52,7 @@ it('following the plan exactly gets every exam ready', () => {
       tot += e.todayMinutes;
       study(s, e.course.id, e.todayMinutes, day);
     }
-    out.push(`${day.slice(5)} ذاكرت ${f(tot)} (وقت المذاكرة ${f(studyCapFor(s, day))} من وقتك ${f(availableFor(s, day))}) | ${cells.join(' · ')}${note}`);
+    out.push(`${day.slice(5)} ذاكرت ${f(tot)} (وقت المذاكرة ${f(studyCapFor(s, day))} من وقتك ${f(availableFor(s, day))}) | ${cells.join(' · ')}`);
   }
   expect(out.filter((l) => l.includes('★'))).toHaveLength(4);
 });

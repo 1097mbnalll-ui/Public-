@@ -565,15 +565,16 @@ export function setDayOverride(day: string, minutes: number | null) {
   });
 }
 
-/** study `minutes` a day from today until `until` (null = back to your usual study time) */
-export function boostStudy(until: string, minutes: number | null) {
+/** move today's share of an exam to tomorrow (minutes null = put it back) */
+export function postponeStudy(examId: string, minutes: number | null) {
+  const day = todayKey();
   mutate((s) => {
-    s.studyOverrides ||= {};
-    for (let d = todayKey(); d <= until; d = addDays(d, 1)) {
-      if (minutes == null) delete s.studyOverrides[d];
-      else s.studyOverrides[d] = minutes;
-    }
-  }, minutes == null ? L('رجوع وقت المذاكرة', 'Usual study time') : L('رفع وقت المذاكرة', 'More study time'));
+    s.studyDefer ||= {};
+    const d = { ...(s.studyDefer[day] || {}) };
+    if (minutes == null) delete d[examId];
+    else d[examId] = minutes;
+    s.studyDefer[day] = d;
+  }, minutes == null ? L('إلغاء التأجيل', 'Undo postpone') : L('تأجيل مادة لبكرة', 'Postpone to tomorrow'));
 }
 
 export function snooze(id: string, ms: number) {

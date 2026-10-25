@@ -181,6 +181,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   out.dayOverrides = { ...theirs.dayOverrides, ...mine.dayOverrides };
   out.skipClass = { ...theirs.skipClass, ...mine.skipClass };
   out.studyOverrides = { ...theirs.studyOverrides, ...mine.studyOverrides };
+  out.studyDefer = { ...theirs.studyDefer, ...mine.studyDefer };
   out.quotaLog = { ...theirs.quotaLog, ...mine.quotaLog };
   for (const [d, r] of Object.entries(theirs.days)) {
     const m = out.days[d];

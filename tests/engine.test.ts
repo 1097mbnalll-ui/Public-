@@ -115,17 +115,6 @@ describe('study planner', () => {
     expect(plan.exams[0].todayMinutes).toBeGreaterThan(0);
   });
 
-  it('flags behind and lists unreachable units when time is short', () => {
-    const s = initialState();
-    s.settings.studyCap = [60, 60, 60, 60, 60, 60, 60];
-    withCourse(s, [60, 60, 60], 3); // 180 pages ≈ 1080 min, only ~2 study days
-    const ep = planStudy(s, NOW).exams[0];
-    expect(ep.status).toBe('behind');
-    expect(ep.shortfall).toBeGreaterThan(0);
-    expect(ep.unreachable.length).toBeGreaterThan(0);
-    expect(ep.suggestions.length).toBeGreaterThan(0);
-  });
-
   it('asks for units when an exam has none', () => {
     const s = initialState();
     withCourse(s, [], 5);
@@ -244,9 +233,18 @@ describe('study planner across exams', () => {
     return s;
   }
 
+  it('each subject is its own hours ÷ its own days, whatever study time is set', () => {
+    const s = twoExams(3, 6, [36], [60]); // 180 min over 3 days, 300 min over 6 days
+    s.settings.reviewFactor = 0;
+    s.settings.studyCap = [30, 30, 30, 30, 30, 30, 30];
+    s.settings.available = [30, 30, 30, 30, 30, 30, 30];
+    const plan = planStudy(s, NOW);
+    expect(plan.exams.map((e) => e.quota)).toEqual([60, 50]);
+    expect(plan.exams.every((e) => e.status === 'ok')).toBe(true);
+  });
+
   it('9 hours over 3 days is 3 a day; skip today and it’s 4.5 + 4.5', () => {
     const s = initialState();
-    s.settings.studyMode = 'even';
     s.settings.reviewFactor = 0;
     // enough study time each day — this checks the arithmetic of the split, not whether it fits
     s.settings.studyCap = [600, 600, 600, 600, 600, 600, 600];
@@ -261,26 +259,6 @@ describe('study planner across exams', () => {
     const next = planStudy(s, atTime(addDays(TODAY, 1), '09:00'));
     expect(next.exams[0].quota).toBe(270);
     expect(next.byDay[addDays(TODAY, 2)][0].minutes).toBe(270);
-  });
-
-  it('keeps today within your study time when it isn’t enough, flags it and says what would be', () => {
-    const s = twoExams(3, 4, [60, 60], [60, 60]);
-    const plan = planStudy(s, NOW);
-    const total = plan.exams.reduce((a, ep) => a + ep.quota, 0);
-    expect(total).toBeLessThanOrEqual(150);
-    expect(plan.boost).toBeTruthy();
-    expect(plan.exams.some((ep) => ep.status === 'behind')).toBe(true);
-  });
-
-  it('skips days with no study time and spreads over the rest', () => {
-    const s = initialState();
-    s.settings.studyMode = 'even';
-    s.settings.reviewFactor = 0;
-    s.settings.studyCap = [150, 150, 150, 0, 150, 150, 150]; // no study on Wednesdays
-    withCourse(s, [36], 3, 0); // 180 min, today (Tue), Wed (none), Thu
-    const ep = planStudy(s, NOW).exams[0];
-    expect(ep.quota).toBe(90);
-    expect(ep.alloc[addDays(TODAY, 1)] || 0).toBe(0);
   });
 
   it('the days ahead show the same plan as the quota', () => {

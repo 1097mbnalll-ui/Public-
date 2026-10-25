@@ -7,9 +7,8 @@ import type { AppState } from '../src/lib/types';
 // Sunday 2026-10-25, 09:00 — the example shown to the user
 const NOW = atTime('2026-10-25', '09:00');
 
-function example(mode: 'smart' | 'even'): AppState {
+function example(): AppState {
   const s = initialState();
-  s.settings.studyMode = mode;
   s.settings.reviewFactor = 0;
   // plenty of time each day: these check how the work is shared out, not whether it fits
   s.settings.studyCap = [720, 720, 720, 720, 720, 720, 720];
@@ -32,30 +31,12 @@ const today = (s: AppState) => Object.fromEntries(planStudy(s, NOW).exams.map((e
 
 describe('study modes', () => {
   it('even: what is left ÷ days left, whatever your free time', () => {
-    const t = today(example('even'));
+    const t = today(example());
     expect(t).toEqual({ عرب: 120, احص: 120, كيم: 180, انجل: 80 });
   });
 
-  it('smart: a safety day before each exam, and every subject is studied every day', () => {
-    const s = example('smart');
-    const p = planStudy(s, NOW);
-    const t = today(s);
-    expect(t['عرب']).toBe(120);
-    expect(t['احص']).toBe(120);
-    expect(t['كيم']).toBe(240); // lessons done Tuesday, Wednesday is review
-    expect(t['انجل']).toBeGreaterThanOrEqual(80 * 0.6); // eased a little on a crowded day, never zero
-    const chem = p.exams.find((e) => e.course.name === 'كيم')!;
-    expect(chem.lastStudyDay).toBe('2026-10-27');
-    expect(chem.safetyDay).toBe(true);
-    // every minute is still planned before each exam
-    for (const e of p.exams) {
-      const sum = Object.values(p.byDay).flat().filter((x) => x.examId === e.exam.id).reduce((a, x) => a + x.minutes, 0);
-      expect(Math.abs(sum - e.mid)).toBeLessThanOrEqual(30); // days are rounded to 5 minutes
-    }
-  });
-
   it('an exam next week is studied from today, every day — not left to the last days', () => {
-    const s = example('smart');
+    const s = example();
     const p = planStudy(s, NOW);
     const eng = p.exams.find((e) => e.course.name === 'انجل')!;
     for (let d = '2026-10-25'; d <= eng.lastStudyDay; d = addDays(d, 1)) {
@@ -65,24 +46,9 @@ describe('study modes', () => {
   });
 
   it('a morning exam today leaves nothing to study for it', () => {
-    const s = example('smart');
+    const s = example();
     s.exams[0].time = '08:00';
     expect(today(s)['عرب']).toBe(0);
   });
 
-  it('never asks for more than your study time; a far exam still moves; and says how much would be enough', () => {
-    const s = example('smart');
-    s.settings.studyCap = [240, 240, 240, 240, 240, 240, 240];
-    s.settings.available = [300, 300, 300, 300, 300, 300, 300];
-    const p = planStudy(s, NOW);
-    for (const [d, list] of Object.entries(p.byDay)) expect(list.reduce((a, x) => a + x.minutes, 0), d).toBeLessThanOrEqual(240 + 10);
-    const eng = p.exams.find((e) => e.course.name === 'انجل')!;
-    expect(eng.todayMinutes).toBeGreaterThan(0);
-    expect(p.boost?.enough).toBe(true);
-    expect(p.boost!.minutes).toBeGreaterThan(240);
-    // taking the suggestion clears the warning
-    for (let d = '2026-10-25'; d <= p.boost!.until; d = addDays(d, 1)) s.studyOverrides[d] = p.boost!.minutes;
-    const q = planStudy(s, NOW);
-    expect(q.exams.filter((e) => e.status === 'behind')).toEqual([]);
-  });
 });

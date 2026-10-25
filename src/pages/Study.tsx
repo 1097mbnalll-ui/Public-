@@ -4,8 +4,7 @@ import { Icon } from '../ui/Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, daysWord, diffDays, fmtClock, fmtDate, fmtMinutes, relDay, todayKey } from '../lib/dates';
-import { planStudy, portionText, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
-import { studyCapFor } from '../lib/engine/capacity';
+import { planStudy, portionText, postponePreview, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
 import { coursePace } from '../lib/engine/learning';
 import { openSheet } from '../ui/sheets';
 import { go, useRoute } from '../ui/router';
@@ -246,7 +245,6 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
         </button>
       ))}
 
-      {rows.length > 0 && <TimeNote plan={plan} />}
 
       {rows.length > 0 && (
         <details className="sx-why">
@@ -261,42 +259,64 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
   );
 }
 
-/** when your study time isn't enough: one clear sentence and one tap that fixes it (from your free time) */
-function TimeNote({ plan }: { plan: StudyPlan }) {
+/** move a subject's share to tomorrow: shows what tomorrow becomes first, and can be put back */
+function Postpone({ ep }: { ep: ExamPlan }) {
   const s = useApp();
-  const today = todayKey();
-  const raised = s.studyOverrides?.[today];
-  const behind = plan.exams.filter((ep) => ep.status === 'behind');
-  const b = plan.boost;
-  if (!b || !behind.length)
-    return raised != null ? (
-      <div className="sx-note calm">
-        {L(`رفعت مذاكرتك إلى ${fmtMinutes(raised)} يوميًا لين الاختبارات.`, `You raised study to ${fmtMinutes(raised)} a day until the exams.`)}{' '}
-        <button className="linkish" onClick={() => { const last = Object.keys(s.studyOverrides).sort().pop()!; A.boostStudy(last, null); toast(L('رجع وقت مذاكرتك المعتاد', 'Back to your usual study time'), { undoable: true }); }}>{L('رجّع المعتاد', 'Back to usual')}</button>
+  const [ask, setAsk] = useState(false);
+  const pv = useMemo(() => (ask ? postponePreview(s, ep.exam.id) : null), [ask, s, ep.exam.id]);
+  if (ep.postponed)
+    return (
+      <div className="st-pp done">
+        <span>{L(`⏭️ أجّلتها لبكرة (${fmtMinutes(ep.postponed)})`, `⏭️ Moved to tomorrow (${fmtMinutes(ep.postponed)})`)}</span>
+        <button className="linkish" onClick={() => { A.postponeStudy(ep.exam.id, null); toast(L(`رجعت حصة ${ep.course.name} لليوم`, `${ep.course.name} is back on today`)); }}>{L('ألغِ التأجيل', 'Undo')}</button>
       </div>
-    ) : null;
-  const names = behind.map((ep) => ep.course.name).join(L(' و', ' and '));
-  const cap = studyCapFor(s, today);
+    );
+  if (!ep.canPostpone || ep.todayMinutes <= 0) return null;
+  if (!ask || !pv) return <button className="st-pp-btn" onClick={() => setAsk(true)}>{L('ما أقدر اليوم؟ أجّلها لبكرة', "Can't today? Move it to tomorrow")}</button>;
   return (
-    <div className="sx-note red sx-fix">
-      {b.enough ? (
-        <>
-          <div>{L(`وقت مذاكرتك (${fmtMinutes(cap)} باليوم) ما يكفي ${names}.`, `Your study time (${fmtMinutes(cap)} a day) isn't enough for ${names}.`)}</div>
-          <div><b>{L(`لو تذاكر ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)} تلحق كل شي`, `Study ${fmtMinutes(b.minutes)} a day until ${relDay(b.until)} and you'll make it`)}</b>{L(' — وجدولك فيه وقت فاضي لها.', ' — your timetable has the free time.')}</div>
-          <button className="btn sm primary" onClick={() => { A.boostStudy(b.until, b.minutes); toast(L(`تمام — ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)}، وتوزعت المواد عليها`, `Done — ${fmtMinutes(b.minutes)} a day until ${relDay(b.until)}`), { undoable: true }); }}>
-            {L(`اعتمد ${fmtMinutes(b.minutes)} يوميًا`, `Use ${fmtMinutes(b.minutes)} a day`)}
-          </button>
-        </>
-      ) : (
-        <>
-          <div>{L(`حتى لو ذاكرت كل وقتك الفاضي (${fmtMinutes(b.minutes)} باليوم) ينقصك ~${fmtMinutes(b.short)} في ${names}.`, `Even all your free time (${fmtMinutes(b.minutes)} a day) leaves ~${fmtMinutes(b.short)} short in ${names}.`)}</div>
-          <div>{L('اعتمد أقصى وقت، وركّز على أهم الدروس — أو ألغِ محاضرة/مهمة تقدر تأجلها.', 'Take the most time you have and focus on the key lessons — or drop a lecture/task you can.')}</div>
-          <button className="btn sm primary" onClick={() => { A.boostStudy(b.until, b.minutes); toast(L(`تمام — ${fmtMinutes(b.minutes)} يوميًا لين ${relDay(b.until)}`, `Done — ${fmtMinutes(b.minutes)} a day`), { undoable: true }); }}>
-            {L(`اعتمد ${fmtMinutes(b.minutes)} يوميًا`, `Use ${fmtMinutes(b.minutes)} a day`)}
-          </button>
-        </>
-      )}
+    <div className="st-pp">
+      <div>{L(`لو أجّلت ${ep.course.name} لبكرة:`, `If you move ${ep.course.name} to tomorrow:`)}</div>
+      <ul>
+        <li>{L('المادة بكرة: ', 'This subject tomorrow: ')}<b className="num">{fmtMinutes(pv.subjectAfter)}</b> <span className="faint">{L(`بدل ${fmtMinutes(pv.subjectBefore)}`, `instead of ${fmtMinutes(pv.subjectBefore)}`)}</span></li>
+        <li>{L('يومك بكرة كامل: ', 'All of tomorrow: ')}<b className="num">{fmtMinutes(pv.dayAfter)}</b> <span className="faint">{L(`بدل ${fmtMinutes(pv.dayBefore)}`, `instead of ${fmtMinutes(pv.dayBefore)}`)}</span></li>
+      </ul>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn sm primary" onClick={() => { A.postponeStudy(ep.exam.id, pv.minutes); setAsk(false); toast(L(`تمام — ${ep.course.name} بكرة ${fmtMinutes(pv.subjectAfter)}`, `Done — ${ep.course.name} is ${fmtMinutes(pv.subjectAfter)} tomorrow`), { undoable: true }); }}>{L('أجّلها', 'Move it')}</button>
+        <button className="btn sm ghost" onClick={() => setAsk(false)}>{L('لا، خلها', 'No, keep it')}</button>
+      </div>
     </div>
+  );
+}
+
+/** every day until the last exam: each subject's hours that day, and the day's total */
+function DaysAhead({ plan }: { plan: StudyPlan }) {
+  const today = todayKey();
+  const [all, setAll] = useState(false);
+  const days = Object.keys(plan.byDay).filter((d) => d > today).sort();
+  if (!days.length) return null;
+  const shown = all ? days : days.slice(0, 7);
+  const ep = (id: string) => plan.exams.find((e) => e.exam.id === id)!;
+  return (
+    <section>
+      <div className="group-title"><span>{L('الأيام الجاية', 'The days ahead')}</span><span className="faint">{L(`لين ${fmtDate(days[days.length - 1], false)}`, `to ${fmtDate(days[days.length - 1], false)}`)}</span></div>
+      <div className="st-days">
+        {shown.map((d) => {
+          const list = plan.byDay[d];
+          const total = list.reduce((a, x) => a + x.minutes, 0);
+          return (
+            <div key={d} className="st-day">
+              <div className="dt"><b>{relDay(d, today)}</b><span className="num">{fmtMinutes(total)}</span></div>
+              <div className="ch">
+                {list.map((x) => (
+                  <span key={x.examId} style={{ ['--c' as string]: ep(x.examId).course.color }}>{ep(x.examId).course.name} <b className="num">{fmtMinutes(x.minutes)}</b></span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {days.length > 7 && <button className="st-pp-btn" onClick={() => setAll(!all)}>{all ? L('أقل', 'Less') : L(`كل الأيام (${days.length})`, `All days (${days.length})`)}</button>}
+    </section>
   );
 }
 
@@ -374,14 +394,14 @@ function StudyWelcome() {
   );
 }
 
-/** what the smart mode did for this exam, in one short line (empty in the even split) */
-function smartLine(ep: ExamPlan, today: string, smart: boolean): string {
-  if (!smart) return '';
-  const day = (d: string) => relDay(d, today);
-  if (ep.safetyDay && today > ep.lastStudyDay) return L('🔁 يوم المراجعة — بدون دروس جديدة', '🔁 Review day — nothing new');
-  if (!ep.todayMinutes && !ep.doneToday && ep.nextDay) return L(`📅 حصتها الجاية ${day(ep.nextDay)}`, `📅 Next share ${day(ep.nextDay)}`);
-  if (ep.safetyDay) return L(`🛡️ الدروس تخلص ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} مراجعة`, `🛡️ Lessons done ${day(ep.lastStudyDay)} · ${day(ep.lastDay)} is review`);
-  return '';
+/** «باقي 16 س 48 د على 7 أيام» — the hours left over the days left, the whole sum behind today's share */
+function leftLine(ep: ExamPlan, today: string): string {
+  const n = Math.max(1, diffDays(today, ep.lastDay) + 1);
+  const left = ep.learnLeft + ep.reviewLeft;
+  if (left <= 0.5) return '';
+  if (!ep.todayMinutes && !ep.doneToday && !ep.postponed && ep.nextDay) return L(`📅 حصتها الجاية ${relDay(ep.nextDay, today)}`, `📅 Next share ${relDay(ep.nextDay, today)}`);
+  const rd = ep.exam.reviewDays || 0;
+  return L(`⏳ باقي ${fmtMinutes(left)} على ${n === 1 ? 'يوم واحد' : daysWord(n)}${rd ? ` · آخر ${daysWord(rd)} مراجعة` : ''}`, `⏳ ${fmtMinutes(left)} left over ${daysWord(n)}${rd ? ` · last ${daysWord(rd)} for review` : ''}`);
 }
 
 /** big number + unit for the hero: «2» «ساعات اليوم» / «45» «دقيقة اليوم» */
@@ -396,7 +416,6 @@ function bigTime(m: number): [string, string] {
  * lessons and Start — then the other exams nearest first, each with today's share.
  */
 function StudyS1({ plan }: { plan: StudyPlan }) {
-  const s = useApp();
   const today = todayKey();
   const active = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'done' && ep.status !== 'unknown');
   const hero = active.find((ep) => ep.todayMinutes > 0) || active[0];
@@ -404,8 +423,6 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
   const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
   const rows = plan.exams.filter((ep) => ep.quota > 0);
   const ahead = hero && !hero.todayMinutes ? aheadLesson(plan) : null;
-  const smart = (s.settings.studyMode || 'smart') === 'smart';
-
   if (!hero && !unknown.length)
     return (
       <section className="tile sx-today">
@@ -430,13 +447,13 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
           {hero.todayMinutes > 0 ? (
             <div className="big"><b className="num">{num}</b><span>{hero.inReview ? L('مراجعة اليوم', 'review today') : unit}</span></div>
           ) : (
-            <div className="big"><span>{hero.doneToday > 0 ? L('✓ خلّصت حصتها اليوم', "✓ Today's share done") : hero.nextDay ? L(`تبدأ ${relDay(hero.nextDay, today)}`, `Starts ${relDay(hero.nextDay, today)}`) : L('ما عليك لها شي اليوم', 'Nothing for it today')}</span></div>
+            <div className="big"><span>{hero.postponed ? L('⏭️ مؤجّلة لبكرة', '⏭️ Moved to tomorrow') : hero.doneToday > 0 ? L('✓ خلّصت حصتها اليوم', "✓ Today's share done") : hero.nextDay ? L(`تبدأ ${relDay(hero.nextDay, today)}`, `Starts ${relDay(hero.nextDay, today)}`) : L('ما عليك لها شي اليوم', 'Nothing for it today')}</span></div>
           )}
           {hero.doneToday > 0 && hero.quota > 0 && (
             <div className="st-prog"><i style={{ width: `${Math.min(100, (hero.doneToday / hero.quota) * 100)}%` }} /><span>{L(`أنجزت ${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% من حصتها اليوم`, `${Math.min(100, Math.round((hero.doneToday / hero.quota) * 100))}% of its share done today`)}</span></div>
           )}
           {hero.todayMinutes > 0 && hero.portion.length > 0 && <div className="les">{hero.inReview ? '🔁 ' : '📖 '}{lessonsLine(hero)}</div>}
-          {smartLine(hero, today, smart) && <div className="smart-l">{smartLine(hero, today, smart)}</div>}
+          {leftLine(hero, today) && <div className="smart-l">{leftLine(hero, today)}</div>}
           {hero.todayMinutes > 0 ? (
             <div className="hb">
               <button className="p" onClick={() => startStudy(hero)}>▶ {L('ابدأ', 'Start')}</button>
@@ -445,6 +462,7 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
           ) : ahead ? (
             <div className="hb"><button className="p" onClick={() => startStudy(ahead.ep, ahead.unit)}>▶ {L(`تقدّم: ${ahead.unit.title}`, `Get ahead: ${ahead.unit.title}`)}</button></div>
           ) : null}
+          <Postpone ep={hero} />
         </section>
       )}
 
@@ -457,13 +475,14 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
                 <span className="dot" style={{ background: ep.course.color }} />
                 <button className="grow" onClick={() => go(`study/${ep.course.id}`)}>
                   <b>{ep.course.name}</b>
-                  <span>🚩 {ep.exam.title} {whenText(ep)}{ep.inReview ? L(' · مراجعة', ' · review') : !ep.todayMinutes && ep.doneToday > 0 ? L(' · خلّصت حصتها', ' · done for today') : !smart && !ep.todayMinutes && ep.nextDay ? L(` · تبدأ ${relDay(ep.nextDay, today)}`, ` · starts ${relDay(ep.nextDay, today)}`) : ''}</span>
-                  {smartLine(ep, today, smart) && <span className="smart-l">{smartLine(ep, today, smart)}</span>}
+                  <span>🚩 {ep.exam.title} {whenText(ep)}{ep.inReview ? L(' · مراجعة', ' · review') : !ep.todayMinutes && ep.doneToday > 0 ? L(' · خلّصت حصتها', ' · done for today') : ''}</span>
+                  {leftLine(ep, today) && <span className="smart-l">{leftLine(ep, today)}</span>}
                 </button>
-                <span className={`hp num ${ep.todayMinutes ? '' : 'z'}`}>{ep.todayMinutes ? fmtMinutes(ep.todayMinutes) : ep.doneToday > 0 ? '✓' : '—'}</span>
+                <span className={`hp num ${ep.todayMinutes ? '' : 'z'}`}>{ep.todayMinutes ? fmtMinutes(ep.todayMinutes) : ep.postponed ? '⏭️' : ep.doneToday > 0 ? '✓' : '—'}</span>
                 {ep.todayMinutes > 0 && (
                   <button className="icon-btn sm" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}><Icon name="play" size={13} /></button>
                 )}
+                <div className="st-row-pp"><Postpone ep={ep} /></div>
               </div>
             ))}
           </div>
@@ -481,16 +500,14 @@ function StudyS1({ plan }: { plan: StudyPlan }) {
         </button>
       ))}
 
-      {rows.length > 0 && <TimeNote plan={plan} />}
+      <DaysAhead plan={plan} />
 
       {rows.length > 0 && (
         <details className="sx-why">
           <summary>{L('ليش هالأرقام؟', 'Why these numbers?')}</summary>
           <div>
             {rows.map((ep) => <p key={ep.exam.id}>{whyLine(ep)}</p>)}
-            <p>{(s.settings.studyMode || 'smart') === 'smart'
-              ? L('النظام الذكي: كل مادة تذاكرها كل يوم من اليوم. الدروس تخلص قبل الاختبار بيوم، ولما يزدحم الأسبوع المادة اللي اختبارها بعيد تخف شوي (40% بالكثير، وما توقف أبدًا) وتعوّض في الأيام الأخف. تقدر تغيّره من الإعدادات.', 'Smart: every subject is studied every day from today. Lessons finish a day before the exam, and in a crowded week a far-off exam eases a little (40% at most, never stops) and catches up on lighter days. You can change this in settings.')
-              : L('التوزيع المتساوي: الباقي ÷ الأيام الباقية. إذا ذاكرت أقل اليوم، الباقي يتوزع على الأيام اللي بعده.', 'Even split: what’s left ÷ days left. Study less today and the rest spreads over the days after.')}</p>
+            <p>{L('كل مادة لحالها: الساعات الباقية ÷ الأيام الباقية لاختبارها، وكل يوم محسوب. الدروس تخلص قبل أيام المراجعة اللي حددتها للاختبار. إذا ذاكرت أقل يوم، الباقي يتوزع على الأيام اللي بعده؛ وإذا أجّلت مادة، حصتها كلها تروح لبكرة.', 'Each subject on its own: hours left ÷ days left to its exam, every day counted. Lessons finish before the exam’s review days. Study less one day and the rest spreads over the days after; postpone a subject and its whole share moves to tomorrow.')}</p>
           </div>
         </details>
       )}
@@ -517,8 +534,7 @@ function StudyOverview() {
         sub={(() => {
           const m = plan.exams.reduce((a, ep) => a + ep.todayMinutes, 0);
           const started = plan.exams.some((ep) => ep.quota > 0 && ep.doneToday > 0);
-          const mode = (s.settings.studyMode || 'smart') === 'smart' ? L('🧠 الذكي المرن', '🧠 Smart') : L('⚖️ التوزيع المتساوي', '⚖️ Even split');
-          return <>{m ? (started ? L(`باقي اليوم: ${fmtMinutes(m)}`, `Left today: ${fmtMinutes(m)}`) : L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`)) : fmtDate(today)} · <button className="mode-chip" onClick={() => go('me')}>{mode}</button></>;
+          return <>{m ? (started ? L(`باقي اليوم: ${fmtMinutes(m)}`, `Left today: ${fmtMinutes(m)}`) : L(`مطلوب اليوم: ${fmtMinutes(m)}`, `Needed today: ${fmtMinutes(m)}`)) : fmtDate(today)}</>;
         })()}
         actions={courses.length > 0 && <button className="btn sm" onClick={() => go('schedule')}><Icon name="week" size={15} /> {L('جدولي', 'Timetable')}</button>}
       />

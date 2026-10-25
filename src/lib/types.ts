@@ -253,8 +253,6 @@ export interface Settings {
   reviewFactor: number;
   /** default minutes per size unit at difficulty 3, before any data */
   defaultPace: number;
-  /** how daily study is worked out: smart (safety day + spreads heavy weeks) or an even split */
-  studyMode?: 'smart' | 'even';
   /** minutes to get there before a lecture / shift, and to get home after */
   commuteMin?: number;
   /** minutes of rest once you're home from campus / work */
@@ -385,6 +383,8 @@ export interface AppState {
   skipClass: Record<string, boolean>;
   /** study time raised for particular days (exam crunch): day → minutes */
   studyOverrides: Record<string, number>;
+  /** a subject's share moved to the next day: day → exam id → minutes moved */
+  studyDefer: Record<string, Record<string, number>>;
   days: Record<string, DayRecord>;
   timer?: Timer;
   /** insight id → hidden until (epoch ms) */

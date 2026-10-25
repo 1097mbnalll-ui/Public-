@@ -62,22 +62,6 @@ describe('skipping a lecture', () => {
     expect(studyCapFor(s, '2026-11-08')).toBe(cap);
   });
 
-  it('the smart plan puts more on the freed day and less on the others', async () => {
-    const { planStudy } = await import('../src/lib/engine/study');
-    const s = st([blk(1, '10:00', '12:00')]);
-    s.settings.studyCap = [150, 150, 150, 150, 150, 150, 150];
-    s.courses.push({ id: 'c', name: 'كيم', color: '#000', difficulty: 3, sizeLabel: 'دقيقة', paceGuess: 1, notes: '', archived: false, createdAt: 0 } as any);
-    for (let i = 0; i < 6; i++) s.units.push({ id: 'u' + i, courseId: 'c', title: 'ف' + i, size: 100, progress: 0, reviewed: false, spent: 0, order: i });
-    s.exams.push({ id: 'e', courseId: 'c', title: 'م', date: '2026-11-07', unitIds: s.units.map((u) => u.id), reviewDays: 0, createdAt: 0 });
-    const now = atTime(SUN, '08:00');
-    const before = planStudy(s, now).exams[0].alloc;
-    s.skipClass = { [`${MON}|${s.schedule[0].id}`]: true };
-    const after = planStudy(s, now).exams[0].alloc;
-    expect(after[MON]).toBeGreaterThan(before[MON] + 20);
-    expect(after['2026-11-03']).toBeLessThan(before['2026-11-03']);
-    const sum = (a: Record<string, number>) => Object.values(a).reduce((x, y) => x + y, 0);
-    expect(Math.abs(sum(after) - sum(before))).toBeLessThan(5);
-  });
 });
 
 describe('a day that ends after midnight', () => {
