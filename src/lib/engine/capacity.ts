@@ -1,17 +1,19 @@
 import type { AppState } from '../types';
 import { addDays, atTime, todayKey, weekday } from '../dates';
-import { blocksOn, busyBetween, freeMinutes } from './schedule';
+import { blocksOn, busyBetween, freeMinutes, freedMinutes } from './schedule';
 
 /** free minutes you said you have for planned work on a day */
 export function availableFor(state: AppState, day: string): number {
   const o = state.dayOverrides[day];
   const set = o != null ? o : state.settings.available[weekday(day)] ?? 0;
+  // a lecture you skip gives its time (and the trip) back to that day
+  const freed = freedMinutes(state, day);
   // lectures / shifts take their share: never plan more than the time left around them
-  return blocksOn(state, day).length ? Math.min(set, freeMinutes(state, day)) : set;
+  return blocksOn(state, day, true).length ? Math.min(set + freed, freeMinutes(state, day)) : set;
 }
 
 export function studyCapFor(state: AppState, day: string): number {
-  return Math.min(state.settings.studyCap[weekday(day)] ?? 0, availableFor(state, day));
+  return Math.min((state.settings.studyCap[weekday(day)] ?? 0) + freedMinutes(state, day), availableFor(state, day));
 }
 
 /** when your day ends */

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Bar, Check, Collapse, Empty, Seg, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
-import { useApp, useSaveStatus } from '../lib/store';
+import { getState, useApp, useSaveStatus } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, atTime, daysWord, fmtClock, fmtDate, fmtMinutes, fmtTime, relDay, timeAgo, todayKey } from '../lib/dates';
 import { planDay, suggestDeferrals, weekLoad, type DayPlan, type PlanItem } from '../lib/engine/planner';
@@ -17,7 +17,7 @@ import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
 import { dayPhase, isNight, workStart, type DayPhase } from '../lib/engine/capacity';
-import { advance, blockLabel, blocksOn, nowBlock, skipBusy } from '../lib/engine/schedule';
+import { advance, blockLabel, blocksOn, freedMinutes, isSkipped, nowBlock, outingsOn, skipBusy } from '../lib/engine/schedule';
 import { InstallCard } from '../ui/InstallCard';
 import { MoneyTile } from './Money';
 import { StudyToday } from './Study';
@@ -255,6 +255,8 @@ function DaySummary({ plan, phase }: { plan: DayPlan; phase: DayPhase }) {
     const parts = blocksOn(s, plan.today)
       .filter((x) => x.to > Date.now())
       .map((x) => `${x.b.kind === 'work' ? L('دوام', 'Shift') : x.b.title} ${fmtClock(x.b.start)}`);
+    const out = outingsOn(s, plan.today).find((o) => o.leave > Date.now());
+    if (out) parts.unshift(L(`تطلع ${fmtTime(out.leave)}`, `leave ${fmtTime(out.leave)}`));
     const n = plan.items.filter((i) => i.kind !== 'study').length;
     if (n) parts.push(L(n === 1 ? 'مهمة واحدة' : n === 2 ? 'مهمتان' : `${n} مهام`, n === 1 ? '1 task' : `${n} tasks`));
     dayLine = parts.join(' · ');
@@ -350,6 +352,29 @@ function WrapUp({ plan, now }: { plan: DayPlan; now: number }) {
   );
 }
 
+/** a lecture / shift in today's list — tap «ما راح أحضر» and its time (and the trip) goes to study and tasks */
+function ClassRow({ x, day }: { x: ReturnType<typeof blocksOn>[number]; day: string }) {
+  const s = useApp();
+  const off = isSkipped(s, day, x.b.id);
+  const toggle = () => {
+    A.skipClass(day, x.b.id, !off);
+    if (!off) {
+      const freed = freedMinutes(getState(), day);
+      toast(L(`تمام — رجع لك ${fmtMinutes(freed)}، وزدت مذاكرة اليوم.`, `Done — ${fmtMinutes(freed)} back, today's study went up.`), { undoable: true });
+    }
+  };
+  return (
+    <div className={`r class-r ${off ? 'off' : ''}`}>
+      <span className="class-ic">{x.b.kind === 'work' ? '💼' : x.b.remote ? '💻' : '🎓'}</span>
+      <div className="main-t">
+        <div className="lbl">{x.b.title}</div>
+        <div className="sub">{off ? L('ملغية اليوم — وقتها راح للمذاكرة', 'Skipped today — its time went to study') : <>{blockLabel(x.b)} · {fmtClock(x.b.start)}–{fmtClock(x.b.end)}{x.b.place ? ` · ${x.b.place}` : ''}</>}</div>
+      </div>
+      <button className="chip btnish" onClick={toggle}>{off ? L('رجّعها', 'Undo') : L('ما راح أحضر', "Won't go")}</button>
+    </div>
+  );
+}
+
 /** tomorrow's first appointment and first thing to do */
 function Tomorrow({ now, plan }: { now: number; plan: DayPlan }) {
   const s = useApp();
@@ -363,7 +388,7 @@ function Tomorrow({ now, plan }: { now: number; plan: DayPlan }) {
     <div className="tile">
       <div className="k2"><Icon name="cal" size={14} /> {isNight(now) ? L('الصبح', 'In the morning') : L('بكرة', 'Tomorrow')}</div>
       <div className="col" style={{ gap: 6 }}>
-        {first && <div className="small">{first.b.kind === 'work' ? '💼' : '🎓'} {first.b.title} <span className="faint">· {fmtClock(first.b.start)}{first.b.place ? ` · ${first.b.place}` : ''}</span></div>}
+        {first && <div className="small row between" style={{ gap: 8 }}><span>{first.b.kind === 'work' ? '💼' : first.b.remote ? '💻' : '🎓'} {first.b.title} <span className="faint">· {fmtClock(first.b.start)}{first.b.place ? ` · ${first.b.place}` : ''}</span></span><button className="chip btnish" onClick={() => { A.skipClass(day, first.b.id, true); toast(L('ألغيتها — ووقتها راح لمذاكرة بكرة', 'Skipped — its time goes to tomorrow’s study'), { undoable: true }); }}>{L('ما راح أحضر', "Won't go")}</button></div>}
         {it && <div className="small">▶︎ {L('أول شيء: ', 'First: ')}<b>{it.title}</b> <span className="faint">· {fmtMinutes(it.minutes)}</span></div>}
         {tplan.items.length > 1 && <div className="faint tiny">{L(`وبعدها ${tplan.items.length - 1} — بترتيبها لك الصبح`, `then ${tplan.items.length - 1} more — laid out for you in the morning`)}</div>}
       </div>
@@ -598,7 +623,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const lateRest = afterFirst.filter((i) => i.kind !== 'study' && late.has(i.id));
   const rest = afterFirst.filter((i) => i.kind !== 'study' && !late.has(i.id));
   // today's remaining lectures / shifts, shown in place among the planned items
-  const classes = blocksOn(s, today).filter((x) => x.to > workStart(now));
+  const classes = blocksOn(s, today, true).filter((x) => x.to > workStart(now));
   const inClass = nowBlock(s, now);
   const timeline: ({ kind: 'item'; it: PlanItem; at: number } | { kind: 'class'; x: (typeof classes)[number] })[] = [
     ...rest.map((it) => ({ kind: 'item' as const, it, at: startOf.get(it) ?? 0 })),
@@ -632,14 +657,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
           r.kind === 'item' ? (
             <PlanRow key={r.it.kind + r.it.id} it={r.it} start={r.at} study={study} />
           ) : (
-            <div key={r.x.b.id} className="r class-r">
-              <span className="class-ic">{r.x.b.kind === 'work' ? '💼' : '🎓'}</span>
-              <div className="main-t">
-                <div className="lbl">{r.x.b.title}</div>
-                <div className="sub">{blockLabel(r.x.b)} · {fmtClock(r.x.b.start)}–{fmtClock(r.x.b.end)}{r.x.b.place ? ` · ${r.x.b.place}` : ''}</div>
-              </div>
-              <span className="faint tiny num">{fmtTime(r.x.from)}</span>
-            </div>
+            <ClassRow key={r.x.b.id} x={r.x} day={today} />
           ),
         )}
       </div>

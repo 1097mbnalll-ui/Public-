@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reviewFactor: 0.2,
   defaultPace: 5,
   studyMode: 'smart',
+  commuteMin: 60,
+  restMin: 60,
 };
 
 export function seedTemplates(): Template[] {
@@ -77,6 +79,7 @@ export function initialState(): AppState {
     sessions: [],
     settings: { ...DEFAULT_SETTINGS },
     dayOverrides: {},
+    skipClass: {},
     days: {},
     snoozed: {},
     fired: {},
@@ -112,7 +115,7 @@ export function migrate(raw: any): AppState {
     const v = s.settings[k];
     if (!Array.isArray(v) || v.length !== 7 || v.some((m) => typeof m !== 'number' || !(m >= 0))) s.settings[k] = [...DEFAULT_SETTINGS[k]];
   }
-  for (const k of ['dayOverrides', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {
+  for (const k of ['dayOverrides', 'skipClass', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {
     if (!s[k] || typeof s[k] !== 'object') (s as any)[k] = {};
   }
   s.tasks = s.tasks.map((t: any) => ({ checklist: [], notes: '', spent: 0, deferrals: 0, hard: false, priority: 1, area: 'life', status: 'open', ...t }));

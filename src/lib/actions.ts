@@ -858,6 +858,14 @@ export function saveBlock(b: Omit<ClassBlock, 'id' | 'createdAt'> & { id?: strin
   });
 }
 
+/** you won't attend this lecture / shift on that date (or you will after all) — the freed time goes to that day */
+export function skipClass(day: string, id: string, skip: boolean) {
+  mutate((s) => {
+    s.skipClass ||= {};
+    s.skipClass[`${day}|${id}`] = skip;
+  }, skip ? L('إلغاء محاضرة', 'Skip a lecture') : undefined);
+}
+
 export function deleteBlock(id: string) {
   mutate((s) => {
     s.schedule = s.schedule.filter((x) => x.id !== id);

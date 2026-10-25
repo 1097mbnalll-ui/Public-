@@ -7,8 +7,8 @@ import { toast } from '../ui/toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { askClaudeImage, hasAiKey } from '../lib/ai';
-import { DAY_NAMES, readSchedule, weekSummary } from '../lib/engine/schedule';
-import { fmtClock, fmtMinutes } from '../lib/dates';
+import { DAY_NAMES, isSkipped, readSchedule, weekSummary } from '../lib/engine/schedule';
+import { addDays, atTime, fmtClock, fmtDate, fmtMinutes, todayKey, weekday } from '../lib/dates';
 import type { ClassBlock } from '../lib/types';
 import { L } from '../lib/i18n';
 
@@ -31,7 +31,7 @@ Rules:
 - day: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday. Arabic headers: الأحد/الاحد=0, الإثنين/الاثنين=1, الثلاثاء=2, الأربعاء/الاربعاء=3, الخميس=4.
 - Trust the text written inside each block (e.g. "8.0-9.50 100 عرب" = 08:00–09:50, course «عرب 100»); ignore colour bands that spill into other columns without their own text.
 - title: the course name and number as written (e.g. "عرب 100"). Times in 24h; afternoon hours like 1.0–2.50 are 13:00–14:50 when the grid shows 13.00.
-- kind: "work" only for job shifts, otherwise "class". place only if written.`;
+- kind: "work" only for job shifts, otherwise "class". place only if written. "remote": true only if the block says online / عن بعد.`;
 
 async function shrink(file: File): Promise<{ data: string; mediaType: 'image/jpeg' }> {
   const img = await createImageBitmap(file);
@@ -127,7 +127,7 @@ export function Schedule() {
                     {hours.map((h) => <i key={h} style={{ top: (h - hours[0]) * ROW }} />)}
                     {s.schedule.filter((b) => b.day === d).map((b) => (
                       <button key={b.id} className="sg-b" style={{ top: top(b.start), height: Math.max(18, top(b.end) - top(b.start) - 2), background: b.kind === 'work' ? '#5E6B7D' : blockColor(b.title) }} onClick={() => openSheet({ type: 'block', id: b.id })}>
-                        <b>{b.title}</b>
+                        <b>{b.remote ? '💻 ' : ''}{b.title}</b>
                         <span>{fmtClock(b.start)}</span>
                       </button>
                     ))}
@@ -141,6 +141,7 @@ export function Schedule() {
               {L('وقتك الفاضي للمذاكرة والمهام: ', 'Your free time for study and tasks: ')}
               <b>{[sum.freeDays.length ? L(`${sum.freeDays.join(' و')} كامل`, `all of ${sum.freeDays.join(', ')}`) : '', L(`بعد ${fmtClock(sum.latest)} يوميًا`, `after ${fmtClock(sum.latest)} daily`), L('والفراغات بين المحاضرات', 'and the gaps between lectures')].filter(Boolean).join(' + ')}</b>.
             </div>
+            <TravelCard />
             <button className="btn" onClick={() => openSheet({ type: 'block' })}><Icon name="plus" size={15} /> {L('محاضرة أو دوام', 'Lecture or shift')}</button>
           </>
         ) : (
@@ -157,6 +158,31 @@ export function Schedule() {
   );
 }
 
+const MINS = [0, 15, 30, 45, 60, 90, 120];
+
+/** the way there and back, and the rest once home — taken out of your free time like the lectures themselves */
+function TravelCard() {
+  const s = useApp();
+  const c = s.settings.commuteMin ?? 60;
+  const r = s.settings.restMin ?? 60;
+  const sel = (v: number, key: 'commuteMin' | 'restMin') => (
+    <select className="input" value={v} onChange={(e) => A.updateSettings({ [key]: Number(e.target.value) })}>
+      {MINS.map((m) => <option key={m} value={m}>{m ? fmtMinutes(m) : L('بدون', 'None')}</option>)}
+    </select>
+  );
+  return (
+    <div className="card" style={{ padding: '12px 16px' }}>
+      <div className="fields two">
+        <div className="field"><label>{L('🚗 الطريق (رايح وراجع)', '🚗 Travel (each way)')}</label>{sel(c, 'commuteMin')}</div>
+        <div className="field"><label>{L('🛋️ راحة بعد ما ترجع', '🛋️ Rest once home')}</label>{sel(r, 'restMin')}</div>
+      </div>
+      <div className="faint tiny" style={{ marginTop: 6, lineHeight: 1.7 }}>
+        {L(`محاضرة 8:00 = تطلع ${fmtClock(`${String(Math.floor((480 - c) / 60)).padStart(2, '0')}:${String((480 - c) % 60).padStart(2, '0')}`)}، وبعد آخر محاضرة ${c ? fmtMinutes(c) : ''} طريق${r ? ` + ${fmtMinutes(r)} راحة` : ''} قبل ما أحط لك مذاكرة أو مهام. المحاضرات «عن بعد» 💻 ما لها طريق. وإذا الفراغ بين محاضرتين ما يكفي ترجع البيت، أحسبك باقي هناك.`, `An 8:00 lecture means leaving earlier; after the last one I leave travel${r ? ' + rest' : ''} before planning study or tasks. Online 💻 blocks have no travel. If a gap is too short to go home, I count you as staying.`)}
+      </div>
+    </div>
+  );
+}
+
 /** add (several days at once) or edit a lecture / shift */
 export function BlockSheet({ id }: { id?: string }) {
   const s = useApp();
@@ -167,9 +193,14 @@ export function BlockSheet({ id }: { id?: string }) {
   const [start, setStart] = useState(ex?.start || '08:00');
   const [end, setEnd] = useState(ex?.end || '09:50');
   const [place, setPlace] = useState(ex?.place || '');
+  const [remote, setRemote] = useState(!!ex?.remote);
   const ok = title.trim() && days.length && end > start;
+  // the next time this block happens (today if it hasn't ended yet)
+  let next = todayKey();
+  if (ex) while (weekday(next) !== ex.day || (next === todayKey() && atTime(next, ex.end) <= Date.now())) next = addDays(next, 1);
+  const off = ex ? isSkipped(s, next, ex.id) : false;
   const save = () => {
-    const base = { title: title.trim(), kind, start, end, ...(place.trim() ? { place: place.trim() } : {}) };
+    const base = { title: title.trim(), kind, start, end, remote, ...(place.trim() ? { place: place.trim() } : {}) };
     if (ex) A.saveBlock({ ...base, id: ex.id, day: days[0] });
     else A.setSchedule(days.map((day) => ({ ...base, day })));
     closeSheet();
@@ -200,7 +231,13 @@ export function BlockSheet({ id }: { id?: string }) {
           <div className="field"><label>{L('من', 'From')}</label><input type="time" className="input" value={start} onChange={(e) => setStart(e.target.value)} /></div>
           <div className="field"><label>{L('إلى', 'To')}</label><input type="time" className="input" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
         </div>
-        <input className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder={L('القاعة (اختياري)', 'Room (optional)')} />
+        <Seg value={remote ? 'r' : 'p'} onChange={(v) => setRemote(v === 'r')} options={[{ v: 'p', l: L('🚗 حضوري', '🚗 In person') }, { v: 'r', l: L('💻 عن بعد', '💻 Online') }]} />
+        {ex && (
+          <button className={`btn ${off ? '' : 'ghost'}`} onClick={() => { A.skipClass(next, ex.id, !off); if (!off) toast(L('ألغيتها — ووقتها راح للمذاكرة ذاك اليوم', 'Skipped — its time goes to study that day'), { undoable: true }); }}>
+            {off ? L(`↩︎ رجّعها (${fmtDate(next)})`, `↩︎ Back on (${fmtDate(next)})`) : L(`🚫 ما راح أحضرها ${fmtDate(next)}`, `🚫 I'll miss it on ${fmtDate(next)}`)}
+          </button>
+        )}
+        {!remote && <input className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder={L('القاعة (اختياري)', 'Room (optional)')} />}
       </div>
     </Sheet>
   );

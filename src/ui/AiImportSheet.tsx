@@ -22,7 +22,7 @@ function aiPrompt(): string {
   "exam": { "title": "الميد", "date": "YYYY-MM-DD", "time": "HH:MM", "reviewDays": 0 },
   "tasks": [ { "title": "المهمة", "due": "YYYY-MM-DD", "dueTime": "HH:MM", "priority": 2, "area": "study", "estimate": 30, "steps": ["خطوة", "خطوة"] } ],
   "expenses": [ { "title": "قهوة ستاربكس", "amount": 24, "date": "YYYY-MM-DD", "cat": "coffee" } ],
-  "schedule": [ { "title": "كيم 101", "day": 0, "start": "08:00", "end": "09:50", "kind": "class", "place": "" } ]
+  "schedule": [ { "title": "كيم 101", "day": 0, "start": "08:00", "end": "09:50", "kind": "class", "place": "", "remote": false } ]
 }
 
 القواعد:
@@ -33,7 +33,7 @@ function aiPrompt(): string {
 - priority: 0 غير مهم، 1 عادي، 2 مهم، 3 عاجل. area: study للدراسة، work للعمل، life للحياة.
 - حوّل الأيام النسبية (بكرة، الأحد الجاي…) إلى تواريخ فعلية من تاريخ اليوم. الوقت بنظام 24 ساعة.
 - expenses: مصاريف بالريال؛ cat واحد من: food, coffee, delivery, transport, shopping, subs, bills, fun, study, health, other.
-- schedule: الجدول الأسبوعي (محاضرات أو دوام). day: 0 الأحد، 1 الإثنين، 2 الثلاثاء، 3 الأربعاء، 4 الخميس، 5 الجمعة، 6 السبت. kind: class للمحاضرة، work للدوام. اعتمد النص المكتوب داخل كل مربع في صورة الجدول، والوقت بنظام 24 ساعة.
+- schedule: الجدول الأسبوعي (محاضرات أو دوام). day: 0 الأحد، 1 الإثنين، 2 الثلاثاء، 3 الأربعاء، 4 الخميس، 5 الجمعة، 6 السبت. kind: class للمحاضرة، work للدوام. remote: true إذا المحاضرة عن بعد. اعتمد النص المكتوب داخل كل مربع في صورة الجدول، والوقت بنظام 24 ساعة.
 - reviewDays: أيام المراجعة قبل الاختبار (0 إذا الاختبار قريب).
 - الـ JSON لازم يكون كامل وصالح؛ إذا المحتوى طويل جدًا اختصر notes ولا تقطعه.
 

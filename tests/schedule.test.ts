@@ -7,6 +7,9 @@ import type { AppState } from '../src/lib/types';
 
 function withClasses(): AppState {
   const s = initialState();
+  // these check the lectures alone — travel and rest are covered in travel.test.ts
+  s.settings.commuteMin = 0;
+  s.settings.restMin = 0;
   const b = (title: string, day: number, start: string, end: string) => ({ id: title + start, title, day, start, end, kind: 'class' as const, createdAt: 1 });
   // Sunday 2026-10-25
   s.schedule = [b('عرب 100', 0, '08:00', '09:50'), b('كيم 101', 0, '10:00', '11:50'), b('انجل 106', 0, '13:00', '14:50')];

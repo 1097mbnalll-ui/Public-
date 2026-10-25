@@ -223,7 +223,8 @@ function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, 
 }
 
 /**
- * The smart quota. Same shares as the even split, except on days where the exams together ask
+ * The smart quota. Each day takes a share in proportion to its study time (a day with a skipped
+ * lecture carries more, a crowded one less), and on days where the exams together ask
  * for more than the lowest daily load that still meets every deadline: then the exams whose
  * deadline is furthest away are eased a little (at most 40%, never to zero) and catch up on
  * lighter days — every subject is studied every day, a heavy week just weighs a bit less.
@@ -232,7 +233,7 @@ function simulate(jobs: Job[], from: string, weightOf: (day: string) => number, 
 /** how much of a far exam's daily share a crowded day may hold back */
 const MAX_EASE = 0.4;
 
-function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): SimResult {
+function level(jobs: Job[], from: string, weightOf: (day: string) => number): SimResult {
   const learn = new Map(jobs.map((j) => [j.p.exam.id, j.learn]));
   const review = new Map(jobs.map((j) => [j.p.exam.id, j.review]));
   const alloc = new Map<string, Record<string, number>>(jobs.map((j) => [j.p.exam.id, {}]));
@@ -242,11 +243,12 @@ function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): S
   for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
   const tail = new Map<string, number>();
   let acc = 0;
-  for (let i = days.length - 1; i >= 0; i--) tail.set(days[i], (acc += studyDay(days[i]) ? 1 : 0));
+  const w = new Map(days.map((d) => [d, Math.max(0, weightOf(d))]));
+  for (let i = days.length - 1; i >= 0; i--) tail.set(days[i], (acc += w.get(days[i])!));
   const between = (a: string, b: string) => (tail.get(a) || 0) - (tail.get(addDays(b, 1)) || 0);
   const share = (left: number, day: string, until: string) => {
     const all = between(day, until);
-    return all > 0 ? (studyDay(day) ? left / all : 0) : day === until ? left : 0;
+    return all > 0 ? (left * w.get(day)!) / all : day === until ? left : 0;
   };
 
   for (const day of days) {
@@ -261,13 +263,13 @@ function level(jobs: Job[], from: string, studyDay: (day: string) => boolean): S
         return { j, l, r, learning, want: Math.min(l + r, want), due: learning ? j.learnEnd : j.lastDay };
       })
       .filter((x) => x.want > 0);
-    if (asks.length > 1 && studyDay(day)) {
+    if (asks.length > 1 && w.get(day)! > 0) {
       // the lowest load that meets every deadline: the most that's due by some day ÷ study days until then
       const ends = [...new Set(asks.flatMap((x) => [x.j.learnEnd, x.j.lastDay]))].filter((d) => d >= day);
       let lv = 0;
       for (const D of ends) {
         const due = asks.reduce((a, x) => a + (D >= x.j.lastDay ? x.l + x.r : x.learning && D >= x.j.learnEnd ? x.l : 0), 0);
-        lv = Math.max(lv, due / Math.max(1, between(day, D)));
+        lv = Math.max(lv, between(day, D) > 0 ? (due * w.get(day)!) / between(day, D) : due);
       }
       // ease the furthest exams a little — never more than 40% of their share, never to zero, and
       // never an exam within 3 days: every subject keeps moving every day
@@ -397,7 +399,8 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
   const todayCap = Math.min(studyCapFor(state, today), dayRecord(state, today).study + minutesLeftToday(state, now));
   const capOf = (day: string) => (day === today ? todayCap : studyCapFor(state, day));
   // the quota: what's needed, evenly over the days that have study time
-  const need = smart ? level(jobs, today, (d) => studyCapFor(state, d) > 0) : simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
+  // smart weighs each day by its study time: a freer day (a skipped lecture) carries more, a busier one less
+  const need = smart ? level(jobs, today, (d) => studyCapFor(state, d)) : simulate(jobs, today, (d) => (studyCapFor(state, d) > 0 ? 1 : 0));
   // the check: does it fit your study time? (expected and pessimistic pace)
   const fit = simulate(jobs, today, capOf, capOf);
   const high = simulate(jobs.map((j) => ({ ...j, learn: j.learn * (1 + j.p.pace.spread), review: j.review * (1 + j.p.pace.spread) })), today, capOf, capOf);

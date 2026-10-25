@@ -255,6 +255,10 @@ export interface Settings {
   defaultPace: number;
   /** how daily study is worked out: smart (safety day + spreads heavy weeks) or an even split */
   studyMode?: 'smart' | 'even';
+  /** minutes to get there before a lecture / shift, and to get home after */
+  commuteMin?: number;
+  /** minutes of rest once you're home from campus / work */
+  restMin?: number;
 }
 
 export interface Timer {
@@ -298,6 +302,8 @@ export interface ClassBlock {
   end: string; // HH:MM
   kind: 'class' | 'work';
   place?: string;
+  /** online (عن بعد): no going out and coming back */
+  remote?: boolean;
   createdAt: number;
   updatedAt?: number;
 }
@@ -363,6 +369,8 @@ export interface AppState {
   settings: Settings;
   /** override of available minutes for a specific day */
   dayOverrides: Record<string, number>;
+  /** a lecture / shift you won't attend on one date: `${day}|${blockId}` → true (false = back on) */
+  skipClass: Record<string, boolean>;
   days: Record<string, DayRecord>;
   timer?: Timer;
   /** insight id → hidden until (epoch ms) */
