@@ -170,25 +170,31 @@ describe('study planner', () => {
 });
 
 describe('daily study quota', () => {
-  it('spreads the remaining material over study days and names the lessons', () => {
+  it('shares the lessons out by each day’s study time and names them', () => {
     const s = initialState();
-    withCourse(s, [20, 20, 20], 12, 2); // 60 pages * 5 min * 1.2 = 360 min, study days = 12 - 2 - 1 + 1 = 10
+    withCourse(s, [20, 20, 20], 12, 2); // 300 min of lessons + 60 of review; lessons by the Thursday after next
     const ep = planStudy(s, NOW).exams[0];
     expect(ep.studyDays).toBe(10);
-    expect(ep.quota).toBe(40); // 360 / 10 → rounded up to 5
-    expect(ep.todayMinutes).toBe(40);
+    expect(ep.learnLeft).toBeCloseTo(300, 0);
+    expect(ep.reviewLeft).toBeCloseTo(60, 0);
+    // 300 min over 10 learning days holding 1620 min of study time → today (150) gets ~28, +10% margin
+    expect(ep.quota).toBe(30);
+    expect(ep.todayMinutes).toBe(30);
     expect(ep.portion[0].unit.title).toBe('فصل 1');
+    expect(ep.portion.every((x) => !x.review)).toBe(true);
   });
 
-  it('stays the same during the day while today’s remainder shrinks', () => {
+  it('stays about the same during the day while today’s remainder shrinks', () => {
     const s = initialState();
     withCourse(s, [20, 20, 20], 12, 2);
+    const before = planStudy(s, NOW).exams[0].quota;
     s.sessions.push({ id: 's', courseId: 'c1', unitId: 'u0', date: TODAY, minutes: 30, amount: 5, at: NOW });
     s.units[0].progress = 0.25;
+    s.days[TODAY] = { done: 0, minutes: 30, study: 30 };
     const ep = planStudy(s, NOW).exams[0];
-    expect(ep.quota).toBe(40);
+    expect(Math.abs(ep.quota - before)).toBeLessThanOrEqual(5);
     expect(ep.doneToday).toBe(30);
-    expect(ep.todayMinutes).toBe(10);
+    expect(ep.todayMinutes).toBe(Math.max(0, ep.quota - 30));
   });
 
   it('grows the next day when yesterday’s quota was not studied', () => {
@@ -202,11 +208,92 @@ describe('daily study quota', () => {
     expect(ep.yesterday).toEqual({ quota: q1, done: 0 });
   });
 
-  it('asks for nothing new during review days', () => {
+  it('spends the review days on review, with real minutes', () => {
     const s = initialState();
-    withCourse(s, [20], 2, 2);
+    withCourse(s, [20, 20], 3, 2); // exam Friday, review Wednesday + Thursday
+    s.units.forEach((u) => (u.progress = 1));
+    const now = NOW + 86_400_000; // Wednesday: first review day
+    const ep = planStudy(s, now).exams[0];
+    expect(ep.inReview).toBe(true);
+    expect(ep.reviewCompressed).toBe(false);
+    expect(ep.status).toBe('ok');
+    expect(ep.todayMinutes).toBeGreaterThan(0);
+    expect(ep.portion.every((x) => x.review)).toBe(true);
+  });
+
+  it('finishes late lessons in the review days and says so', () => {
+    const s = initialState();
+    withCourse(s, [20, 20], 3, 2);
+    const ep = planStudy(s, NOW + 86_400_000).exams[0];
+    expect(ep.inReview).toBe(false);
+    expect(ep.reviewCompressed).toBe(true);
+    expect(ep.portion[0].review).toBe(false);
+  });
+});
+
+describe('study planner across exams', () => {
+  function twoExams(daysA: number, daysB: number, pagesA: number[], pagesB: number[]) {
+    const s = initialState();
+    withCourse(s, pagesA, daysA, 0);
+    s.courses.push({ id: 'c2', name: 'محاسبة', color: '#0f0', difficulty: 3, sizeLabel: 'صفحة', notes: '', archived: false, createdAt: NOW });
+    pagesB.forEach((size, i) => s.units.push({ id: `v${i}`, courseId: 'c2', title: `محاضرة ${i + 1}`, size, progress: 0, reviewed: false, spent: 0, order: i }));
+    s.exams.push({ id: 'e2', courseId: 'c2', title: 'كويز', date: addDays(TODAY, daysB), unitIds: pagesB.map((_, i) => `v${i}`), reviewDays: 0, createdAt: NOW });
+    return s;
+  }
+
+  it('never asks for more study today than today’s study time', () => {
+    const s = twoExams(3, 4, [60, 60], [60, 60]); // far more than fits
+    const plan = planStudy(s, NOW);
+    const today = plan.exams.reduce((a, ep) => a + ep.quota, 0);
+    expect(today).toBeLessThanOrEqual(150 + 5);
+    for (const [, list] of Object.entries(plan.byDay)) expect(list.reduce((a, x) => a + x.minutes, 0)).toBeLessThanOrEqual(240 + 10);
+  });
+
+  it('serves the nearest exam first when time is short', () => {
+    const s = twoExams(2, 6, [60, 60], [60, 60]);
+    const [a, b] = planStudy(s, NOW).exams;
+    expect(a.exam.id).toBe('e1');
+    expect(a.quota).toBeGreaterThan(b.quota);
+    expect(a.status).toBe('behind');
+  });
+
+  it('gives freer days a bigger share', () => {
+    const s = initialState();
+    withCourse(s, [40, 40], 9, 0); // Tuesday → the Thursday after next, through Friday and Saturday (240) vs weekdays (150)
     const ep = planStudy(s, NOW).exams[0];
-    expect(ep.inReview || ep.reviewCompressed).toBe(true);
+    const fri = ep.alloc[addDays(TODAY, 3)];
+    const wed = ep.alloc[addDays(TODAY, 1)];
+    expect(fri).toBeGreaterThan(wed * 1.3);
+  });
+
+  it('the days ahead show the same plan as the quota', () => {
+    const s = initialState();
+    withCourse(s, [30, 30, 30], 8, 1);
+    const plan = planStudy(s, NOW);
+    const ep = plan.exams[0];
+    expect(plan.byDay[TODAY][0].minutes).toBe(ep.todayMinutes);
+    const tomorrow = plan.byDay[addDays(TODAY, 1)][0].minutes;
+    expect(Math.abs(tomorrow - ep.alloc[addDays(TODAY, 1)])).toBeLessThanOrEqual(3);
+  });
+
+  it('studies on the morning of an afternoon exam', () => {
+    const s = initialState();
+    withCourse(s, [10, 10], 0, 0);
+    s.exams[0].time = '17:00';
+    s.units.forEach((u) => (u.progress = 1));
+    const ep = planStudy(s, NOW).exams[0];
+    expect(ep.status).not.toBe('past');
+    expect(ep.todayMinutes).toBeGreaterThan(0);
+    s.exams[0].time = '10:00';
+    expect(planStudy(s, NOW).exams[0].status).toBe('past');
+  });
+
+  it('review sessions don’t count as learning speed', () => {
+    const s = initialState();
+    withCourse(s, [10], 10);
+    for (let i = 0; i < 4; i++) s.sessions.push({ id: `r${i}`, courseId: 'c1', unitId: 'u0', date: TODAY, minutes: 5, amount: 10, review: true, at: NOW });
+    s.sessions.push({ id: 'g', courseId: 'c1', date: TODAY, minutes: 10, amount: 10, at: NOW });
+    expect(coursePace(s, s.courses[0]).source).toBe('default');
   });
 });
 

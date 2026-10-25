@@ -234,9 +234,8 @@ function CourseDetail({ id }: { id: string }) {
 export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string }) {
   const s = useApp();
   const today = todayKey();
-  const active = plan.exams.filter((ep) => ep.quota > 0 || ep.inReview || ep.status === 'unknown');
+  const active = plan.exams.filter((ep) => ep.quota > 0 || ep.status === 'unknown' || ((ep.status === 'behind' || ep.status === 'tight') && ep.daysLeft > 0));
   if (!active.length) return null;
-  const totalQuota = active.reduce((a, ep) => a + ep.quota, 0);
   const totalLeft = active.reduce((a, ep) => a + ep.todayMinutes, 0);
   const cap = studyCapFor(s, today);
 
@@ -255,18 +254,7 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
                 <span className="grow">{ep.course.name} — {ep.exam.title}: <span style={{ color: 'var(--violet)' }}>{L("حدد الدروس المطلوبة لأحسب حصتك", "Set the required lessons so I can work out your quota")}</span></span>
               </button>
             );
-          if (ep.inReview)
-            return (
-              <div key={ep.exam.id} className="card">
-                <div className="row" style={{ gap: 8 }}>
-                  <span className="dot" style={{ background: ep.course.color }} />
-                  <b>{ep.course.name}</b>
-                  <span className="faint small">— {ep.exam.title} {ep.daysLeft === 1 ? L('غدًا', "Tomorrow") : L(`بعد ${daysWord(ep.daysLeft)}`, `in ${daysWord(ep.daysLeft)}`)}</span>
-                </div>
-                <div className="small muted" style={{ marginTop: 6 }}>{L("أيام المراجعة: لا مادة جديدة. راجع ملخصاتك وحل أسئلة سابقة.", "Review days: no new material. Go over your summaries and solve past questions.")}</div>
-              </div>
-            );
-          const doneAll = ep.todayMinutes <= 0;
+          const doneAll = ep.quota > 0 && ep.todayMinutes <= 0;
           const y = ep.yesterday;
           const grew = y && y.done < y.quota && ep.quota > y.quota;
           return (
@@ -274,7 +262,7 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
               <div className="row between" style={{ alignItems: 'flex-start' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 650 }}>{ep.course.name}</div>
-                  <div className="faint tiny">{ep.exam.title} {fmtDate(ep.exam.date, false)}{L(" · تنهي المنهج ", " · finish the syllabus ")}{fmtDate(ep.lastStudyDay, false)}{L(" وتبقى ", " with ")}{daysWord(ep.exam.reviewDays || 0)}{L(" للمراجعة", " left for review")}</div>
+                  <div className="faint tiny">{ep.exam.title} {fmtDate(ep.exam.date, false)} · {phaseLine(ep)}</div>
                 </div>
                 <div style={{ textAlign: 'end', flexShrink: 0 }}>
                   <div style={{ fontSize: 20, fontWeight: 700, color: doneAll ? 'var(--green)' : undefined }} className="num">{doneAll ? '✓' : fmtMinutes(ep.todayMinutes)}</div>
@@ -282,10 +270,11 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
                 </div>
               </div>
               <div style={{ margin: '10px 0 8px' }}><Bar value={ep.quota ? ep.doneToday / ep.quota : 0} color={ep.course.color} /></div>
+              {!ep.quota && !doneAll && <div className="faint tiny">{L('ما فيه وقت مذاكرة باقي اليوم — الحصة تنتقل للأيام الجاية.', "No study time left today — the quota moves to the coming days.")}</div>}
               {!doneAll && ep.portion.length > 0 && (
                 <ul className="small" style={{ margin: 0, paddingInlineStart: 18, display: 'grid', gap: 3 }}>
                   {ep.portion.map((x) => (
-                    <li key={x.unit.id}>
+                    <li key={x.unit.id + (x.review ? ':r' : '')}>
                       <bdi>{x.unit.title}</bdi>
                       {x.review ? L(' (مراجعة)', " (review)") : x.whole ? (x.unit.progress > 0 ? L(' (الباقي)', " (the rest)") : L(' (كامل)', " (whole)")) : ` — ${x.amount} ${sz(ep.course.sizeLabel)}`}
                       <span className="faint"> · ~{fmtMinutes(x.minutes)}</span>
@@ -312,15 +301,17 @@ export function TodayQuota({ plan, title }: { plan: StudyPlan; title?: string })
           );
         })}
       </div>
-      {totalQuota > cap + 10 && (
-        <div className="notice amber" style={{ marginTop: 10 }}>
-          <Icon name="alert" size={18} />
-          <div>{L("مجموع حصص اليوم ", "Today's quotas add up to ")}{fmtMinutes(totalQuota)}{L(" أكبر من الوقت المخصص للمذاكرة (", ", more than your study time (")}{fmtMinutes(cap)}{L("). زد وقت المذاكرة من «أنت»، أو قلّل دروسًا أقل أهمية — وإلا ستكبر حصص الأيام القادمة.", "). Raise study time in “You”, or drop less important lessons — otherwise the coming days' quotas will grow.")}</div>
-        </div>
-      )}
-      <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L("الحصة = المتبقي ÷ الأيام الباقية قبل أيام المراجعة. إذا ذاكرت أقل من حصتك، يتوزع الباقي على الأيام التالية فتكبر حصتها.", "Quota = what's left ÷ days left before the review days. Study less than your quota and the rest spreads over the following days, making them bigger.")}</p>
+      <p className="faint tiny" style={{ margin: '8px 6px 0' }}>{L(`الحصص من وقت مذاكرتك اليوم (${fmtMinutes(cap)}) وموزعة على كل المواد: الدروس تخلص قبل أيام المراجعة، والمراجعة قبل الاختبار، واليوم اللي فيه فراغ أكثر ياخذ أكثر. إذا ضاق الوقت يتقدّم الاختبار الأقرب. وإذا ذاكرت أقل، يتوزع الباقي على الأيام الجاية.`, `Quotas come out of today's study time (${fmtMinutes(cap)}) and are shared across your courses: lessons finish before the review days, review before the exam, and freer days carry more. When time is short the nearest exam goes first. Study less and the rest spreads over the coming days.`)}</p>
     </section>
   );
+}
+
+/** where this exam stands: learning until a day, in the review days, or finishing lessons late */
+function phaseLine(ep: ExamPlan): string {
+  if (ep.inReview) return L(`أيام المراجعة — باقي ${daysWord(ep.daysLeft)}`, `Review days — ${daysWord(ep.daysLeft)} to go`);
+  if (ep.reviewCompressed) return L('تكمّل الدروس في أيام المراجعة', 'Finishing lessons in the review days');
+  if (!ep.exam.reviewDays) return L(`تنهي وتراجع قبل ${fmtDate(ep.lastDay, false)}`, `Learn and review by ${fmtDate(ep.lastDay, false)}`);
+  return L(`تنهي الدروس ${fmtDate(ep.lastStudyDay, false)} وتبقى ${daysWord(ep.exam.reviewDays)} للمراجعة`, `Lessons done ${fmtDate(ep.lastStudyDay, false)}, then ${daysWord(ep.exam.reviewDays)} of review`);
 }
 
 /** import a course or tasks: a Masar link or an AI's reply (iPhone opens tapped links in Safari, with separate data) */

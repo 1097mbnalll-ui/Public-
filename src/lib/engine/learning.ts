@@ -81,7 +81,9 @@ function observed(state: AppState, course: Course): { minutes: number; norm: num
   let norm = 0;
   let n = 0;
   for (const s of state.sessions) {
-    if (s.courseId !== course.id || s.amount <= 0 || s.minutes <= 0) continue;
+    // only sessions on a lesson that covered new material say how fast you learn: review and
+    // "general" sessions are faster or unmeasured and would make the plan too optimistic
+    if (s.courseId !== course.id || s.review || !s.unitId || s.amount <= 0 || s.minutes <= 0) continue;
     // ignore physically implausible entries (e.g. a 1-minute timer logged as 20 pages)
     const raw = s.minutes / s.amount;
     if (raw < 0.25 || raw > 60) continue;

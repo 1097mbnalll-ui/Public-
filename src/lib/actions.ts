@@ -453,11 +453,17 @@ export function deleteExam(id: string) {
 /** log real study: feeds progress, pace learning and today's capacity */
 export function logStudy(courseId: string, unitId: string | undefined, minutes: number, amount: number) {
   mutate((s) => {
-    s.sessions.push({ id: uid(), courseId, unitId, date: todayKey(), minutes, amount, at: now() });
     const u = unitId ? s.units.find((x) => x.id === unitId) : undefined;
+    // a session on a lesson you'd already finished is its review; otherwise count only the new
+    // material it could still cover, so pace isn't inflated by "40 pages" on a 10-page remainder
+    const left = u ? u.size * (1 - Math.min(1, u.progress)) : amount;
+    const review = !!u && left <= 0.01;
+    const learned = review ? 0 : Math.max(0, Math.min(amount, left));
+    s.sessions.push({ id: uid(), courseId, unitId, date: todayKey(), minutes, amount: learned, ...(review ? { review: true } : {}), at: now() });
     if (u) {
       u.spent += minutes;
-      if (amount > 0 && u.size > 0) u.progress = Math.min(1, u.progress + amount / u.size);
+      if (review) u.reviewed = true;
+      else if (learned > 0 && u.size > 0) u.progress = Math.min(1, u.progress + learned / u.size);
     }
     bumpDay(s, { minutes, study: minutes });
   }, L('تسجيل مذاكرة', "Log study"));
