@@ -20,6 +20,7 @@ import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
+import { ClubMeSheet, ClubMemberSheet, ClubMsgSheet, ClubSetupSheet, ClubTaskSheet } from '../pages/Club';
 import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
@@ -73,6 +74,16 @@ export function SheetHost() {
       return <SubjectSheet key={sh.examId} examId={sh.examId} />;
     case 'study-try':
       return <TrySheet />;
+    case 'club-setup':
+      return <ClubSetupSheet />;
+    case 'club-member':
+      return <ClubMemberSheet key={sh.id} id={sh.id} />;
+    case 'club-task':
+      return <ClubTaskSheet key={sh.id || 'new'} id={sh.id} />;
+    case 'club-msg':
+      return <ClubMsgSheet key={sh.to} to={sh.to} />;
+    case 'club-me':
+      return <ClubMeSheet />;
   }
 }
 

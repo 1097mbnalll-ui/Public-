@@ -13,6 +13,9 @@ import { Tasks } from './pages/Tasks';
 import { Work } from './pages/Work';
 import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
+import { Club } from './pages/Club';
+import { startClub } from './lib/club';
+import { toast } from './ui/toast';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
 const Insights = lazy(() => import('./pages/Insights').then((m) => ({ default: m.Insights })));
@@ -36,6 +39,7 @@ const NAV = [
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
   { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
+  { id: 'club', get label() { return L('النادي', 'Club'); }, icon: 'club' },
 ];
 
 /** old links keep working */
@@ -52,6 +56,7 @@ export function App() {
   const s = useApp();
   const route = useRoute();
   useHeartbeat();
+  useEffect(() => startClub((text) => toast(text, { ms: 9000, buttons: [{ label: L('افتح', 'Open'), fn: () => go('club') }] })), []);
   useQuotaLog();
   useShortcuts();
 
@@ -74,10 +79,10 @@ export function App() {
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
   useEffect(() => {
-    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install') return;
+    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install' || (route.page === 'club' && route.id === 'join')) return;
     welcomed.current = true;
     setTimeout(() => openSheet({ type: 'onboarding' }), 50);
-  }, [route.page, s.meta.onboarded]);
+  }, [route.page, route.id, s.meta.onboarded]);
 
   const counts = useMemo(() => {
     const today = todayKey();
@@ -125,6 +130,9 @@ export function App() {
       break;
     case 'money':
       body = <Money />;
+      break;
+    case 'club':
+      body = <Club />;
       break;
     case 'sync':
       body = <SyncJoin />;

@@ -24,7 +24,12 @@ export type SheetSpec =
   | { type: 'sync' }
   | { type: 'block'; id?: string }
   | { type: 'study-subject'; examId: string }
-  | { type: 'study-try' };
+  | { type: 'study-try' }
+  | { type: 'club-setup' }
+  | { type: 'club-member'; id: string }
+  | { type: 'club-task'; id?: string }
+  | { type: 'club-msg'; to: string }
+  | { type: 'club-me' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();
