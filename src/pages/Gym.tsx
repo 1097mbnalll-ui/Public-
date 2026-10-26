@@ -11,8 +11,8 @@ import * as A from '../lib/actions';
 import { fmtClock, fmtDate, relDay, todayKey } from '../lib/dates';
 import {
   ACTIVITY, alternatives, bmi, bodyNow, e1rm, exercise, exerciseHistory, exName, fmtKg, GOAL_INFO, gymToday, gymWeek, history, liveSession, nextWorkout, nutrition, plates,
-  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, slotGroups, GROUPS, groupLabel, groupsName, allExercises, exercisesFor, PARTS, partName,
-  type GroupId, type Part, type Kind,
+  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, GROUPS, groupLabel, groupsName, recovery, suggestToday, allExercises, exercisesFor, PARTS, partName,
+  type GroupId, type Part, type Kind, type Readiness,
 } from '../lib/engine/gym';
 import type { AppState, GymGoal, GymProfile, GymSession } from '../lib/types';
 import { L } from '../lib/i18n';
@@ -33,6 +33,8 @@ export function Gym() {
     const live = liveSession(s);
     return live ? <Live key={live.id} ses={live} /> : <GymHome tab="train" />;
   }
+  if (r.id === 'today') return <TodayScreen />;
+  if (r.id === 'log') return <LogScreen />;
   const tab = r.id === 'body' ? 'body' : r.id === 'moves' ? 'moves' : 'train';
   return <GymHome tab={tab} />;
 }
@@ -40,13 +42,11 @@ export function Gym() {
 function GymHome({ tab }: { tab: 'train' | 'body' | 'moves' }) {
   const s = useApp();
   const now = useNow(60_000);
-  const wk = gymWeek(s, now);
-  const st = streakWeeks(s, now);
   return (
     <div>
       <PageTop
         title={L('النادي', 'Gym')}
-        sub={s.gym.profile ? `${L(`${wk.done} من ${wk.target} تمارين هالأسبوع`, `${wk.done} of ${wk.target} workouts this week`)}${st ? L(` · 🔥 ${st} أسبوع ورا بعض`, ` · 🔥 ${st} weeks in a row`) : ''}` : L('برنامج على مقاسك، والوزن الجاي محسوب لك.', 'A program cut to you, and your next weight worked out.')}
+        sub={fmtDate(todayKey(now))}
         actions={s.gym.profile ? <button className="icon-btn" onClick={() => openSheet({ type: 'gym-setup' })} aria-label={L('برنامجي', 'My program')}><Icon name="settings" /></button> : undefined}
       />
       <div style={{ marginBottom: 14 }}>
@@ -61,109 +61,170 @@ function GymHome({ tab }: { tab: 'train' | 'body' | 'moves' }) {
 
 // ---------------- تمريني ----------------
 
-function GoalStart() {
-  return (
-    <section className="gy-start">
-      <h2 className="sh-h">{L('وش هدفك؟', "What's your goal?")}</h2>
-      <p className="faint small">{L('اختر، وأفصّل لك برنامج على أيامك ووقتك ومستواك — في النادي أو البيت.', 'Pick one and I’ll cut a program to your days, time and level — gym or home.')}</p>
-      <div className="gy-goals">
-        {GOAL_INFO.map((g) => (
-          <button key={g.v} className="gy-goal" onClick={() => openSheet({ type: 'gym-setup', goal: g.v })}>
-            <b>{L(...g.t)}</b>
-            <span>{L(...g.d)}</span>
-            <Icon name="chevron" size={14} className="chev-end" />
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
+const STATE_TEXT: Record<Readiness, [string, string]> = { ready: ['جاهزة', 'Ready'], recovering: ['تتعافى', 'Recovering'], tired: ['ترتاح', 'Resting'] };
 
+/** «تمريني»: how rested each muscle is, what that means for today, one button — then the rest, quietly */
 function TrainTab({ now }: { now: number }) {
   const s = useApp();
   const p = s.gym.profile;
   const live = liveSession(s);
-  const next = nextWorkout(s, now);
-  const today = todayKey(now);
-  const prog = p ? program(p) : null;
-  const recs = records(s, now).slice(0, 5);
-  const past = history(s).slice(0, 6);
+  const rec = useMemo(() => recovery(s, now), [s, now]);
+  const sug = useMemo(() => suggestToday(s, now), [s, now]);
+  const [mark, setMark] = useState<Part | null>(null);
+  const states = Object.fromEntries(PARTS.map((x) => [x.id, rec[x.id].state])) as Record<Part, Readiness>;
+  const plan = useMemo(() => dayPlan(s, sug.groups), [s, sug.groups]);
+  const wk = gymWeek(s, now);
+  const st = streakWeeks(s, now);
+  const recs = records(s, now).slice(0, 3);
+  const last = history(s)[0];
+  const m = mark ? rec[mark] : null;
+  const ago = (t?: number) => {
+    if (!t) return L('ما تمرّنتها بعد', 'not trained yet');
+    const h = Math.round((now - t) / 3600_000);
+    return h < 24 ? L(`آخر تمرين قبل ${h} ساعة`, `trained ${h}h ago`) : L(`آخر تمرين ${relDay(todayKey(t), todayKey(now))}`, `last trained ${relDay(todayKey(t), todayKey(now))}`);
+  };
   return (
     <>
+      <section className="gy-rec-card" aria-label={L('عضلاتك اليوم', 'Your muscles today')}>
+        <h2 className="sh-h">{L('عضلاتك اليوم', 'Your muscles today')}</h2>
+        <BodyMap states={states} marked={mark} onPart={(x) => setMark(mark === x ? null : x)} />
+        <div className="gy-rleg" aria-hidden>
+          {(['ready', 'recovering', 'tired'] as Readiness[]).map((k) => <span key={k}><i className={k} />{L(...STATE_TEXT[k])}</span>)}
+        </div>
+        <p className="gy-rnote" aria-live="polite">
+          {m && mark ? <><b>{partName(mark)}</b> · {L(...STATE_TEXT[m.state])} · {ago(m.last)}</> : L('اضغط أي عضلة تشوف حالها.', 'Tap a muscle to see how it is.')}
+        </p>
+      </section>
+
       {live ? (
         <button className="gy-live-bar" onClick={() => go('gym/live')}>
           <span className="pulse" />
-          <b>{L(`تمرينك شغّال: ${live.name}`, `Workout on: ${live.name}`)}</b>
+          <b>{L(`كمّل تمرينك: ${live.name}`, `Resume: ${live.name}`)}</b>
           <span className="num">{Math.round((now - live.start) / 60000)} {L('د', 'min')}</span>
-          <Icon name="chevron" size={14} className="chev-end" />
         </button>
       ) : (
-        <TodayPick key={next?.slot.key || 'free'} s={s} now={now} />
+        <section className="gy-sug">
+          <p>{sug.why}</p>
+          <button className="btn primary gy-go" onClick={() => { A.startWorkout(Date.now(), sug.groups); go('gym/live'); }}>
+            <span>{L(`ابدأ ${groupsName(sug.groups)}`, `Start ${groupsName(sug.groups)}`)}</span>
+            <small className="num">{L(`${plan.items.length} تمارين · ${plan.minutes} د`, `${plan.items.length} exercises · ${plan.minutes} min`)}</small>
+          </button>
+          <button className="gy-link" onClick={() => go('gym/today')}>{L('اختر عضلات ثانية', 'Pick other muscles')}</button>
+        </section>
       )}
 
-      {p ? <WeekCard s={s} now={now} /> : <GoalStart />}
+      <section className="gy-stats">
+        {p ? (
+          <>
+            <div><b className="num">{wk.done}<small>/{wk.target}</small></b><span>{L('هالأسبوع', 'this week')}</span></div>
+            <div><b className="num">{st}</b><span>{L('أسابيع ورا بعض', 'weeks in a row')}</span></div>
+          </>
+        ) : (
+          <button className="gy-stat-cta" onClick={() => openSheet({ type: 'gym-setup' })}><b>{L('فصّل برنامجك', 'Set up a program')}</b><span>{L('هدفك وأيامك', 'Goal and days')}</span></button>
+        )}
+        <div><b className="num">{last ? relDay(last.day, todayKey(now)) : '—'}</b><span>{L('آخر تمرين', 'last workout')}</span></div>
+      </section>
 
       {recs.length > 0 && (
         <section>
           <div className="group-title"><span className="sh-h2">{L('أرقامك', 'Your numbers')}</span></div>
-          <div className="gy-recs">
+          <div className="gy-recs2">
             {recs.map((r) => {
               const climb = r.monthAgo ? Math.round(((r.best - r.monthAgo) / r.monthAgo) * 100) : 0;
               return (
-                <button key={r.exId} className="gy-rec" onClick={() => openSheet({ type: 'gym-ex', exId: r.exId })}>
-                  <span className="m"><b>{exName(r.exId)}</b><span>{L(`أفضل مجموعة · ${fmtDate(r.day, false)}`, `Best set · ${fmtDate(r.day, false)}`)}</span></span>
-                  <span className="v num"><b>{fmtKg(r.kg)}</b><small>× {r.reps}</small></span>
-                  {climb > 0 && <span className="up num">+{climb}%</span>}
+                <button key={r.exId} onClick={() => openSheet({ type: 'gym-ex', exId: r.exId })}>
+                  <span>{exName(r.exId)}</span>
+                  <b className="num">{fmtKg(r.kg)}<small>×{r.reps}</small></b>
+                  {climb > 0 ? <em className="num">+{climb}% {L('بشهر', '/mo')}</em> : <em className="faint">{fmtDate(r.day, false)}</em>}
                 </button>
               );
             })}
           </div>
-          <p className="faint tiny">{L('النسبة: كم زادت قوتك في التمرين خلال شهر.', 'The % is how much stronger you got on it in a month.')}</p>
         </section>
       )}
 
-      {p && prog && next && <section>
-        <div className="group-title"><span className="sh-h2">{L('برنامجك', 'Your program')}</span><button onClick={() => openSheet({ type: 'gym-setup' })}>{L('غيّره', 'Change')}</button></div>
-        <div className="gy-prog">
-          <div className="gy-prog-h">
-            <b>{prog.name}</b>
-            <span>{[...p.days].sort().map((d) => DAY1()[d]).join(' · ')}{p.time ? ` · ${fmtClock(p.time)}` : ''} · {p.place === 'home' ? L('البيت', 'Home') : L('النادي', 'Gym')}</span>
-          </div>
-          {prog.slots.map((sl, i) => (
-            <details key={sl.key} className={`gy-slot ${i === next.index ? 'next' : ''}`}>
-              <summary><b>{sl.name}</b><span>{sl.sub} · ~{sl.minutes} {L('د', 'min')}</span>{i === next.index && <em>{L('الجاي', 'Next')}</em>}</summary>
-              <ol>{sl.items.map((it) => <li key={it.exId}><button onClick={() => openSheet({ type: 'gym-ex', exId: it.exId })}>{exName(it.exId)}</button><span className="num">{exercise(it.exId).unit === 'min' ? L(`${it.scheme.lo} د`, `${it.scheme.lo} min`) : `${it.scheme.sets} × ${it.scheme.lo === it.scheme.hi ? it.scheme.lo : `${it.scheme.lo}–${it.scheme.hi}`}${exercise(it.exId).unit === 'sec' ? L(' ث', 's') : ''}`}</span></li>)}</ol>
-            </details>
-          ))}
-        </div>
-      </section>}
+      <section className="gy-links">
+        {p && (
+          <button onClick={() => openSheet({ type: 'gym-setup' })}>
+            <span className="m"><b>{L('برنامجي', 'My program')}</b><span>{program(p).name} · {[...p.days].sort().map((d) => DAY1()[d]).join(' ')}</span></span>
+            <Icon name="chevron" size={14} className="chev-end" />
+          </button>
+        )}
+        <button onClick={() => go('gym/log')}>
+          <span className="m"><b>{L('سجل تمارينك', 'Workout log')}</b><span className="num">{history(s).length ? L(`${history(s).length} تمرين`, `${history(s).length} workouts`) : L('فاضي للحين', 'Empty for now')}</span></span>
+          <Icon name="chevron" size={14} className="chev-end" />
+        </button>
+      </section>
+    </>
+  );
+}
 
-      {past.length > 0 && (
+/** «اختر عضلاتك»: its own screen, so the home stays calm */
+function TodayScreen() {
+  const s = useApp();
+  const now = useNow(60_000);
+  const sug = useMemo(() => suggestToday(s, now), [s, now]);
+  return (
+    <div>
+      <PageTop title={L('تمرين اليوم', "Today's workout")} back={{ label: L('النادي', 'Gym'), to: 'gym' }} />
+      <TodayPick s={s} initial={sug.groups} />
+    </div>
+  );
+}
+
+/** the program and every workout so far */
+function LogScreen() {
+  const s = useApp();
+  const now = useNow(60_000);
+  const p = s.gym.profile;
+  const today = todayKey(now);
+  const prog = p ? program(p) : null;
+  const next = nextWorkout(s, now);
+  const all = history(s);
+  const [limit, setLimit] = useState(20);
+  return (
+    <div>
+      <PageTop title={L('سجل تمارينك', 'Workout log')} back={{ label: L('النادي', 'Gym'), to: 'gym' }} />
+      <WeekCard s={s} now={now} />
+      {p && prog && next && (
         <section>
-          <div className="group-title"><span className="sh-h2">{L('تمارينك', 'Your workouts')}</span><span className="faint small num">{history(s).length}</span></div>
+          <div className="group-title"><span className="sh-h2">{L('برنامجك', 'Your program')}</span><button onClick={() => openSheet({ type: 'gym-setup' })}>{L('غيّره', 'Change')}</button></div>
+          <div className="gy-prog">
+            <div className="gy-prog-h"><b>{prog.name}</b><span>{[...p.days].sort().map((d) => DAY1()[d]).join(' · ')}{p.time ? ` · ${fmtClock(p.time)}` : ''}</span></div>
+            {prog.slots.map((sl, i) => (
+              <details key={sl.key} className="gy-slot">
+                <summary><b>{sl.name}</b><span>{sl.sub} · ~{sl.minutes} {L('د', 'min')}</span>{i === next.index && <em>{L('الجاي', 'Next')}</em>}</summary>
+                <ol>{sl.items.map((it) => <li key={it.exId}><button onClick={() => openSheet({ type: 'gym-ex', exId: it.exId })}>{exName(it.exId)}</button></li>)}</ol>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+      <section>
+        <div className="group-title"><span className="sh-h2">{L('كل التمارين', 'All workouts')}</span><span className="faint small num">{all.length}</span></div>
+        {all.length ? (
           <div className="gy-hist">
-            {past.map((x) => {
+            {all.slice(0, limit).map((x) => {
               const sm = sessionSummary(s, x);
               return (
                 <button key={x.id} className="gy-h" onClick={() => openSheet({ type: 'gym-session', id: x.id })}>
                   <span className="d"><b className="num">{new Date(`${x.day}T12:00:00`).getDate()}</b><span>{relDay(x.day, today)}</span></span>
                   <span className="m"><b>{x.name}</b><span className="num">{L(`${sm.minutes} د · ${sm.sets} مجموعة · ${Math.round(sm.volume).toLocaleString('en')} كجم`, `${sm.minutes} min · ${sm.sets} sets · ${Math.round(sm.volume).toLocaleString('en')} kg`)}</span></span>
-                  {sm.prs.length > 0 && <em>{L(`🏆 ${sm.prs.length}`, `🏆 ${sm.prs.length}`)}</em>}
+                  {sm.prs.length > 0 && <em>🏆 {sm.prs.length}</em>}
                 </button>
               );
             })}
           </div>
-        </section>
-      )}
-    </>
+        ) : <p className="faint small">{L('أول تمرين تخلصه يطلع هنا.', 'Your first finished workout shows up here.')}</p>}
+        {all.length > limit && <button className="btn ghost" onClick={() => setLimit(limit + 20)}>{L('اعرض أقدم', 'Show older')}</button>}
+      </section>
+    </div>
   );
 }
 
 /** «وش تتمرن اليوم؟»: pick the muscles (or tap them on the body), see the workout they make, start */
-function TodayPick({ s, now }: { s: AppState; now: number }) {
-  const next = nextWorkout(s, now);
-  const today = todayKey(now);
-  const suggested = next ? slotGroups(next.slot.key) : [];
+function TodayPick({ s, initial }: { s: AppState; initial: GroupId[] }) {
+  const suggested = initial;
   const [groups, setGroups] = useState<GroupId[]>(suggested);
   const [drop, setDrop] = useState<string[]>([]);
   const plan = useMemo(() => dayPlan(s, groups), [s, groups]);
@@ -177,14 +238,7 @@ function TodayPick({ s, now }: { s: AppState; now: number }) {
   const minutes = Math.round(8 + items.reduce((a, it) => a + (exercise(it.exId).unit === 'min' ? it.scheme.lo : it.scheme.sets * (0.8 + it.scheme.rest / 60) + 1.5), 0));
   return (
     <section className="gy-next">
-      <h2 className="t">{L('وش تتمرن اليوم؟', 'What are you training today?')}</h2>
-      {next && (
-        <div className="k">
-          {same ? L(`من برنامجك: ${next.slot.name}`, `From your program: ${next.slot.name}`) : L(`برنامجك يقترح: ${next.slot.name}`, `Your program suggests: ${next.slot.name}`)}
-          {next.day !== today ? L(` · موعده ${relDay(next.day, today)}`, ` · due ${relDay(next.day, today)}`) : ''}
-          {!same && <button className="gy-link" onClick={() => { setGroups(suggested); setDrop([]); }}>{L('رجّعه', 'Use it')}</button>}
-        </div>
-      )}
+      <h2 className="sh-h">{L('وش تتمرن اليوم؟', 'What are you training today?')}</h2>
       <div className="gy-groups" role="group" aria-label={L('العضلات', 'Muscles')}>
         {GROUPS.map((g) => (
           <button key={g.id} className={groups.includes(g.id) ? 'on' : ''} aria-pressed={groups.includes(g.id)} onClick={() => toggle(g.id)}>{groupLabel(g.id)}</button>
@@ -214,7 +268,7 @@ function TodayPick({ s, now }: { s: AppState; now: number }) {
       )}
       <div className="a">
         <button className="btn primary gy-go" disabled={!items.length} onClick={() => { A.startWorkout(Date.now(), groups, items.map((i) => i.exId)); go('gym/live'); }}><Icon name="play" size={15} /> {L('ابدأ التمرين', 'Start workout')}</button>
-        {next && same && <button className="btn ghost sm" onClick={() => { A.skipGymSlot(); toast(L('تخطيته — الجاي بعده', 'Skipped — the one after is next'), { undoable: true }); }}>{L('خذ اللي بعده', 'Next one')}</button>}
+        {!same && <button className="btn ghost sm" onClick={() => { setGroups(suggested); setDrop([]); }}>{L('رجّع المقترح', 'Back to the suggestion')}</button>}
       </div>
     </section>
   );
@@ -531,6 +585,8 @@ function MovesTab() {
         ) : <p className="faint small">{L('تمرين مو في القائمة؟ اكتبه واختر العضلات اللي يشتغل عليها من الجسم.', 'Not in the list? Write it and tap the muscles it works.')}</p>}
       </section>
 
+      <details className="gy-tools">
+        <summary>{L('أدوات: كم قرص أركّب، وأقصى وزن لمرة', 'Tools: plates, one-rep max')}</summary>
       <section className="gy-tool">
         <b>{L('كم قرص أركّب؟', 'Which plates?')}</b>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -558,6 +614,7 @@ function MovesTab() {
         <div className="gy-pct num">{[95, 90, 85, 80, 75, 70].map((p) => <span key={p}><b>{fmtKg(Math.round((one * p) / 100 / 2.5) * 2.5)}</b><small>{p}%</small></span>)}</div>
       </section>
 
+      </details>
     </>
   );
 }

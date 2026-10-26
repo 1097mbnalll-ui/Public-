@@ -740,3 +740,84 @@ export function exerciseHistory(s: AppState, exId: string) {
     .map((ses) => ({ ses, sets: ses.entries.find((e) => e.exId === exId)?.sets.filter((x) => x.done) || [] }))
     .filter((x) => x.sets.length);
 }
+
+// ---------------- recovery ----------------
+
+/** hours a muscle needs after a hard session: the big ones three days, the small ones two */
+const RECOVER: Partial<Record<Part, number>> = { chest: 72, lats: 72, upper_back: 72, lower_back: 72, quads: 72, hamstrings: 72, glutes: 72, adductors: 60 };
+const recoverH = (p: Part) => RECOVER[p] ?? 48;
+
+export type Readiness = 'ready' | 'recovering' | 'tired';
+export interface PartState {
+  state: Readiness;
+  /** 0..1 — how far back it is */
+  pct: number;
+  /** when it was last worked (main or also) */
+  last?: number;
+}
+
+/**
+ * how rested each muscle is, from the sessions of the last few days: a set that works it mainly
+ * counts in full, one that works it too counts half; the load fades out over its recovery time.
+ */
+export function recovery(s: AppState, now = Date.now()): Record<Part, PartState> {
+  const out = {} as Record<Part, PartState>;
+  const load: Partial<Record<Part, number>> = {};
+  const last: Partial<Record<Part, number>> = {};
+  for (const ses of s.gym?.sessions || []) {
+    const t = ses.end || ses.start;
+    for (const e of ses.entries) {
+      const ex = exercise(e.exId);
+      const sets = e.sets.filter((x) => x.done).length;
+      if (!sets) continue;
+      const add = (p: Part, w: number) => {
+        last[p] = Math.max(last[p] || 0, t);
+        const h = (now - t) / 3600_000;
+        if (h < 0 || h >= recoverH(p)) return;
+        load[p] = (load[p] || 0) + w * Math.min(sets, 5) * (1 - h / recoverH(p));
+      };
+      ex.hits.forEach((p) => add(p, 1));
+      ex.also.forEach((p) => !ex.hits.includes(p) && add(p, 0.5));
+    }
+  }
+  for (const { id } of PARTS) {
+    // about 6 hard sets is a full session for one muscle
+    const f = Math.min(1, (load[id] || 0) / 6);
+    out[id] = { state: f > 0.5 ? 'tired' : f > 0.15 ? 'recovering' : 'ready', pct: 1 - f, last: last[id] };
+  }
+  return out;
+}
+
+const COMBOS: GroupId[][] = [['chest', 'shoulders', 'triceps'], ['back', 'biceps'], ['legs', 'glutes', 'core']];
+
+/**
+ * what to train today: the program's day if those muscles are ready, else the combination that's
+ * most rested and has waited longest. Says why in one line.
+ */
+export function suggestToday(s: AppState, now = Date.now()): { groups: GroupId[]; why: string } {
+  const r = recovery(s, now);
+  const ready = (g: GroupId) => {
+    const parts = GROUPS.find((x) => x.id === g)!.parts;
+    return parts.length ? parts.reduce((a, p) => a + r[p].pct, 0) / parts.length : 1;
+  };
+  const since = (g: GroupId) => {
+    const parts = GROUPS.find((x) => x.id === g)!.parts;
+    const t = Math.max(0, ...parts.map((p) => r[p].last || 0));
+    return t ? (now - t) / 86400_000 : 99;
+  };
+  const score = (c: GroupId[]) => c.reduce((a, g) => a + ready(g), 0) / c.length;
+  // the ones still resting, the most tired first
+  const tiredNames = [...PARTS.filter((p) => r[p.id].state === 'tired'), ...PARTS.filter((p) => r[p.id].state === 'recovering')].map((p) => L(p.ar, p.en));
+  const next = nextWorkout(s, now);
+  const fromProgram = next ? slotGroups(next.slot.key) : null;
+  if (fromProgram && score(fromProgram) >= 0.8)
+    return { groups: fromProgram, why: tiredNames.length ? L(`${tiredNames.slice(0, 2).join(' و')} ${tiredNames.length > 1 ? 'لسّا يتعافون' : 'لسّا يتعافى'} — و${groupsName(fromProgram)} جاهزة، وهي يومك في البرنامج.`, `${tiredNames[0]} is resting — ${groupsName(fromProgram)} are ready.`) : L(`كل عضلاتك جاهزة. اليوم من برنامجك: ${groupsName(fromProgram)}.`, `Everything is rested. From your program: ${groupsName(fromProgram)}.`) };
+  const best = [...COMBOS].sort((a, b) => score(b) - score(a) || Math.min(...b.map(since)) - Math.min(...a.map(since)))[0];
+  const waited = Math.round(Math.min(...best.map(since)));
+  const why = tiredNames.length
+    ? L(`${tiredNames.slice(0, 2).join(' و')} ${tiredNames.length > 1 ? 'يرتاحون' : 'يرتاح'} — الأجهز اليوم ${groupsName(best)}.`, `${tiredNames.slice(0, 2).join(' and ')} resting — readiest today: ${groupsName(best)}.`)
+    : waited < 90
+      ? L(`${groupsName(best)} ما تمرّنتها من ${waited} أيام.`, `${groupsName(best)}: not trained for ${waited} days.`)
+      : L(`ابدأ بـ ${groupsName(best)}.`, `Start with ${groupsName(best)}.`);
+  return { groups: best, why };
+}

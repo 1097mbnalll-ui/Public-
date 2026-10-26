@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialState, migrate } from '../src/lib/defaults';
-import { allExercises, dayPlan, exercisesFor, GROUPS, gymWeek, nextWorkout, nutrition, partsOf, plates, program, records, registerCustom, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
+import { allExercises, dayPlan, recovery, suggestToday, exercisesFor, GROUPS, gymWeek, nextWorkout, nutrition, partsOf, plates, program, records, registerCustom, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
 import { busyOn } from '../src/lib/engine/schedule';
 import type { AppState, GymProfile, GymSession } from '../src/lib/types';
 
@@ -172,5 +172,26 @@ describe('today by muscle, the body map, your own exercises', () => {
     expect(also.has('biceps') && also.has('triceps')).toBe(true);
     registerCustom([]);
     expect(exercise('c_1').ar).toBe('تمرين'); // deleted: old workouts still open
+  });
+});
+
+describe('recovery', () => {
+  it('chest trained yesterday is resting; back untouched is ready; it fades back over three days', () => {
+    const y = ses('2026-10-28', 'bench', [[70, 8], [70, 8], [70, 8], [70, 8], [70, 8]]);
+    const s = withGym({ profile: P(), sessions: [y] });
+    const r = recovery(s, at('2026-10-29', 10));
+    expect(r.chest.state).toBe('tired');
+    expect(r.triceps.state).not.toBe('ready'); // worked too
+    expect(r.lats.state).toBe('ready');
+    expect(recovery(s, at('2026-11-01', 20)).chest.state).toBe('ready');
+  });
+
+  it('suggests rested muscles, and the program day when it is rested', () => {
+    const y = ses('2026-10-28', 'bench', [[70, 8], [70, 8], [70, 8], [70, 8], [70, 8]]);
+    const sug = suggestToday(withGym({ profile: P(), rot: 0, sessions: [y] }), at('2026-10-29', 10));
+    expect(sug.groups).not.toContain('chest');
+    expect(sug.why.length).toBeGreaterThan(5);
+    expect(suggestToday(withGym({ profile: P(), rot: 1 }), at('2026-10-29', 10)).groups).toEqual(['back', 'biceps']);
+    expect(suggestToday(withGym({}), at('2026-10-29', 10)).groups.length).toBeGreaterThan(0);
   });
 });

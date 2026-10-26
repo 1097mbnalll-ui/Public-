@@ -1,5 +1,5 @@
 import { useId, type KeyboardEvent } from 'react';
-import { PARTS, partName, type Part } from '../lib/engine/gym';
+import { PARTS, partName, type Part, type Readiness } from '../lib/engine/gym';
 import { L } from '../lib/i18n';
 
 // A body, front and back, drawn as its muscles. Each muscle is one shape on the left half and its
@@ -59,9 +59,9 @@ const DETAIL: Record<Side, string> = {
   back: 'M110 64V238M100 126C94 130 88 138 84 148M66 106C72 112 80 116 92 116M76 270C86 266 98 266 108 270',
 };
 
-function Figure({ side, main, also, picked, onPart, label }: { side: Side; main?: Set<Part>; also?: Set<Part>; picked?: Set<Part>; onPart?: (p: Part) => void; label: string }) {
+function Figure({ side, main, also, picked, states, marked, onPart, label }: { side: Side; main?: Set<Part>; also?: Set<Part>; picked?: Set<Part>; states?: Partial<Record<Part, Readiness>>; marked?: Part | null; onPart?: (p: Part) => void; label: string }) {
   const uid = useId().replace(/:/g, '');
-  const tone = (p: Part) => (picked?.has(p) ? 'pick' : main?.has(p) ? 'main' : also?.has(p) ? 'also' : '');
+  const tone = (p: Part) => (picked?.has(p) ? 'pick' : main?.has(p) ? 'main' : also?.has(p) ? 'also' : states?.[p] || '');
   // each muscle is lit on its own — light in the middle, darker to its edges — so it reads as sculpted
   const fill = (t: string) => `url(#${uid}-${t === 'pick' ? 'main' : t || 'base'})`;
   const key = (p: Part) => (e: KeyboardEvent) => {
@@ -77,7 +77,7 @@ function Figure({ side, main, also, picked, onPart, label }: { side: Side; main?
         <path
           key={part}
           d={d}
-          className={`bm-m ${tone(part)}`}
+          className={`bm-m ${tone(part)} ${marked === part ? 'mark' : ''}`}
           fill={fill(tone(part))}
           {...(onPart && !mirror
             ? { role: 'button', tabIndex: 0, 'aria-label': partName(part), 'aria-pressed': !!picked?.has(part), onClick: () => onPart(part), onKeyDown: key(part) }
@@ -94,7 +94,7 @@ function Figure({ side, main, also, picked, onPart, label }: { side: Side; main?
     <figure className="bm-fig">
       <svg viewBox="0 0 220 474" role={onPart ? 'group' : 'img'} aria-label={label}>
         <defs>
-          {['base', 'main', 'also', 'skin'].map((t) => (
+          {['base', 'main', 'also', 'skin', 'ready', 'recovering', 'tired'].map((t) => (
             <radialGradient key={t} id={`${uid}-${t}`} cx="42%" cy="34%" r="78%">
               <stop offset="0%" className={`bm-s ${t} hi`} />
               <stop offset="55%" className={`bm-s ${t} mid`} />
@@ -119,11 +119,11 @@ function Figure({ side, main, also, picked, onPart, label }: { side: Side; main?
   );
 }
 
-export function BodyMap({ main, also, picked, onPart, size = 'md', only }: { main?: Set<Part>; also?: Set<Part>; picked?: Set<Part>; onPart?: (p: Part) => void; size?: 'xs' | 'sm' | 'md' | 'lg'; only?: Side }) {
+export function BodyMap({ main, also, picked, states, marked, onPart, size = 'md', only }: { main?: Set<Part>; also?: Set<Part>; picked?: Set<Part>; states?: Partial<Record<Part, Readiness>>; marked?: Part | null; onPart?: (p: Part) => void; size?: 'xs' | 'sm' | 'md' | 'lg'; only?: Side }) {
   return (
     <div className={`bm bm-${size} ${onPart ? 'live' : ''}`}>
-      {only !== 'back' && <Figure side="front" main={main} also={also} picked={picked} onPart={onPart} label={L('أمام', 'Front')} />}
-      {only !== 'front' && <Figure side="back" main={main} also={also} picked={picked} onPart={onPart} label={L('خلف', 'Back')} />}
+      {only !== 'back' && <Figure side="front" main={main} also={also} picked={picked} states={states} marked={marked} onPart={onPart} label={L('أمام', 'Front')} />}
+      {only !== 'front' && <Figure side="back" main={main} also={also} picked={picked} states={states} marked={marked} onPart={onPart} label={L('خلف', 'Back')} />}
     </div>
   );
 }
