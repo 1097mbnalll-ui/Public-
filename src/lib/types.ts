@@ -402,6 +402,8 @@ export interface GymSession {
   end?: number;
   slot: string;
   name: string;
+  /** the muscles you picked for it */
+  groups?: string[];
   entries: { exId: string; sets: GymSet[] }[];
   /** the rest after the last set ends here */
   restUntil?: number;
@@ -424,8 +426,22 @@ export interface BodyLog {
   updatedAt?: number;
 }
 
+/** an exercise you wrote yourself, with the muscles it works */
+export interface GymCustom {
+  id: string;
+  name: string;
+  hits: string[];
+  also?: string[];
+  kind: 'bar' | 'db' | 'machine' | 'body' | 'cardio';
+  unit?: 'reps' | 'sec' | 'min';
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export interface GymState {
   profile?: GymProfile;
+  /** your own exercises */
+  custom?: GymCustom[];
   /** which day of the program is next */
   rot: number;
   sessions: GymSession[];

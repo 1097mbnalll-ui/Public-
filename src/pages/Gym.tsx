@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BodyLegend, BodyMap, sideOf } from '../ui/BodyMap';
 import { Seg, Sheet, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { PageTop } from '../ui/PageTop';
@@ -9,8 +10,9 @@ import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { fmtClock, fmtDate, relDay, todayKey } from '../lib/dates';
 import {
-  ACTIVITY, alternatives, bmi, bodyNow, e1rm, EXERCISES, exercise, exerciseHistory, exName, fmtKg, GOAL_INFO, gymToday, gymWeek, history, liveSession, muscleName, nextWorkout, nutrition, plates,
-  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, type Muscle,
+  ACTIVITY, alternatives, bmi, bodyNow, e1rm, exercise, exerciseHistory, exName, fmtKg, GOAL_INFO, gymToday, gymWeek, history, liveSession, nextWorkout, nutrition, plates,
+  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, slotGroups, GROUPS, groupName, groupsName, allExercises, exercisesFor, PARTS, partName,
+  type GroupId, type Part, type Kind,
 } from '../lib/engine/gym';
 import type { AppState, GymGoal, GymProfile, GymSession } from '../lib/types';
 import { L } from '../lib/i18n';
@@ -80,11 +82,10 @@ function GoalStart() {
 function TrainTab({ now }: { now: number }) {
   const s = useApp();
   const p = s.gym.profile;
-  if (!p) return <GoalStart />;
   const live = liveSession(s);
-  const next = nextWorkout(s, now)!;
+  const next = nextWorkout(s, now);
   const today = todayKey(now);
-  const prog = program(p);
+  const prog = p ? program(p) : null;
   const recs = records(s, now).slice(0, 5);
   const past = history(s).slice(0, 6);
   return (
@@ -97,10 +98,10 @@ function TrainTab({ now }: { now: number }) {
           <Icon name="chevron" size={14} className="chev-end" />
         </button>
       ) : (
-        <NextCard s={s} next={next} today={today} />
+        <TodayPick key={next?.slot.key || 'free'} s={s} now={now} />
       )}
 
-      <WeekCard s={s} now={now} />
+      {p ? <WeekCard s={s} now={now} /> : <GoalStart />}
 
       {recs.length > 0 && (
         <section>
@@ -121,7 +122,7 @@ function TrainTab({ now }: { now: number }) {
         </section>
       )}
 
-      <section>
+      {p && prog && next && <section>
         <div className="group-title"><span className="sh-h2">{L('برنامجك', 'Your program')}</span><button onClick={() => openSheet({ type: 'gym-setup' })}>{L('غيّره', 'Change')}</button></div>
         <div className="gy-prog">
           <div className="gy-prog-h">
@@ -135,7 +136,7 @@ function TrainTab({ now }: { now: number }) {
             </details>
           ))}
         </div>
-      </section>
+      </section>}
 
       {past.length > 0 && (
         <section>
@@ -158,30 +159,62 @@ function TrainTab({ now }: { now: number }) {
   );
 }
 
-function NextCard({ s, next, today }: { s: AppState; next: NonNullable<ReturnType<typeof nextWorkout>>; today: string }) {
-  const p = s.gym.profile!;
-  const isToday = next.day === today;
-  const when = isToday ? L('اليوم', 'Today') : relDay(next.day, today);
+/** «وش تتمرن اليوم؟»: pick the muscles (or tap them on the body), see the workout they make, start */
+function TodayPick({ s, now }: { s: AppState; now: number }) {
+  const next = nextWorkout(s, now);
+  const today = todayKey(now);
+  const suggested = next ? slotGroups(next.slot.key) : [];
+  const [groups, setGroups] = useState<GroupId[]>(suggested);
+  const [drop, setDrop] = useState<string[]>([]);
+  const plan = useMemo(() => dayPlan(s, groups), [s, groups]);
+  const items = plan.items.filter((i) => !drop.includes(i.exId));
+  const { main, also } = partsOf(items.map((i) => i.exId));
+  const toggle = (g: GroupId) => {
+    setGroups((x) => (x.includes(g) ? x.filter((y) => y !== g) : [...x, g]));
+    setDrop([]);
+  };
+  const same = groups.length === suggested.length && groups.every((g) => suggested.includes(g));
+  const minutes = Math.round(8 + items.reduce((a, it) => a + (exercise(it.exId).unit === 'min' ? it.scheme.lo : it.scheme.sets * (0.8 + it.scheme.rest / 60) + 1.5), 0));
   return (
     <section className="gy-next">
-      <div className="k">{L('تمرينك الجاي', 'Next workout')} · {when}{p.time ? ` ${fmtClock(p.time)}` : ''}</div>
-      <h2 className="t">{next.slot.name}</h2>
-      <div className="sub">{next.slot.sub} · {L(`${next.slot.items.length} تمارين`, `${next.slot.items.length} exercises`)} · ~{next.slot.minutes} {L('د', 'min')}</div>
-      <ul className="gy-plan">
-        {next.slot.items.map((it) => {
-          const ex = exercise(it.exId);
-          const t = target(s, it.exId, it.scheme);
-          return (
-            <li key={it.exId} className={t.tag}>
-              <b>{exName(it.exId)}</b>
-              <span>{t.tag === 'first' ? (ex.unit === 'min' ? L(`${t.reps} دقيقة`, `${t.reps} min`) : L(`${it.scheme.sets} × ${t.reps}${ex.unit === 'sec' ? ' ث' : ''}`, `${it.scheme.sets} × ${t.reps}${ex.unit === 'sec' ? 's' : ''}`)) : targetLine(t, ex).replace(/^[^:]+: /, '')}{t.tag === 'up' ? ' ↑' : ''}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <h2 className="t">{L('وش تتمرن اليوم؟', 'What are you training today?')}</h2>
+      {next && (
+        <div className="k">
+          {same ? L(`من برنامجك: ${next.slot.name}`, `From your program: ${next.slot.name}`) : L(`برنامجك يقترح: ${next.slot.name}`, `Your program suggests: ${next.slot.name}`)}
+          {next.day !== today ? L(` · موعده ${relDay(next.day, today)}`, ` · due ${relDay(next.day, today)}`) : ''}
+          {!same && <button className="gy-link" onClick={() => { setGroups(suggested); setDrop([]); }}>{L('رجّعه', 'Use it')}</button>}
+        </div>
+      )}
+      <div className="gy-groups" role="group" aria-label={L('العضلات', 'Muscles')}>
+        {GROUPS.map((g) => (
+          <button key={g.id} className={groups.includes(g.id) ? 'on' : ''} aria-pressed={groups.includes(g.id)} onClick={() => toggle(g.id)}>{groupName(g.id)}</button>
+        ))}
+      </div>
+      <BodyMap main={main} also={also} onPart={(part) => { const g = GROUPS.find((x) => x.parts.includes(part)); if (g) toggle(g.id); }} />
+      <BodyLegend main={main} also={also} />
+      {items.length ? (
+        <>
+          <div className="sub num">{groupsName(groups)} · {L(`${items.length} تمارين`, `${items.length} exercises`)} · ~{minutes} {L('د', 'min')}</div>
+          <ul className="gy-plan">
+            {items.map((it) => {
+              const ex = exercise(it.exId);
+              const t = target(s, it.exId, it.scheme);
+              return (
+                <li key={it.exId} className={t.tag}>
+                  <button className="nm" onClick={() => openSheet({ type: 'gym-ex', exId: it.exId })}>{exName(it.exId)}</button>
+                  <span>{t.tag === 'first' ? (ex.unit === 'min' ? L(`${t.reps} دقيقة`, `${t.reps} min`) : `${it.scheme.sets} × ${t.reps}${ex.unit === 'sec' ? L(' ث', 's') : ''}`) : targetLine(t, ex).replace(/^[^:]+: /, '')}{t.tag === 'up' ? ' ↑' : ''}</span>
+                  <button className="icon-btn sm" aria-label={L(`شيل ${exName(it.exId)}`, `Remove ${exName(it.exId)}`)} onClick={() => setDrop([...drop, it.exId])}><Icon name="x" size={14} /></button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : (
+        <p className="gy-note">{L('اختر العضلات فوق، أو اضغط عليها في الجسم.', 'Pick the muscles above, or tap them on the body.')}</p>
+      )}
       <div className="a">
-        <button className="btn primary gy-go" onClick={() => { A.startWorkout(); go('gym/live'); }}><Icon name="play" size={15} /> {L('ابدأ التمرين', 'Start workout')}</button>
-        <button className="btn ghost sm" onClick={() => { A.skipGymSlot(); toast(L('تخطيته — الجاي بعده', 'Skipped — the one after is next'), { undoable: true }); }}>{L('مو هذا، خذ اللي بعده', 'Not this one — next')}</button>
+        <button className="btn primary gy-go" disabled={!items.length} onClick={() => { A.startWorkout(Date.now(), groups, items.map((i) => i.exId)); go('gym/live'); }}><Icon name="play" size={15} /> {L('ابدأ التمرين', 'Start workout')}</button>
+        {next && same && <button className="btn ghost sm" onClick={() => { A.skipGymSlot(); toast(L('تخطيته — الجاي بعده', 'Skipped — the one after is next'), { undoable: true }); }}>{L('خذ اللي بعده', 'Next one')}</button>}
       </div>
     </section>
   );
@@ -266,6 +299,7 @@ function Live({ ses }: { ses: GymSession }) {
         return (
           <section key={ei} className={`gy-ex ${allDone ? 'done' : ''}`}>
             <div className="gy-ex-h">
+              <span className="gy-mini" aria-hidden><BodyMap size="xs" only={sideOf(ex.hits[0])} main={new Set(ex.hits)} also={new Set(ex.also)} /></span>
               <button className="n" onClick={() => openSheet({ type: 'gym-ex', exId: e.exId, sid: ses.id, ei })}>
                 <b>{exName(e.exId)}</b>
                 <span className={`tg ${t.tag}`}>{targetLine(t, ex)}</span>
@@ -429,19 +463,74 @@ function BodyTab({ now }: { now: number }) {
 
 // ---------------- التمارين ----------------
 
-const MUSCLES: Muscle[] = ['chest', 'back', 'legs', 'glutes', 'shoulders', 'arms', 'core', 'cardio'];
+/** a list row for an exercise: name, how, and the best you've done on it */
+function ExRow({ id, best, tag, onClick, extra }: { id: string; best?: string; tag?: string; onClick: () => void; extra?: React.ReactNode }) {
+  const e = exercise(id);
+  return (
+    <div className="gy-h">
+      <button className="gy-h-main" onClick={onClick}>
+        <span className="m"><b>{exName(id)}{tag ? <em className="gy-tag">{tag}</em> : null}</b><span>{e.custom ? [...e.hits].map(partName).join(L('، ', ', ')) : L(...e.tip)}</span></span>
+        {best ? <em className="num">{best}</em> : <small className="faint">{e.kind === 'body' ? L('بدون أدوات', 'No kit') : e.kind === 'db' ? L('دمبل', 'Dumbbell') : e.kind === 'bar' ? L('بار', 'Barbell') : e.kind === 'machine' ? L('جهاز', 'Machine') : L('كارديو', 'Cardio')}</small>}
+      </button>
+      {extra}
+    </div>
+  );
+}
 
 function MovesTab() {
   const s = useApp();
-  const [m, setM] = useState<Muscle>('chest');
+  const [part, setPart] = useState<Part | null>(null);
+  const [q, setQ] = useState('');
   const [kg, setKg] = useState(60);
   const [bar, setBar] = useState(20);
   const [rm, setRm] = useState<{ kg: number; reps: number }>({ kg: 80, reps: 5 });
   const pl = plates(kg, bar);
   const one = e1rm(rm.kg, rm.reps);
   const recs = useMemo(() => new Map(records(s).map((r) => [r.exId, r])), [s]);
+  const info = PARTS.find((x) => x.id === part);
+  const query = q.trim();
+  const list = query ? allExercises().filter((e) => e.ar.includes(query) || e.en.toLowerCase().includes(query.toLowerCase())) : part ? exercisesFor(part) : [];
+  const best = (id: string) => {
+    const r = recs.get(id);
+    return r ? `${fmtKg(r.kg)}×${r.reps}` : undefined;
+  };
+  const mine = s.gym.custom || [];
   return (
     <>
+      <section className="gy-tool">
+        <b>{L('اضغط على أي عضلة', 'Tap any muscle')}</b>
+        <BodyMap size="lg" picked={part ? new Set([part]) : undefined} onPart={(x) => { setPart(part === x ? null : x); setQ(''); }} />
+        <div className="gy-parts" role="group" aria-label={L('العضلات', 'Muscles')}>
+          {PARTS.map((x) => <button key={x.id} className={part === x.id ? 'on' : ''} aria-pressed={part === x.id} onClick={() => { setPart(part === x.id ? null : x.id); setQ(''); }}>{L(x.ar, x.en)}</button>)}
+        </div>
+      </section>
+
+      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L(`ابحث في ${allExercises().length} تمرين…`, `Search ${allExercises().length} exercises…`)} aria-label={L('ابحث عن تمرين', 'Search exercises')} style={{ marginBottom: 10 }} />
+
+      {(info || query) && (
+        <section>
+          {info && !query && (
+            <div className="gy-part-info">
+              <b>{L(info.ar, info.en)}</b>
+              <span>{L(...info.about)}</span>
+            </div>
+          )}
+          <div className="gy-hist">
+            {list.map((e) => <ExRow key={e.id} id={e.id} best={best(e.id)} tag={part && !query ? (e.hits.includes(part) ? undefined : L('يساعد', 'also')) : undefined} onClick={() => openSheet({ type: 'gym-ex', exId: e.id })} />)}
+            {!list.length && <p className="faint small" style={{ padding: 14, margin: 0 }}>{L('ما لقيت. اكتبه من عندك تحت.', "Not found. Write your own below.")}</p>}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <div className="group-title"><span className="sh-h2">{L('تمارينك الخاصة', 'Your own exercises')}</span><button onClick={() => openSheet({ type: 'gym-custom' })}>{L('+ تمرين من عندك', '+ Your own')}</button></div>
+        {mine.length ? (
+          <div className="gy-hist">
+            {mine.map((c) => <ExRow key={c.id} id={c.id} best={best(c.id)} onClick={() => openSheet({ type: 'gym-ex', exId: c.id })} extra={<button className="icon-btn sm" aria-label={L(`احذف ${c.name}`, `Delete ${c.name}`)} onClick={() => { A.deleteCustomExercise(c.id); toast(L('انحذف', 'Deleted'), { undoable: true }); }}><Icon name="trash" size={15} /></button>} />)}
+          </div>
+        ) : <p className="faint small">{L('تمرين مو في القائمة؟ اكتبه واختر العضلات اللي يشتغل عليها من الجسم.', 'Not in the list? Write it and tap the muscles it works.')}</p>}
+      </section>
+
       <section className="gy-tool">
         <b>{L('كم قرص أركّب؟', 'Which plates?')}</b>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -469,20 +558,6 @@ function MovesTab() {
         <div className="gy-pct num">{[95, 90, 85, 80, 75, 70].map((p) => <span key={p}><b>{fmtKg(Math.round((one * p) / 100 / 2.5) * 2.5)}</b><small>{p}%</small></span>)}</div>
       </section>
 
-      <div className="gy-mus" role="tablist" aria-label={L('العضلة', 'Muscle')}>
-        {MUSCLES.map((x) => <button key={x} role="tab" aria-selected={m === x} className={m === x ? 'on' : ''} onClick={() => setM(x)}>{muscleName(x)}</button>)}
-      </div>
-      <div className="gy-hist">
-        {EXERCISES.filter((e) => e.muscle === m).map((e) => {
-          const r = recs.get(e.id);
-          return (
-            <button key={e.id} className="gy-h" onClick={() => openSheet({ type: 'gym-ex', exId: e.id })}>
-              <span className="m"><b>{exName(e.id)}</b><span>{L(...e.tip)}</span></span>
-              {r ? <em className="num">{fmtKg(r.kg)}×{r.reps}</em> : <small className="faint">{e.kind === 'body' ? L('بدون أدوات', 'No kit') : e.kind === 'db' ? L('دمبل', 'Dumbbell') : e.kind === 'bar' ? L('بار', 'Barbell') : e.kind === 'machine' ? L('جهاز', 'Machine') : ''}</small>}
-            </button>
-          );
-        })}
-      </div>
     </>
   );
 }
@@ -547,10 +622,9 @@ export function GymExSheet({ exId, sid, ei }: { exId: string; sid?: string; ei?:
   return (
     <Sheet title={exName(exId)} onClose={closeSheet}>
       <div className="gy-form">
-        <div className="gy-exinfo">
-          <span className="chip">{muscleName(ex.muscle)}</span>
-          <p>{L(...ex.tip)}</p>
-        </div>
+        <BodyMap size="sm" main={new Set(ex.hits)} also={new Set(ex.also.filter((x) => !ex.hits.includes(x)))} />
+        <BodyLegend main={new Set(ex.hits)} also={new Set(ex.also.filter((x) => !ex.hits.includes(x)))} />
+        {!ex.custom && <p className="gy-tip">{L(...ex.tip)}</p>}
         {rec && <div className="ss-sum"><div className="acc"><b className="num">{fmtKg(rec.kg)} × {rec.reps}</b><span>{L('أفضل مجموعة', 'Best set')}</span></div><div><b className="num">{fmtKg(Math.round(rec.best))}</b><span>{L('أقصى لمرة (تقدير)', 'Est. 1-rep max')}</span></div></div>}
         {hist.length > 0 ? (
           <div className="gy-exh">
@@ -580,14 +654,68 @@ export function GymExSheet({ exId, sid, ei }: { exId: string; sid?: string; ei?:
 }
 
 export function GymPickSheet({ sid }: { sid: string }) {
-  const [m, setM] = useState<Muscle>('chest');
+  const s = useApp();
+  const [part, setPart] = useState<Part | null>(null);
+  const [q, setQ] = useState('');
+  const query = q.trim();
+  const live = s.gym.sessions.find((x) => x.id === sid);
+  const inIt = new Set(live?.entries.map((e) => e.exId) || []);
+  const list = (query ? allExercises().filter((e) => e.ar.includes(query) || e.en.toLowerCase().includes(query.toLowerCase())) : part ? exercisesFor(part) : allExercises()).filter((e) => !inIt.has(e.id));
   return (
     <Sheet title={L('أضف تمرين', 'Add exercise')} onClose={closeSheet}>
-      <div className="gy-mus" role="tablist">{MUSCLES.map((x) => <button key={x} role="tab" aria-selected={m === x} className={m === x ? 'on' : ''} onClick={() => setM(x)}>{muscleName(x)}</button>)}</div>
-      <div className="gy-alts">
-        {EXERCISES.filter((e) => e.muscle === m).map((e) => (
-          <button key={e.id} onClick={() => { A.addGymExercise(sid, e.id); closeSheet(); }}><b>{L(e.ar, e.en)}</b><small>{L(...e.tip)}</small></button>
-        ))}
+      <div className="gy-form">
+        <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L('ابحث بالاسم…', 'Search by name…')} aria-label={L('ابحث عن تمرين', 'Search exercises')} />
+        <BodyMap size="sm" picked={part ? new Set([part]) : undefined} onPart={(x) => { setPart(part === x ? null : x); setQ(''); }} />
+        <p className="faint small" style={{ margin: 0 }}>{part ? L(`تمارين ${partName(part)} — `, `${partName(part)} exercises — `) : L('كل التمارين — ', 'All exercises — ')}{L('اضغط عضلة بالجسم عشان تفلتر.', 'tap a muscle to filter.')}</p>
+        <button className="btn" onClick={() => openSheet({ type: 'gym-custom', sid, name: query || undefined })}><Icon name="edit" size={14} /> {query ? L(`اكتب «${query}» كتمرين من عندك`, `Write “${query}” as your own`) : L('اكتب تمرين من عندك', 'Write your own exercise')}</button>
+        <div className="gy-hist">
+          {list.map((e) => <ExRow key={e.id} id={e.id} tag={part && !e.hits.includes(part) ? L('يساعد', 'also') : undefined} onClick={() => { A.addGymExercise(sid, e.id); closeSheet(); toast(L(`انضاف: ${exName(e.id)}`, `Added: ${exName(e.id)}`)); }} />)}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+const KINDS: { v: Kind; l: [string, string] }[] = [
+  { v: 'bar', l: ['بار', 'Barbell'] }, { v: 'db', l: ['دمبل', 'Dumbbell'] }, { v: 'machine', l: ['جهاز/كيبل', 'Machine'] }, { v: 'body', l: ['وزن الجسم', 'Bodyweight'] }, { v: 'cardio', l: ['كارديو', 'Cardio'] },
+];
+
+/** your own exercise: a name, what it's done with, and the muscles — tap once for «mainly», again for «also» */
+export function GymCustomSheet({ sid, name: n0 }: { sid?: string; name?: string }) {
+  const [name, setName] = useState(n0 || '');
+  const [kind, setKind] = useState<Kind>('db');
+  const [main, setMain] = useState<Part[]>([]);
+  const [also, setAlso] = useState<Part[]>([]);
+  const tap = (p: Part) => {
+    if (main.includes(p)) {
+      setMain(main.filter((x) => x !== p));
+      setAlso([...also, p]);
+    } else if (also.includes(p)) setAlso(also.filter((x) => x !== p));
+    else setMain([...main, p]);
+  };
+  const ok = name.trim() && (main.length || kind === 'cardio');
+  return (
+    <Sheet title={L('تمرين من عندك', 'Your own exercise')} onClose={closeSheet} footer={
+      <button className="btn primary grow" disabled={!ok} onClick={() => {
+        const id = A.addCustomExercise({ name: name.trim().slice(0, 60), kind, hits: main, also });
+        if (sid) A.addGymExercise(sid, id);
+        closeSheet();
+        toast(sid ? L('انضاف لتمرينك وانحفظ في قائمتك', 'Added to your workout and saved') : L('انحفظ في تمارينك', 'Saved to your exercises'));
+      }}>{sid ? L('احفظ وأضفه', 'Save and add') : L('احفظ', 'Save')}</button>
+    }>
+      <div className="gy-form">
+        <label className="gy-f"><span>{L('اسم التمرين', 'Name')}</span><input className="input" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder={L('مثلًا: سحب كيبل بيد وحدة', 'e.g. Single-arm cable pull')} /></label>
+        <div className="gy-f"><span>{L('بإيش؟', 'With what?')}</span>
+          <div className="gy-chips">{KINDS.map((k) => <button key={k.v} className={kind === k.v ? 'on' : ''} onClick={() => setKind(k.v)}>{L(...k.l)}</button>)}</div>
+        </div>
+        <div className="gy-f"><span>{L('العضلات المستهدفة', 'Target muscles')}</span>
+          <small className="faint">{L('اضغط مرة = أساسي، مرتين = يساعد، الثالثة تشيلها.', 'Tap once = mainly, twice = also, three times = off.')}</small>
+        </div>
+        <BodyMap main={new Set(main)} also={new Set(also)} onPart={tap} />
+        <div className="gy-parts" role="group" aria-label={L('العضلات', 'Muscles')}>
+          {PARTS.map((x) => <button key={x.id} className={main.includes(x.id) ? 'on' : also.includes(x.id) ? 'half' : ''} onClick={() => tap(x.id)}>{L(x.ar, x.en)}</button>)}
+        </div>
+        <BodyLegend main={new Set(main)} also={new Set(also)} />
       </div>
     </Sheet>
   );

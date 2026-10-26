@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
+import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -8,7 +8,7 @@ import { taskTime } from './engine/learning';
 import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
 import { L } from './i18n';
-import { exercise, liveSession, nextWorkout, scheme, target } from './engine/gym';
+import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
 import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 
@@ -935,22 +935,44 @@ export function setGymInfo(p: Partial<GymState['info']>) {
   });
 }
 
-/** start the next workout of the program, each set filled with what to lift today */
-export function startWorkout(now = Date.now()): string | null {
+/** start today's workout: the muscles you picked (or the program's next day), each set filled with what to lift */
+export function startWorkout(now = Date.now(), groups?: GroupId[], exIds?: string[]): string | null {
   const s = getState();
+  registerCustom(s.gym.custom);
   const live = liveSession(s);
   if (live) return live.id;
   const next = nextWorkout(s, now);
-  if (!next) return null;
+  const gs = groups?.length ? groups : next ? slotGroups(next.slot.key) : null;
+  if (!gs) return null;
+  const plan = dayPlan(s, gs);
+  const p = s.gym.profile;
+  const items = exIds ? exIds.map((exId) => ({ exId, scheme: p ? scheme(p, exercise(exId)) : { sets: 3, lo: 10, hi: 12, rest: 60 } })) : plan.items;
   const id = uid();
-  const entries = next.slot.items.map((it) => {
+  const entries = items.map((it) => {
     const t = target(s, it.exId, it.scheme);
     return { exId: it.exId, sets: Array.from({ length: it.scheme.sets }, () => ({ kg: t.kg, reps: t.reps, done: false })) };
   });
   mutate((st) => {
-    st.gym.sessions.push({ id, day: todayKey(now), start: now, slot: next.slot.key, name: next.slot.name, entries, createdAt: now, updatedAt: now });
+    st.gym.sessions.push({ id, day: todayKey(now), start: now, slot: next?.slot.key || plan.key, name: plan.name, groups: gs, entries, createdAt: now, updatedAt: now });
   });
   return id;
+}
+
+/** an exercise of your own, with the muscles you tapped */
+export function addCustomExercise(c: Omit<GymCustom, 'id' | 'createdAt'>): string {
+  const id = `c_${uid()}`;
+  mutate((s) => {
+    (s.gym.custom ||= []).push({ ...c, id, createdAt: Date.now() });
+  });
+  registerCustom(getState().gym.custom);
+  return id;
+}
+
+export function deleteCustomExercise(id: string) {
+  mutate((s) => {
+    s.gym.custom = (s.gym.custom || []).filter((c) => c.id !== id);
+  }, L('حذف التمرين', 'Delete exercise'));
+  registerCustom(getState().gym.custom);
 }
 
 const withSession = (id: string, fn: (x: GymSession) => void) =>

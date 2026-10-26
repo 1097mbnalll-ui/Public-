@@ -185,6 +185,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     rot: Math.max(mine.gym?.rot || 0, theirs.gym?.rot || 0),
     sessions: unionById(mine.gym?.sessions || [], theirs.gym?.sessions || []),
     body: unionById(mine.gym?.body || [], theirs.gym?.body || []),
+    custom: unionById(mine.gym?.custom || [], theirs.gym?.custom || []),
     info: { ...theirs.gym?.info, ...mine.gym?.info },
     ...(mine.gym?.profile || theirs.gym?.profile ? { profile: mine.gym?.profile || theirs.gym?.profile } : {}),
   };

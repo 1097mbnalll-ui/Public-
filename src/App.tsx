@@ -14,6 +14,7 @@ import { Work } from './pages/Work';
 import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
 import { Gym } from './pages/Gym';
+import { registerCustom } from './lib/engine/gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
 const Insights = lazy(() => import('./pages/Insights').then((m) => ({ default: m.Insights })));
@@ -55,6 +56,7 @@ export function App() {
   const s = useApp();
   const route = useRoute();
   useHeartbeat();
+  registerCustom(s.gym.custom);
   useQuotaLog();
   useShortcuts();
 

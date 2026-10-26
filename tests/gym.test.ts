@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialState, migrate } from '../src/lib/defaults';
-import { gymWeek, nextWorkout, nutrition, plates, program, records, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
+import { allExercises, dayPlan, exercisesFor, GROUPS, gymWeek, nextWorkout, nutrition, partsOf, plates, program, records, registerCustom, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
 import { busyOn } from '../src/lib/engine/schedule';
 import type { AppState, GymProfile, GymSession } from '../src/lib/types';
 
@@ -130,10 +130,47 @@ describe('tools and the rest of مدار', () => {
   it('old backups without a gym load fine, and junk in the gym is cleaned', () => {
     const old = initialState() as any;
     delete old.gym;
-    expect(migrate(old).gym).toEqual({ rot: 0, sessions: [], body: [], info: {} });
+    expect(migrate(old).gym).toEqual({ rot: 0, sessions: [], body: [], custom: [], info: {} });
     const bad = migrate({ ...initialState(), gym: { rot: 1, sessions: [null, 5, { id: 'x', day: '2026-10-01', entries: [] }], body: 'oops', info: null } });
     expect(bad.gym.sessions).toHaveLength(1);
     expect(bad.gym.body).toEqual([]);
     expect(bad.gym.info).toEqual({});
+  });
+});
+
+describe('today by muscle, the body map, your own exercises', () => {
+  it('every built-in exercise names the muscles it works', () => {
+    for (const e of allExercises()) expect(e.hits.length, e.id).toBeGreaterThan(0);
+  });
+
+  it('picking back + biceps gives back and biceps work, compound first, within the time', () => {
+    const plan = dayPlan(withGym({ profile: P() }), ['back', 'biceps']);
+    expect(plan.items.length).toBeGreaterThanOrEqual(3);
+    const grp = [...GROUPS.find((g) => g.id === 'back')!.parts, ...GROUPS.find((g) => g.id === 'biceps')!.parts];
+    for (const it of plan.items) expect(exercise(it.exId).hits.some((h) => grp.includes(h))).toBe(true);
+    expect(exercise(plan.items[0].exId).iso).toBeFalsy();
+    expect(plan.minutes).toBeLessThanOrEqual(75);
+    expect(plan.name).toBe('ظهر + باي');
+  });
+
+  it('every group alone, at home and in the gym, and all together', () => {
+    for (const place of ['gym', 'home'] as const) {
+      for (const g of GROUPS) expect(dayPlan(withGym({ profile: P({ place }) }), [g.id]).items.length, `${place} ${g.id}`).toBeGreaterThan(0);
+      const all = dayPlan(withGym({ profile: P({ place, minutes: 90 }) }), GROUPS.map((g) => g.id));
+      expect(new Set(all.items.map((i) => i.exId)).size).toBe(all.items.length);
+    }
+    expect(dayPlan(withGym({}), []).items).toEqual([]);
+  });
+
+  it('your own exercise shows up for the muscles you tapped', () => {
+    registerCustom([{ id: 'c_1', name: 'سحب كيبل بيد وحدة', kind: 'machine', hits: ['lats'], also: ['biceps'], createdAt: 1 }]);
+    expect(exercise('c_1')).toMatchObject({ custom: true, hits: ['lats'], also: ['biceps'], muscle: 'back' });
+    expect(exercisesFor('lats').map((e) => e.id)).toContain('c_1');
+    expect(exercisesFor('biceps').map((e) => e.id)).toContain('c_1');
+    const { main, also } = partsOf(['bench', 'c_1']);
+    expect([...main].sort()).toEqual(['chest', 'lats']);
+    expect(also.has('biceps') && also.has('triceps')).toBe(true);
+    registerCustom([]);
+    expect(exercise('c_1').ar).toBe('تمرين'); // deleted: old workouts still open
   });
 });

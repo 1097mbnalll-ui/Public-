@@ -20,7 +20,7 @@ import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
-import { GymBodySheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
+import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
 import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
@@ -80,6 +80,8 @@ export function SheetHost() {
       return <GymExSheet key={sh.exId + (sh.ei ?? '')} {...sh} />;
     case 'gym-pick':
       return <GymPickSheet sid={sh.sid} />;
+    case 'gym-custom':
+      return <GymCustomSheet key={sh.name || 'new'} sid={sh.sid} name={sh.name} />;
     case 'gym-done':
       return <GymDoneSheet id={sh.id} />;
     case 'gym-session':

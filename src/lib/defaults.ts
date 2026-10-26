@@ -122,7 +122,7 @@ export function migrate(raw: any): AppState {
   for (const k of ['dayOverrides', 'skipClass', 'studyOverrides', 'studyDefer', 'studyOff', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {
     if (!s[k] || typeof s[k] !== 'object') (s as any)[k] = {};
   }
-  for (const k of ['sessions', 'body'] as const) {
+  for (const k of ['sessions', 'body', 'custom'] as const) {
     const v = s.gym[k] as unknown[];
     (s.gym as any)[k] = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
   }

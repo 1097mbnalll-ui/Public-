@@ -3794,3 +3794,55 @@ button.gy-h { cursor: pointer; }
 .gy-today .m { flex: 1; min-width: 0; display: grid; gap: 1px; }
 .gy-today .m b { font-size: 15px; }
 .gy-today .m span { font-size: 12.5px; color: var(--muted); }
+
+/* ---------------- the body map ---------------- */
+.bm { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; justify-items: center; }
+.bm-fig { margin: 0; display: grid; justify-items: center; gap: 2px; width: 100%; }
+.bm svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bm-md svg { max-width: 150px; }
+.bm-sm svg { max-width: 118px; }
+.bm-lg svg { max-width: 180px; }
+.bm-xs { gap: 0; grid-template-columns: 1fr; }
+.bm-xs svg { width: 30px; }
+.bm-xs figcaption { display: none; }
+.bm figcaption { font-size: 11.5px; font-weight: 700; color: var(--faint); }
+.bm-m { stroke: color-mix(in srgb, var(--text) 30%, var(--bg)); stroke-width: 0.9; stroke-linejoin: round; cursor: default; }
+.bm.live .bm-m { cursor: pointer; }
+.bm.live .bm-m:hover { opacity: .82; }
+.bm-m:focus { outline: none; }
+.bm-m:focus-visible { outline: none; stroke: var(--accent); stroke-width: 2.5; }
+.bm-lines, .bm-lines path { fill: none; stroke: color-mix(in srgb, var(--text) 28%, transparent); stroke-width: 0.9; stroke-linecap: round; pointer-events: none; }
+/* the sculpted greys (marble in light, graphite in dark) and the accent for worked muscles */
+.bm { --m-hi: #F4F2F7; --m-mid: #D3CFDB; --m-lo: #A9A3B6; --sk-hi: #E9E6EE; --sk-mid: #CCC7D5; --sk-lo: #ABA5B8; }
+:root[data-dark="1"] .bm { --m-hi: #6E6A7A; --m-mid: #504C5C; --m-lo: #34313E; --sk-hi: #5C5868; --sk-mid: #45414F; --sk-lo: #2E2B37; }
+.bm-s.base.hi { stop-color: var(--m-hi); } .bm-s.base.mid { stop-color: var(--m-mid); } .bm-s.base.lo { stop-color: var(--m-lo); }
+.bm-s.skin.hi { stop-color: var(--sk-hi); } .bm-s.skin.mid { stop-color: var(--sk-mid); } .bm-s.skin.lo { stop-color: var(--sk-lo); }
+.bm-s.main.hi { stop-color: color-mix(in srgb, var(--accent) 55%, #fff); } .bm-s.main.mid { stop-color: var(--accent); } .bm-s.main.lo { stop-color: color-mix(in srgb, var(--accent) 70%, #000); }
+.bm-s.also.hi { stop-color: color-mix(in srgb, var(--accent) 25%, #fff); } .bm-s.also.mid { stop-color: color-mix(in srgb, var(--accent) 45%, var(--m-mid)); } .bm-s.also.lo { stop-color: color-mix(in srgb, var(--accent) 45%, var(--m-lo)); }
+.bm-legend { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.bm-legend > div { display: flex; gap: 8px; align-items: baseline; }
+.bm-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; transform: translateY(1px); }
+.bm-legend i.k-main { background: var(--accent); }
+.bm-legend i.k-also { background: color-mix(in srgb, var(--accent) 42%, transparent); }
+.bm-legend b { color: var(--text); }
+
+.gy-groups, .gy-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.gy-groups { margin: 6px 0 4px; }
+.gy-groups button { border: 0; background: var(--hover); color: inherit; border-radius: 999px; padding: 9px 15px; min-height: 40px; font-weight: 800; font-size: 14.5px; cursor: pointer; transition: background .15s, color .15s; }
+.gy-groups button.on { background: var(--accent); color: #fff; }
+.gy-parts button { border: 0; background: var(--hover); color: inherit; border-radius: 999px; padding: 6px 11px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+.gy-parts button.on { background: var(--accent); color: #fff; }
+.gy-parts button.half { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.gy-next .bm { margin: 6px 0 2px; }
+.gy-link { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 800; text-decoration: underline; margin-inline-start: 6px; cursor: pointer; padding: 0; }
+.gy-plan li { align-items: center; }
+.gy-plan li .nm { flex: 1; min-width: 0; background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 600; text-align: start; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gy-plan li .icon-btn { margin-inline-start: 2px; }
+.gy-mini { flex: none; width: 30px; }
+.gy-h-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: none; border: 0; color: inherit; text-align: start; cursor: pointer; }
+div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
+.gy-tag { font-style: normal; font-size: 10.5px; font-weight: 700; background: var(--hover); padding: 1px 7px; border-radius: 999px; margin-inline-start: 6px; }
+.gy-part-info { display: grid; gap: 2px; margin-bottom: 8px; }
+.gy-part-info b { font-family: var(--font-display); font-size: 20px; }
+.gy-part-info span { font-size: 13.5px; color: var(--muted); }
+.gy-tip { margin: 0; font-size: 14.5px; }

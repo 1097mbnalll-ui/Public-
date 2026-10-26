@@ -29,6 +29,7 @@ export type SheetSpec =
   | { type: 'gym-setup'; goal?: GymGoal }
   | { type: 'gym-ex'; exId: string; sid?: string; ei?: number }
   | { type: 'gym-pick'; sid: string }
+  | { type: 'gym-custom'; sid?: string; name?: string }
   | { type: 'gym-done'; id: string }
   | { type: 'gym-session'; id: string }
   | { type: 'gym-body' }

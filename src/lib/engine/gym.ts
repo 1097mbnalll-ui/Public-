@@ -2,12 +2,12 @@
 // today from what you lifted last time (add weight once you hit the top of the range, else one more
 // rep), and the week counts sessions, not dates — miss a day and the next workout simply waits for you.
 
-import type { AppState, GymProfile, GymSession, GymGoal } from '../types';
+import type { AppState, GymCustom, GymProfile, GymSession, GymGoal } from '../types';
 import { addDays, todayKey, weekday } from '../dates';
 import { L } from '../i18n';
 
 export type Muscle = 'chest' | 'back' | 'legs' | 'glutes' | 'shoulders' | 'arms' | 'core' | 'cardio';
-type Kind = 'bar' | 'db' | 'machine' | 'body' | 'cardio';
+export type Kind = 'bar' | 'db' | 'machine' | 'body' | 'cardio';
 type Unit = 'reps' | 'sec' | 'min';
 
 export interface Exercise {
@@ -23,9 +23,14 @@ export interface Exercise {
   home?: string;
   /** one line on how */
   tip: [string, string];
+  /** the muscles it works: mainly, and also */
+  hits: Part[];
+  also: Part[];
+  /** one you wrote yourself */
+  custom?: boolean;
 }
 
-const X = (id: string, ar: string, en: string, muscle: Muscle, kind: Kind, tip: [string, string], o: Partial<Exercise> = {}): Exercise => ({ id, ar, en, muscle, kind, tip, ...o });
+const X = (id: string, ar: string, en: string, muscle: Muscle, kind: Kind, tip: [string, string], o: Partial<Exercise> = {}): Exercise => ({ id, ar, en, muscle, kind, tip, hits: [], also: [], ...o });
 
 export const EXERCISES: Exercise[] = [
   X('bench', 'بنش برس بالبار', 'Barbell bench press', 'chest', 'bar', ['الكتف ورا، البار ينزل لمنتصف الصدر', 'Shoulders back, bar to mid-chest'], { home: 'pushup' }),
@@ -81,8 +86,120 @@ export const EXERCISES: Exercise[] = [
   X('jumprope', 'نط حبل أو جري بالمكان', 'Jump rope / run in place', 'cardio', 'cardio', ['دقيقة شغل ونص دقيقة راحة', 'One minute on, thirty seconds off'], { unit: 'min' }),
 ];
 
+// ---------------- the muscles ----------------
+
+/** the muscles on the body map */
+export type Part =
+  | 'chest' | 'front_delt' | 'side_delt' | 'rear_delt' | 'biceps' | 'triceps' | 'forearm' | 'abs' | 'obliques'
+  | 'traps' | 'lats' | 'upper_back' | 'lower_back' | 'glutes' | 'quads' | 'hamstrings' | 'adductors' | 'calves';
+
+export const PARTS: { id: Part; ar: string; en: string; side: 'front' | 'back' | 'both'; about: [string, string] }[] = [
+  { id: 'chest', ar: 'الصدر', en: 'Chest', side: 'front', about: ['يدفع يديك لقدّام: البنش والضغط.', 'Pushes your arms forward: bench and push-ups.'] },
+  { id: 'front_delt', ar: 'الكتف الأمامي', en: 'Front delts', side: 'front', about: ['يرفع يدك لقدّام وفوق راسك.', 'Raises the arm forward and overhead.'] },
+  { id: 'side_delt', ar: 'الكتف الجانبي', en: 'Side delts', side: 'both', about: ['يعطي الكتف العرض — الرفرفة الجانبية.', 'Gives the shoulders width — lateral raises.'] },
+  { id: 'rear_delt', ar: 'الكتف الخلفي', en: 'Rear delts', side: 'back', about: ['يسحب الذراع لورا، يعدّل وقفة الكتف.', 'Pulls the arm back; balances posture.'] },
+  { id: 'biceps', ar: 'الباي', en: 'Biceps', side: 'front', about: ['يثني الكوع ويساعد في السحب.', 'Bends the elbow; helps every pull.'] },
+  { id: 'triceps', ar: 'التراي', en: 'Triceps', side: 'back', about: ['يفرد الكوع — ثلثين حجم الذراع.', 'Straightens the elbow — two thirds of the arm.'] },
+  { id: 'forearm', ar: 'الساعد', en: 'Forearms', side: 'both', about: ['قوة القبضة: تمسك البار أطول.', 'Grip: you hold the bar longer.'] },
+  { id: 'abs', ar: 'البطن', en: 'Abs', side: 'front', about: ['يثبّت جذعك في كل رفعة.', 'Holds your trunk steady in every lift.'] },
+  { id: 'obliques', ar: 'الخواصر', en: 'Obliques', side: 'front', about: ['اللف والميلان، وثبات الجنب.', 'Twisting and side bending; side stability.'] },
+  { id: 'traps', ar: 'الترابيس', en: 'Traps', side: 'back', about: ['يرفع الكتفين ويثبّت لوح الكتف.', 'Shrugs and steadies the shoulder blades.'] },
+  { id: 'lats', ar: 'المجنص', en: 'Lats', side: 'back', about: ['أعرض عضلة بالظهر — تعطيك شكل V.', 'The widest back muscle — the V shape.'] },
+  { id: 'upper_back', ar: 'وسط الظهر', en: 'Mid back', side: 'back', about: ['يقرّب لوحَي الكتف: التجديف.', 'Pulls the shoulder blades together: rows.'] },
+  { id: 'lower_back', ar: 'أسفل الظهر', en: 'Lower back', side: 'back', about: ['يحمي ظهرك وأنت تنحني وترفع.', 'Protects your spine when you hinge and lift.'] },
+  { id: 'glutes', ar: 'الأرداف', en: 'Glutes', side: 'back', about: ['أقوى عضلة بالجسم: تدفع الوسط لقدّام.', 'The strongest muscle: drives the hips.'] },
+  { id: 'quads', ar: 'الفخذ الأمامي', en: 'Quads', side: 'front', about: ['يفرد الركبة: السكوات والدفع.', 'Straightens the knee: squats and presses.'] },
+  { id: 'hamstrings', ar: 'الفخذ الخلفي', en: 'Hamstrings', side: 'back', about: ['يثني الركبة ويمد الوسط: الرومانية.', 'Bends the knee, extends the hip: RDLs.'] },
+  { id: 'adductors', ar: 'الفخذ الداخلي', en: 'Adductors', side: 'front', about: ['يضم الرجلين ويثبّت السكوات.', 'Brings the legs together; steadies squats.'] },
+  { id: 'calves', ar: 'السمانة', en: 'Calves', side: 'both', about: ['ترفعك على أطراف أصابعك.', 'Lifts you onto your toes.'] },
+];
+export const partName = (p: Part) => {
+  const x = PARTS.find((y) => y.id === p);
+  return x ? L(x.ar, x.en) : p;
+};
+
+/** what each built-in exercise works: [mainly, also] */
+const HITS: Record<string, [Part[], Part[]]> = {
+  bench: [['chest'], ['front_delt', 'triceps']],
+  incline_db: [['chest', 'front_delt'], ['triceps']],
+  chest_press: [['chest'], ['front_delt', 'triceps']],
+  db_fly: [['chest'], ['front_delt']],
+  pushup: [['chest'], ['front_delt', 'triceps', 'abs']],
+  decline_push: [['chest', 'front_delt'], ['triceps']],
+  dips: [['chest', 'triceps'], ['front_delt']],
+  deadlift: [['lower_back', 'glutes', 'hamstrings'], ['traps', 'lats', 'quads', 'forearm']],
+  row: [['upper_back', 'lats'], ['rear_delt', 'biceps', 'lower_back']],
+  pulldown: [['lats'], ['biceps', 'upper_back']],
+  pullup: [['lats'], ['biceps', 'upper_back', 'forearm']],
+  cable_row: [['upper_back', 'lats'], ['rear_delt', 'biceps']],
+  db_row: [['lats', 'upper_back'], ['rear_delt', 'biceps']],
+  inv_row: [['upper_back', 'lats'], ['biceps', 'rear_delt']],
+  face_pull: [['rear_delt'], ['traps', 'upper_back']],
+  squat: [['quads', 'glutes'], ['adductors', 'hamstrings', 'lower_back', 'abs']],
+  leg_press: [['quads'], ['glutes', 'adductors']],
+  rdl: [['hamstrings', 'glutes'], ['lower_back']],
+  lunge: [['quads', 'glutes'], ['hamstrings', 'adductors']],
+  goblet: [['quads', 'glutes'], ['abs', 'adductors']],
+  leg_curl: [['hamstrings'], ['calves']],
+  leg_ext: [['quads'], []],
+  calf: [['calves'], []],
+  hip_thrust: [['glutes'], ['hamstrings']],
+  bw_squat: [['quads', 'glutes'], ['adductors']],
+  bw_lunge: [['quads', 'glutes'], ['hamstrings']],
+  sl_rdl: [['hamstrings', 'glutes'], ['lower_back']],
+  glute_bridge: [['glutes'], ['hamstrings']],
+  wall_sit: [['quads'], ['glutes']],
+  bw_calf: [['calves'], []],
+  ohp: [['front_delt'], ['side_delt', 'triceps', 'traps', 'abs']],
+  db_press: [['front_delt'], ['side_delt', 'triceps']],
+  lateral: [['side_delt'], ['traps']],
+  pike: [['front_delt'], ['triceps', 'side_delt']],
+  curl: [['biceps'], ['forearm']],
+  db_curl: [['biceps', 'forearm'], []],
+  pushdown: [['triceps'], []],
+  skull: [['triceps'], []],
+  diamond: [['triceps'], ['chest', 'front_delt']],
+  chin_curl: [['biceps', 'lats'], ['forearm']],
+  plank: [['abs'], ['obliques', 'front_delt']],
+  leg_raise: [['abs'], ['obliques', 'forearm']],
+  treadmill: [['quads', 'calves'], ['hamstrings', 'glutes']],
+  bike: [['quads'], ['calves', 'glutes']],
+  jumprope: [['calves'], ['quads', 'forearm']],
+};
+for (const e of EXERCISES) [e.hits, e.also] = HITS[e.id] || [[], []];
+
+// more built-ins, so everyone finds theirs
+const MORE: Exercise[] = [
+  X('shrug', 'هز الكتف بالدمبل', 'Dumbbell shrug', 'back', 'db', ['ارفع كتفك لأذنك وثبّت ثانية', 'Shoulders to ears, hold a second'], { iso: true, hits: ['traps'], also: ['forearm'] }),
+  X('back_ext', 'تمديد الظهر', 'Back extension', 'back', 'body', ['انزل ببطء، لا تقوّس زيادة فوق', 'Lower slowly, don’t over-arch'], { iso: true, hits: ['lower_back'], also: ['glutes', 'hamstrings'] }),
+  X('crunch', 'كرنش', 'Crunch', 'core', 'body', ['ارفع كتفك بس، لا تشد رقبتك', 'Lift the shoulders, not the neck'], { iso: true, hits: ['abs'], also: [] }),
+  X('russian', 'لف روسي', 'Russian twist', 'core', 'body', ['اللف من الصدر مو من اليدين', 'Turn from the chest, not the hands'], { iso: true, hits: ['obliques'], also: ['abs'] }),
+  X('side_plank', 'بلانك جانبي', 'Side plank', 'core', 'body', ['الوسط مرفوع، خط مستقيم', 'Hips up, one straight line'], { iso: true, unit: 'sec', hits: ['obliques'], also: ['abs', 'side_delt'] }),
+  X('wrist_curl', 'ثني الرسغ', 'Wrist curl', 'arms', 'db', ['الساعد على الفخذ، الرسغ بس يتحرك', 'Forearm on the thigh, only the wrist moves'], { iso: true, hits: ['forearm'], also: [] }),
+  X('preacher', 'باي على الكرسي (بريتشر)', 'Preacher curl', 'arms', 'machine', ['انزل لين قبل فرد اليد كامل', 'Down to just short of locked'], { iso: true, hits: ['biceps'], also: [] }),
+  X('rear_fly', 'رفرفة خلفي', 'Reverse fly', 'shoulders', 'db', ['منحني، افتح يدينك للجنب', 'Bent over, open the arms out'], { iso: true, hits: ['rear_delt'], also: ['upper_back'] }),
+  X('adductor', 'جهاز الفخذ الداخلي', 'Adductor machine', 'legs', 'machine', ['ضم ببطء ورجّع ببطء', 'Squeeze slowly, release slowly'], { iso: true, hits: ['adductors'], also: [] }),
+  X('bulgarian', 'سكوات بلغاري', 'Bulgarian split squat', 'legs', 'db', ['رجلك الخلفية على كرسي', 'Back foot on a bench'], { hits: ['quads', 'glutes'], also: ['adductors', 'hamstrings'], home: 'bw_lunge' }),
+  X('cable_fly', 'تفتيح كيبل', 'Cable fly', 'chest', 'machine', ['اضم يدينك قدّام صدرك واعصر', 'Bring hands together, squeeze'], { iso: true, hits: ['chest'], also: ['front_delt'], home: 'pushup' }),
+  X('tbar_row', 'تجديف تي بار', 'T-bar row', 'back', 'bar', ['صدرك مرفوع، اسحب لبطنك', 'Chest up, pull to the belly'], { hits: ['upper_back', 'lats'], also: ['rear_delt', 'biceps'], home: 'inv_row' }),
+];
+EXERCISES.push(...MORE);
+
 const BY_ID = new Map(EXERCISES.map((e) => [e.id, e]));
-export const exercise = (id: string): Exercise => BY_ID.get(id) || EXERCISES[0];
+
+// exercises you wrote yourself (kept in the state; the app registers them as it loads)
+let CUSTOM = new Map<string, Exercise>();
+const COARSE: Record<Part, Muscle> = {
+  chest: 'chest', front_delt: 'shoulders', side_delt: 'shoulders', rear_delt: 'shoulders', biceps: 'arms', triceps: 'arms', forearm: 'arms', abs: 'core', obliques: 'core',
+  traps: 'back', lats: 'back', upper_back: 'back', lower_back: 'back', glutes: 'glutes', quads: 'legs', hamstrings: 'legs', adductors: 'legs', calves: 'legs',
+};
+export function registerCustom(list: GymCustom[] = []) {
+  CUSTOM = new Map(list.map((c) => [c.id, X(c.id, c.name, c.name, c.kind === 'cardio' ? 'cardio' : COARSE[c.hits[0] as Part] || 'core', c.kind, ['تمرين من عندك', 'Your own exercise'], { hits: c.hits as Part[], also: (c.also || []) as Part[], custom: true, unit: c.kind === 'cardio' ? 'min' : c.unit })]));
+}
+export const allExercises = (): Exercise[] => [...EXERCISES, ...CUSTOM.values()];
+
+const UNKNOWN = (id: string): Exercise => X(id, 'تمرين', 'Exercise', 'core', 'body', ['', ''], {});
+export const exercise = (id: string): Exercise => BY_ID.get(id) || CUSTOM.get(id) || UNKNOWN(id);
 export const exName = (id: string) => L(exercise(id).ar, exercise(id).en);
 export const muscleName = (m: Muscle) =>
   ({ chest: L('صدر', 'Chest'), back: L('ظهر', 'Back'), legs: L('أرجل', 'Legs'), glutes: L('أرداف', 'Glutes'), shoulders: L('كتف', 'Shoulders'), arms: L('ذراع', 'Arms'), core: L('بطن', 'Core'), cardio: L('كارديو', 'Cardio') })[m];
@@ -191,8 +308,125 @@ export const resolve = (p: GymProfile, id: string): string => {
 /** the other exercises for the same muscle you could do instead (at home: no machines or bars) */
 export function alternatives(p: GymProfile | undefined, exId: string): Exercise[] {
   const ex = exercise(exId);
-  return EXERCISES.filter((e) => e.id !== exId && e.muscle === ex.muscle && (p?.place !== 'home' || e.kind === 'body' || e.kind === 'cardio'));
+  const main = ex.hits[0];
+  const ok = (e: Exercise) => e.id !== exId && (p?.place !== 'home' || e.kind === 'body' || e.kind === 'cardio');
+  // the same main muscle first, then others for the same area
+  const same = allExercises().filter((e) => ok(e) && main && e.hits.includes(main));
+  const near = allExercises().filter((e) => ok(e) && !same.includes(e) && e.muscle === ex.muscle);
+  return [...same, ...near];
 }
+
+// ---------------- what you train today ----------------
+
+export type GroupId = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs' | 'glutes' | 'core' | 'cardio';
+
+export const GROUPS: { id: GroupId; ar: string; en: string; parts: Part[]; big?: boolean }[] = [
+  { id: 'chest', ar: 'صدر', en: 'Chest', parts: ['chest'], big: true },
+  { id: 'back', ar: 'ظهر', en: 'Back', parts: ['lats', 'upper_back', 'traps', 'lower_back'], big: true },
+  { id: 'shoulders', ar: 'كتف', en: 'Shoulders', parts: ['front_delt', 'side_delt', 'rear_delt'] },
+  { id: 'biceps', ar: 'باي', en: 'Biceps', parts: ['biceps', 'forearm'] },
+  { id: 'triceps', ar: 'تراي', en: 'Triceps', parts: ['triceps'] },
+  { id: 'legs', ar: 'أرجل', en: 'Legs', parts: ['quads', 'hamstrings', 'adductors', 'calves'], big: true },
+  { id: 'glutes', ar: 'أرداف', en: 'Glutes', parts: ['glutes'] },
+  { id: 'core', ar: 'بطن', en: 'Core', parts: ['abs', 'obliques'] },
+  { id: 'cardio', ar: 'كارديو', en: 'Cardio', parts: [] },
+];
+export const groupName = (g: GroupId) => {
+  const x = GROUPS.find((y) => y.id === g)!;
+  return L(x.ar, x.en);
+};
+export const groupsName = (gs: GroupId[]) => gs.map(groupName).join(L(' + ', ' + '));
+
+/** the program day's muscles, to suggest for today */
+export function slotGroups(slotKey: string): GroupId[] {
+  const k = slotKey.replace(/\d+$/, '');
+  return (
+    {
+      push: ['chest', 'shoulders', 'triceps'],
+      pull: ['back', 'biceps'],
+      legs: ['legs', 'glutes', 'core'],
+      ua: ['chest', 'back', 'shoulders', 'biceps', 'triceps'],
+      ub: ['chest', 'back', 'shoulders', 'biceps', 'triceps'],
+      la: ['legs', 'glutes', 'core'],
+      lb: ['legs', 'glutes', 'core'],
+      fa: ['chest', 'back', 'legs', 'shoulders'],
+      fb: ['back', 'shoulders', 'legs', 'triceps'],
+      fc: ['legs', 'chest', 'back', 'core'],
+    } as Record<string, GroupId[]>
+  )[k] || ['chest', 'back', 'legs'];
+}
+
+/**
+ * today's workout from the muscles you picked: for each, its exercises (the ones you've done before
+ * first, so the weights keep climbing; heavy compound moves before isolation), shared out in turns
+ * until the time runs out.
+ */
+export function dayPlan(s: AppState, groups: GroupId[], p: GymProfile | undefined = s.gym?.profile): SlotPlan {
+  const prof: GymProfile = p || { goal: 'fit', level: 'mid', place: 'gym', days: [], minutes: 60 };
+  const g = GOALS[prof.goal];
+  const done = new Set(finished(s).flatMap((x) => x.entries.map((e) => e.exId)));
+  const home = prof.place === 'home';
+  const lists = groups
+    .filter((id) => id !== 'cardio')
+    .map((id) => {
+      const grp = GROUPS.find((x) => x.id === id)!;
+      const pool = [...new Set(allExercises().filter((e) => e.kind !== 'cardio' && e.hits.some((h) => grp.parts.includes(h)) && grp.parts.includes(e.hits[0])).map((e) => resolve(prof, e.id)))]
+        .map(exercise)
+        .filter((e) => !home || e.kind === 'body');
+      const rank = (e: Exercise) => (e.iso ? 2 : 0) + (done.has(e.id) || e.custom ? 0 : 1) + (e.custom ? -0.5 : 0);
+      return { grp, pool: pool.sort((a, b) => rank(a) - rank(b)) };
+    });
+  const cardio = groups.includes('cardio');
+  const cardioMin = g.cardio || 15;
+  let budget = prof.minutes - 8 - (cardio ? cardioMin : 0);
+  const cap = (prof.level === 'new' ? 5 : prof.level === 'pro' ? 7 : 6) + (lists.length > 3 ? 1 : 0);
+  const items: SlotPlan['items'] = [];
+  const used = new Set<string>();
+  const want = (i: number) => (lists[i].grp.big ? (lists.length === 1 ? 6 : 3) : lists.length === 1 ? 5 : 2);
+  const took = lists.map(() => 0);
+  for (let round = 0; items.length < cap; round++) {
+    let added = false;
+    for (let i = 0; i < lists.length && items.length < cap; i++) {
+      if (took[i] >= want(i) || round >= want(i)) continue;
+      const ex = lists[i].pool.find((e) => !used.has(e.id));
+      if (!ex) continue;
+      const sc = scheme(prof, ex);
+      const m = minutesOf(sc, ex);
+      if (items.length >= 2 && budget - m < -3) continue;
+      items.push({ exId: ex.id, scheme: sc });
+      used.add(ex.id);
+      took[i]++;
+      budget -= m;
+      added = true;
+    }
+    if (!added) break;
+  }
+  if (cardio) {
+    const c = home ? 'jumprope' : groups.includes('legs') ? 'bike' : 'treadmill';
+    items.push({ exId: c, scheme: { ...scheme(prof, exercise(c)), lo: cardioMin, hi: cardioMin } });
+  }
+  const minutes = Math.round(8 + items.reduce((a, it) => a + minutesOf(it.scheme, exercise(it.exId)), 0));
+  return { key: groups.join('+'), name: groupsName(groups), sub: '', items, minutes };
+}
+
+/** every muscle a workout's exercises work: mainly, and also (minus the main ones) */
+export function partsOf(exIds: string[]): { main: Set<Part>; also: Set<Part> } {
+  const main = new Set<Part>();
+  const also = new Set<Part>();
+  for (const id of exIds) {
+    const e = exercise(id);
+    e.hits.forEach((h) => main.add(h));
+    e.also.forEach((h) => also.add(h));
+  }
+  main.forEach((m) => also.delete(m));
+  return { main, also };
+}
+
+/** the exercises that work a muscle — mainly first */
+export const exercisesFor = (part: Part) => {
+  const all = allExercises();
+  return [...all.filter((e) => e.hits.includes(part)), ...all.filter((e) => !e.hits.includes(part) && e.also.includes(part))];
+};
 
 export function program(p: GymProfile): Program {
   const { keys, name } = slotKeys(p);
