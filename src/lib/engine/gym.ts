@@ -113,9 +113,10 @@ export const PARTS: { id: Part; ar: string; en: string; side: 'front' | 'back' |
   { id: 'adductors', ar: 'الفخذ الداخلي', en: 'Adductors', side: 'front', about: ['يضم الرجلين ويثبّت السكوات.', 'Brings the legs together; steadies squats.'] },
   { id: 'calves', ar: 'السمانة', en: 'Calves', side: 'both', about: ['ترفعك على أطراف أصابعك.', 'Lifts you onto your toes.'] },
 ];
+/** in Arabic with the English name beside it — «الصدر (Chest)» — as gyms and videos use both */
 export const partName = (p: Part) => {
   const x = PARTS.find((y) => y.id === p);
-  return x ? L(x.ar, x.en) : p;
+  return x ? L(`${x.ar} (${x.en})`, x.en) : p;
 };
 
 /** what each built-in exercise works: [mainly, also] */
@@ -334,6 +335,11 @@ export const GROUPS: { id: GroupId; ar: string; en: string; parts: Part[]; big?:
 export const groupName = (g: GroupId) => {
   const x = GROUPS.find((y) => y.id === g)!;
   return L(x.ar, x.en);
+};
+/** «صدر (Chest)» for the muscle buttons */
+export const groupLabel = (g: GroupId) => {
+  const x = GROUPS.find((y) => y.id === g)!;
+  return L(`${x.ar} (${x.en})`, x.en);
 };
 export const groupsName = (gs: GroupId[]) => gs.map(groupName).join(L(' + ', ' + '));
 

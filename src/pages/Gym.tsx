@@ -11,7 +11,7 @@ import * as A from '../lib/actions';
 import { fmtClock, fmtDate, relDay, todayKey } from '../lib/dates';
 import {
   ACTIVITY, alternatives, bmi, bodyNow, e1rm, exercise, exerciseHistory, exName, fmtKg, GOAL_INFO, gymToday, gymWeek, history, liveSession, nextWorkout, nutrition, plates,
-  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, slotGroups, GROUPS, groupName, groupsName, allExercises, exercisesFor, PARTS, partName,
+  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, slotGroups, GROUPS, groupLabel, groupsName, allExercises, exercisesFor, PARTS, partName,
   type GroupId, type Part, type Kind,
 } from '../lib/engine/gym';
 import type { AppState, GymGoal, GymProfile, GymSession } from '../lib/types';
@@ -187,7 +187,7 @@ function TodayPick({ s, now }: { s: AppState; now: number }) {
       )}
       <div className="gy-groups" role="group" aria-label={L('العضلات', 'Muscles')}>
         {GROUPS.map((g) => (
-          <button key={g.id} className={groups.includes(g.id) ? 'on' : ''} aria-pressed={groups.includes(g.id)} onClick={() => toggle(g.id)}>{groupName(g.id)}</button>
+          <button key={g.id} className={groups.includes(g.id) ? 'on' : ''} aria-pressed={groups.includes(g.id)} onClick={() => toggle(g.id)}>{groupLabel(g.id)}</button>
         ))}
       </div>
       <BodyMap main={main} also={also} onPart={(part) => { const g = GROUPS.find((x) => x.parts.includes(part)); if (g) toggle(g.id); }} />
@@ -501,7 +501,7 @@ function MovesTab() {
         <b>{L('اضغط على أي عضلة', 'Tap any muscle')}</b>
         <BodyMap size="lg" picked={part ? new Set([part]) : undefined} onPart={(x) => { setPart(part === x ? null : x); setQ(''); }} />
         <div className="gy-parts" role="group" aria-label={L('العضلات', 'Muscles')}>
-          {PARTS.map((x) => <button key={x.id} className={part === x.id ? 'on' : ''} aria-pressed={part === x.id} onClick={() => { setPart(part === x.id ? null : x.id); setQ(''); }}>{L(x.ar, x.en)}</button>)}
+          {PARTS.map((x) => <button key={x.id} className={part === x.id ? 'on' : ''} aria-pressed={part === x.id} onClick={() => { setPart(part === x.id ? null : x.id); setQ(''); }}>{partName(x.id)}</button>)}
         </div>
       </section>
 
@@ -511,7 +511,7 @@ function MovesTab() {
         <section>
           {info && !query && (
             <div className="gy-part-info">
-              <b>{L(info.ar, info.en)}</b>
+              <b>{partName(info.id)}</b>
               <span>{L(...info.about)}</span>
             </div>
           )}
@@ -713,7 +713,7 @@ export function GymCustomSheet({ sid, name: n0 }: { sid?: string; name?: string 
         </div>
         <BodyMap main={new Set(main)} also={new Set(also)} onPart={tap} />
         <div className="gy-parts" role="group" aria-label={L('العضلات', 'Muscles')}>
-          {PARTS.map((x) => <button key={x.id} className={main.includes(x.id) ? 'on' : also.includes(x.id) ? 'half' : ''} onClick={() => tap(x.id)}>{L(x.ar, x.en)}</button>)}
+          {PARTS.map((x) => <button key={x.id} className={main.includes(x.id) ? 'on' : also.includes(x.id) ? 'half' : ''} onClick={() => tap(x.id)}>{partName(x.id)}</button>)}
         </div>
         <BodyLegend main={new Set(main)} also={new Set(also)} />
       </div>
