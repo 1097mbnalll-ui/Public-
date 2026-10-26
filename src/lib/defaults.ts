@@ -93,6 +93,7 @@ export function initialState(): AppState {
     expenses: [],
     subs: [],
     money: { swaps: {} },
+    gym: { rot: 0, sessions: [], body: [], info: {} },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -107,6 +108,7 @@ export function migrate(raw: any): AppState {
     settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}), coach: { ...DEFAULT_SETTINGS.coach, ...(raw.settings?.coach || {}) } },
     coach: { history: {}, chat: [], ...(raw.coach || {}) },
     money: { swaps: {}, ...(raw.money || {}) },
+    gym: { rot: 0, sessions: [], body: [], info: {}, ...(raw.gym || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule'] as const) {
@@ -120,6 +122,11 @@ export function migrate(raw: any): AppState {
   for (const k of ['dayOverrides', 'skipClass', 'studyOverrides', 'studyDefer', 'studyOff', 'days', 'snoozed', 'fired', 'quotaLog'] as const) {
     if (!s[k] || typeof s[k] !== 'object') (s as any)[k] = {};
   }
+  for (const k of ['sessions', 'body'] as const) {
+    const v = s.gym[k] as unknown[];
+    (s.gym as any)[k] = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
+  }
+  if (!s.gym.info || typeof s.gym.info !== 'object') s.gym.info = {};
   s.tasks = s.tasks.map((t: any) => ({ checklist: [], notes: '', spent: 0, deferrals: 0, hard: false, priority: 1, area: 'life', status: 'open', ...t }));
   s.procedures = s.procedures.map((p: any) => ({ fields: [], steps: [], log: [], notes: '', archived: false, priority: 1, ...p }));
   s.units = s.units.map((u: any) => ({ progress: 0, reviewed: false, spent: 0, order: 0, size: 1, ...u }));

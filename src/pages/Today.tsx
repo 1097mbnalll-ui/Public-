@@ -21,7 +21,7 @@ import { advance, blockLabel, blocksOn, freedMinutes, isSkipped, nowBlock, outin
 import { InstallCard } from '../ui/InstallCard';
 import { MoneyTile } from './Money';
 import { StudyToday } from './Study';
-import { ClubTodayCard } from './Club';
+import { GymTodayCard } from './Gym';
 import { fmtNum, moneyToday } from '../lib/engine/money';
 import type { AppState } from '../lib/types';
 
@@ -709,7 +709,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         <WrapUp plan={plan} now={now} />
         {hero}
         <StudyToday plan={study} compact />
-        <ClubTodayCard />
+        <GymTodayCard />
         {lateList}
         {timelineTile}
       </>
@@ -734,7 +734,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         {hero}
         <StudyToday plan={study} compact />
-        <ClubTodayCard />
+        <GymTodayCard />
         {lateList}
         <DaySummary plan={plan} phase={phase} />
         {timelineTile}
@@ -777,7 +777,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       ) : empty ? (
         <div className="stack">
         <InstallCard />
-        <ClubTodayCard />
+        <GymTodayCard />
         <MoneyTile now={now} />
         <div className="card">
           <Empty icon="today" title={L("ابدأ بإضافة ما يشغلك", "Start by adding what's on your mind")}>{L("أضف مهمة، أو إجراء عمل بخطواته، أو مادة واختبارها — وسأرتب لك يومك حسب وقتك المتاح.", "Add a task, a work procedure with its steps, or a course and its exam — and I'll arrange your day around your available time.")}<div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 8, flexWrap: 'wrap' }}>

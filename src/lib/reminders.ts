@@ -6,6 +6,7 @@ import type { AppState } from './types';
 import { addDays, atTime, fmtClock, todayKey } from './dates';
 import { mutate } from './store';
 import { planDay } from './engine/planner';
+import { nextWorkout } from './engine/gym';
 import { L } from './i18n';
 import { isNative, nativeNotifyNow, nativePermission, requestNativeNotifications } from './native';
 
@@ -64,6 +65,15 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     const course = state.courses.find((c) => c.id === e.courseId);
     if (at <= now && now < atTime(e.date, '23:59') && !state.fired[id])
       out.push({ id, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well and get your things ready.`), at, ref: 'study', kind: 'auto' });
+  }
+  // the gym, half an hour before your usual time — not if you already trained today
+  const gp = state.gym?.profile;
+  if (gp?.time && gp.days.includes(new Date(`${today}T12:00:00`).getDay()) && !state.gym.sessions.some((x) => x.day === today)) {
+    const at = atTime(today, gp.time) - 30 * 60000;
+    const id = `gym:${today}`;
+    const slot = nextWorkout(state, now)?.slot;
+    if (at <= now && now < atTime(today, gp.time) + 3600_000 && !state.fired[id])
+      out.push({ id, title: L(`النادي بعد نص ساعة: ${slot?.name || ''}`, `Gym in 30 min: ${slot?.name || ''}`), body: L('جهّز شنطتك وموية 💪', 'Grab your bag and water 💪'), at, ref: 'gym', kind: 'auto' });
   }
   if (state.settings.morningBrief) {
     const at = atTime(today, state.settings.morningBrief);

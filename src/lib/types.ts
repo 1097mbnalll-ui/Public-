@@ -368,6 +368,72 @@ export interface MoneyState {
   cats?: CustomCat[];
 }
 
+// ---------------- Gym (النادي) ----------------
+
+export type GymGoal = 'muscle' | 'strength' | 'fat' | 'fit' | 'endurance';
+export type GymLevel = 'new' | 'mid' | 'pro';
+
+export interface GymProfile {
+  goal: GymGoal;
+  level: GymLevel;
+  place: 'gym' | 'home';
+  /** weekdays you train (0 = Sunday) */
+  days: number[];
+  /** how long a session can be */
+  minutes: number;
+  /** usual start time, HH:MM — the day plans around it */
+  time?: string;
+  /** exercises you swapped for another: original id → yours */
+  swaps?: Record<string, string>;
+}
+
+export interface GymSet {
+  kg?: number;
+  /** reps — or seconds / minutes for timed exercises */
+  reps: number;
+  done: boolean;
+}
+
+export interface GymSession {
+  id: string;
+  day: string;
+  start: number;
+  /** unset while the workout is going */
+  end?: number;
+  slot: string;
+  name: string;
+  entries: { exId: string; sets: GymSet[] }[];
+  /** the rest after the last set ends here */
+  restUntil?: number;
+  note?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface BodyLog {
+  id: string;
+  day: string;
+  weight?: number;
+  /** body fat % */
+  fat?: number;
+  waist?: number;
+  chest?: number;
+  arm?: number;
+  thigh?: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface GymState {
+  profile?: GymProfile;
+  /** which day of the program is next */
+  rot: number;
+  sessions: GymSession[];
+  body: BodyLog[];
+  /** for calories and protein */
+  info: { sex?: 'm' | 'f'; birthYear?: number; height?: number; activity?: number };
+}
+
 export interface AppState {
   version: number;
   tasks: Task[];
@@ -405,6 +471,7 @@ export interface AppState {
   expenses: Expense[];
   subs: Subscription[];
   money: MoneyState;
+  gym: GymState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

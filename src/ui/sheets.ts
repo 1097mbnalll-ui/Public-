@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { popOverlay, pushOverlay } from './router';
+import type { GymGoal } from '../lib/types';
 
 export type SheetSpec =
   | { type: 'quick'; text?: string; mode?: 'task' | 'proc' }
@@ -25,11 +26,13 @@ export type SheetSpec =
   | { type: 'block'; id?: string }
   | { type: 'study-subject'; examId: string }
   | { type: 'study-try' }
-  | { type: 'club-setup' }
-  | { type: 'club-member'; id: string }
-  | { type: 'club-task'; id?: string }
-  | { type: 'club-msg'; to: string }
-  | { type: 'club-me' };
+  | { type: 'gym-setup'; goal?: GymGoal }
+  | { type: 'gym-ex'; exId: string; sid?: string; ei?: number }
+  | { type: 'gym-pick'; sid: string }
+  | { type: 'gym-done'; id: string }
+  | { type: 'gym-session'; id: string }
+  | { type: 'gym-body' }
+  | { type: 'gym-info' };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

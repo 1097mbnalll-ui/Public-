@@ -59,6 +59,13 @@ function upcoming(state: AppState, now: number): Upcoming[] {
       const course = state.courses.find((c) => c.id === e.courseId);
       add({ key: `exam:${e.id}`, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well.`), at: atTime(addDays(e.date, -1), '20:00'), ref: 'study' });
     }
+  const gp = state.gym?.profile;
+  if (gp?.time)
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(todayKey(now), i);
+      if (!gp.days.includes(new Date(`${day}T12:00:00`).getDay()) || state.gym.sessions.some((x) => x.day === day)) continue;
+      add({ key: `gym:${day}`, title: L('النادي بعد نص ساعة', 'Gym in 30 min'), body: L('جهّز شنطتك وموية 💪', 'Grab your bag and water 💪'), at: atTime(day, gp.time) - 30 * 60000, ref: 'gym' });
+    }
   if (state.settings.morningBrief)
     for (let i = 0; i < 7; i++) {
       const day = addDays(todayKey(now), i);

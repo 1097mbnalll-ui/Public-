@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
+import type { AppState, Area, BodyLog, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -8,6 +8,7 @@ import { taskTime } from './engine/learning';
 import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
 import { L } from './i18n';
+import { exercise, liveSession, nextWorkout, scheme, target } from './engine/gym';
 import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 
@@ -915,4 +916,170 @@ export function deleteBlock(id: string) {
   mutate((s) => {
     s.schedule = s.schedule.filter((x) => x.id !== id);
   }, L('حذف من الجدول', 'Remove from timetable'));
+}
+
+// ---------------- Gym (النادي) ----------------
+
+export function setGymProfile(p: GymProfile) {
+  mutate((s) => {
+    const before = s.gym.profile;
+    // a different program starts from its first day
+    if (!before || before.days.length !== p.days.length || before.goal !== p.goal || before.level !== p.level) s.gym.rot = 0;
+    s.gym.profile = p;
+  });
+}
+
+export function setGymInfo(p: Partial<GymState['info']>) {
+  mutate((s) => {
+    s.gym.info = { ...s.gym.info, ...p };
+  });
+}
+
+/** start the next workout of the program, each set filled with what to lift today */
+export function startWorkout(now = Date.now()): string | null {
+  const s = getState();
+  const live = liveSession(s);
+  if (live) return live.id;
+  const next = nextWorkout(s, now);
+  if (!next) return null;
+  const id = uid();
+  const entries = next.slot.items.map((it) => {
+    const t = target(s, it.exId, it.scheme);
+    return { exId: it.exId, sets: Array.from({ length: it.scheme.sets }, () => ({ kg: t.kg, reps: t.reps, done: false })) };
+  });
+  mutate((st) => {
+    st.gym.sessions.push({ id, day: todayKey(now), start: now, slot: next.slot.key, name: next.slot.name, entries, createdAt: now, updatedAt: now });
+  });
+  return id;
+}
+
+const withSession = (id: string, fn: (x: GymSession) => void) =>
+  mutate((s) => {
+    const x = s.gym.sessions.find((y) => y.id === id);
+    if (!x) return;
+    fn(x);
+    x.updatedAt = Date.now();
+  });
+
+export function setGymSet(sid: string, ei: number, si: number, patch: Partial<GymSet>) {
+  withSession(sid, (x) => {
+    const set = x.entries[ei]?.sets[si];
+    if (set) Object.assign(set, patch);
+  });
+}
+
+/** tick a set; the rest before the next one starts counting */
+export function tickGymSet(sid: string, ei: number, si: number, restSec: number) {
+  withSession(sid, (x) => {
+    const set = x.entries[ei]?.sets[si];
+    if (!set) return;
+    set.done = !set.done;
+    x.restUntil = set.done && restSec > 0 ? Date.now() + restSec * 1000 : undefined;
+  });
+}
+
+export function endRest(sid: string, addSec = 0) {
+  withSession(sid, (x) => {
+    x.restUntil = addSec && x.restUntil ? x.restUntil + addSec * 1000 : undefined;
+  });
+}
+
+export function addGymSet(sid: string, ei: number) {
+  withSession(sid, (x) => {
+    const e = x.entries[ei];
+    if (!e) return;
+    const last = e.sets[e.sets.length - 1];
+    e.sets.push({ kg: last?.kg, reps: last?.reps || 10, done: false });
+  });
+}
+
+export function removeGymSet(sid: string, ei: number) {
+  withSession(sid, (x) => {
+    const e = x.entries[ei];
+    if (e && e.sets.length > 1) e.sets.pop();
+  });
+}
+
+/** do another exercise instead; `keep` makes the program use it from now on */
+export function swapGymExercise(sid: string, ei: number, exId: string, keep: boolean) {
+  const s = getState();
+  const p = s.gym.profile;
+  const x = s.gym.sessions.find((y) => y.id === sid);
+  const from = x?.entries[ei]?.exId;
+  if (!x || !from) return;
+  const sc = p ? scheme(p, exercise(exId)) : { sets: 3, lo: 10, hi: 12, rest: 60 };
+  const t = target(s, exId, sc);
+  mutate((st) => {
+    const y = st.gym.sessions.find((z) => z.id === sid)!;
+    y.entries[ei] = { exId, sets: Array.from({ length: sc.sets }, () => ({ kg: t.kg, reps: t.reps, done: false })) };
+    y.updatedAt = Date.now();
+    if (keep && st.gym.profile) {
+      const sw = (st.gym.profile.swaps ||= {});
+      for (const k of Object.keys(sw)) if (sw[k] === from) sw[k] = exId;
+      sw[from] = exId;
+      delete sw[exId];
+    }
+  });
+}
+
+export function addGymExercise(sid: string, exId: string) {
+  const s = getState();
+  const p = s.gym.profile;
+  const sc = p ? scheme(p, exercise(exId)) : { sets: 3, lo: 10, hi: 12, rest: 60 };
+  const t = target(s, exId, sc);
+  withSession(sid, (x) => {
+    x.entries.push({ exId, sets: Array.from({ length: sc.sets }, () => ({ kg: t.kg, reps: t.reps, done: false })) });
+  });
+}
+
+export function removeGymExercise(sid: string, ei: number) {
+  withSession(sid, (x) => {
+    x.entries.splice(ei, 1);
+  });
+}
+
+export function finishWorkout(sid: string, now = Date.now()) {
+  mutate((s) => {
+    const x = s.gym.sessions.find((y) => y.id === sid);
+    if (!x) return;
+    x.end = now;
+    x.restUntil = undefined;
+    x.updatedAt = now;
+    s.gym.rot = (s.gym.rot || 0) + 1;
+  });
+}
+
+/** a workout you started by mistake (undo brings it back) */
+export function cancelWorkout(sid: string) {
+  mutate((s) => {
+    s.gym.sessions = s.gym.sessions.filter((x) => x.id !== sid);
+  }, L('إلغاء التمرين', 'Cancel workout'));
+}
+
+export function deleteGymSession(sid: string) {
+  mutate((s) => {
+    s.gym.sessions = s.gym.sessions.filter((x) => x.id !== sid);
+  }, L('حذف التمرين', 'Delete workout'));
+}
+
+/** skip to the next day of the program */
+export function skipGymSlot() {
+  mutate((s) => {
+    s.gym.rot = (s.gym.rot || 0) + 1;
+  });
+}
+
+export function logBody(p: Omit<BodyLog, 'id' | 'createdAt'>) {
+  mutate((s) => {
+    // one entry a day: a second weigh-in the same day updates it
+    const same = s.gym.body.find((b) => b.day === p.day);
+    if (same) Object.assign(same, Object.fromEntries(Object.entries(p).filter(([, v]) => v != null)), { updatedAt: Date.now() });
+    else s.gym.body.push({ ...p, id: uid(), createdAt: Date.now() });
+  });
+}
+
+export function deleteBody(id: string) {
+  mutate((s) => {
+    s.gym.body = s.gym.body.filter((b) => b.id !== id);
+  }, L('حذف القياس', 'Delete measurement'));
 }

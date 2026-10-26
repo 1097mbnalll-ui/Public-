@@ -179,6 +179,15 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   };
   // templates: same name means the same template — keep one
   const names = new Set(mine.templates.map((t) => t.name.trim()));
+  out.gym = {
+    ...theirs.gym,
+    ...mine.gym,
+    rot: Math.max(mine.gym?.rot || 0, theirs.gym?.rot || 0),
+    sessions: unionById(mine.gym?.sessions || [], theirs.gym?.sessions || []),
+    body: unionById(mine.gym?.body || [], theirs.gym?.body || []),
+    info: { ...theirs.gym?.info, ...mine.gym?.info },
+    ...(mine.gym?.profile || theirs.gym?.profile ? { profile: mine.gym?.profile || theirs.gym?.profile } : {}),
+  };
   out.templates = unionById(mine.templates, theirs.templates.filter((t) => !names.has(t.name.trim()) || mine.templates.some((m) => m.id === t.id)));
   out.dayOverrides = { ...theirs.dayOverrides, ...mine.dayOverrides };
   out.skipClass = { ...theirs.skipClass, ...mine.skipClass };

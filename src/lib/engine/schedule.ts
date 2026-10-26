@@ -39,12 +39,21 @@ export function outingsOn(state: AppState, day: string, all = false): { leave: n
   return out;
 }
 
+/** the gym at its usual time on a training day: the session and ~15 minutes each way */
+export function gymOn(state: AppState, day: string): { from: number; to: number }[] {
+  const p = state.gym?.profile;
+  if (!p?.time || !p.days.includes(weekday(day))) return [];
+  const from = atTime(day, p.time) - 15 * 60000;
+  return [{ from, to: from + (p.minutes + 30) * 60000 }];
+}
+
 /** everything that isn't yours on that day: the blocks, the way there and back, and the rest after, merged */
 export function busyOn(state: AppState, day: string, all = false): { from: number; to: number }[] {
   const r = (state.settings.restMin ?? 60) * 60000;
   const raw = [
     ...blocksOn(state, day, all).map((x) => ({ from: x.from, to: x.to })),
     ...outingsOn(state, day, all).flatMap((o) => [{ from: o.leave, to: o.first }, { from: o.last, to: o.home + r }]),
+    ...gymOn(state, day),
   ].sort((a, b) => a.from - b.from);
   const out: { from: number; to: number }[] = [];
   for (const x of raw) {

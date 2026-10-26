@@ -13,9 +13,7 @@ import { Tasks } from './pages/Tasks';
 import { Work } from './pages/Work';
 import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
-import { Club } from './pages/Club';
-import { startClub } from './lib/club';
-import { toast } from './ui/toast';
+import { Gym } from './pages/Gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
 const Insights = lazy(() => import('./pages/Insights').then((m) => ({ default: m.Insights })));
@@ -39,11 +37,12 @@ const NAV = [
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
   { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
-  { id: 'club', get label() { return L('النادي', 'Club'); }, icon: 'club' },
+  { id: 'gym', get label() { return L('النادي', 'Gym'); }, icon: 'gym' },
 ];
 
 /** old links keep working */
 function resolve(page: string, id?: string): { page: string; id?: string } {
+  if (page === 'club') return { page: 'gym' };
   if (page === 'week') return { page: 'today', id: 'week' };
   if (page === 'settings') return { page: 'me' };
   if (page === 'install') return { page: 'install' };
@@ -56,7 +55,6 @@ export function App() {
   const s = useApp();
   const route = useRoute();
   useHeartbeat();
-  useEffect(() => startClub((text) => toast(text, { ms: 9000, buttons: [{ label: L('افتح', 'Open'), fn: () => go('club') }] })), []);
   useQuotaLog();
   useShortcuts();
 
@@ -79,10 +77,10 @@ export function App() {
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
   useEffect(() => {
-    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install' || (route.page === 'club' && route.id === 'join')) return;
+    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install') return;
     welcomed.current = true;
     setTimeout(() => openSheet({ type: 'onboarding' }), 50);
-  }, [route.page, route.id, s.meta.onboarded]);
+  }, [route.page, s.meta.onboarded]);
 
   const counts = useMemo(() => {
     const today = todayKey();
@@ -131,8 +129,8 @@ export function App() {
     case 'money':
       body = <Money />;
       break;
-    case 'club':
-      body = <Club />;
+    case 'gym':
+      body = <Gym />;
       break;
     case 'sync':
       body = <SyncJoin />;
@@ -193,7 +191,7 @@ export function App() {
       <TimerBar />
       {s.timer?.focus && <FocusScreen />}
       <SheetHost />
-      {page !== 'coach' && page !== 'import' && page !== 'receive' && page !== 'sync' && <CoachFab />}
+      {page !== 'coach' && page !== 'import' && page !== 'receive' && page !== 'sync' && !(page === 'gym' && id === 'live') && <CoachFab />}
       <Toasts />
     </div>
   );
