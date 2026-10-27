@@ -14,6 +14,7 @@ import { Work } from './pages/Work';
 import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
 import { Gym } from './pages/Gym';
+import { Future } from './pages/Future';
 import { registerCustom } from './lib/engine/gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
@@ -36,11 +37,24 @@ import { L } from './lib/i18n';
 const NAV = [
   { id: 'today', get label() { return L('اليوم', "Today"); }, icon: 'today' },
   { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
+  { id: 'future', get label() { return L('مستقبلي', 'Future'); }, icon: 'target' },
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
   { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
   { id: 'gym', get label() { return L('النادي', 'Gym'); }, icon: 'gym' },
 ];
+
+/** a tab two places share: it shows the page you're on, or the one you used last */
+function PairTab({ pr, page }: { pr: (typeof PAIRS)[number]; page: string }) {
+  const here = pr.items.find((i) => i.id === page);
+  const it = here || lastOf(pr.key);
+  return (
+    <button className={`tab ${here ? 'active' : ''}`} onClick={() => go(it.id)} aria-label={`${it.label()} — ${pr.items.map((x) => x.label()).join(L(' و', ' & '))}`}>
+      <Icon name={it.icon} size={22} /> {it.label()}
+      <span className="tab-pair" aria-hidden><i className={pr.items[0].id === it.id ? 'on' : ''} /><i className={pr.items[1].id === it.id ? 'on' : ''} /></span>
+    </button>
+  );
+}
 
 /** old links keep working */
 function resolve(page: string, id?: string): { page: string; id?: string } {
@@ -136,6 +150,9 @@ export function App() {
     case 'gym':
       body = <Gym />;
       break;
+    case 'future':
+      body = <Future />;
+      break;
     case 'sync':
       body = <SyncJoin />;
       break;
@@ -174,25 +191,14 @@ export function App() {
       </main>
 
       <nav className="tabbar">
-        {NAV.slice(0, 2).map((n) => (
-          <button key={n.id} className={`tab ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
-            <Icon name={n.icon} size={22} /> {n.label}
-          </button>
-        ))}
+        <button className={`tab ${page === 'today' ? 'active' : ''}`} onClick={() => go('today')}>
+          <Icon name="today" size={22} /> {L('اليوم', 'Today')}
+        </button>
+        <PairTab pr={PAIRS[0]} page={page} />
         <button className="tab-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
-        {PAIRS.map((pr) => {
-          // the pair's button shows the page you're on, or the one you used last
-          const here = pr.items.find((i) => i.id === page);
-          const it = here || lastOf(pr.key);
-          return (
-            <button key={pr.key} className={`tab ${here ? 'active' : ''}`} onClick={() => go(it.id)} aria-label={`${it.label()} — ${pr.items.map((x) => x.label()).join(L(' و', ' & '))}`}>
-              <Icon name={it.icon} size={22} /> {it.label()}
-              <span className="tab-pair" aria-hidden><i className={pr.items[0].id === it.id ? 'on' : ''} /><i className={pr.items[1].id === it.id ? 'on' : ''} /></span>
-            </button>
-          );
-        })}
+        {PAIRS.slice(1).map((pr) => <PairTab key={pr.key} pr={pr} page={page} />)}
       </nav>
 
       <datalist id="masar-targets">

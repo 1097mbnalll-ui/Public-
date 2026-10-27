@@ -94,6 +94,7 @@ export function initialState(): AppState {
     subs: [],
     money: { swaps: {} },
     gym: { rot: 0, sessions: [], body: [], info: {} },
+    future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -109,6 +110,7 @@ export function migrate(raw: any): AppState {
     coach: { history: {}, chat: [], ...(raw.coach || {}) },
     money: { swaps: {}, ...(raw.money || {}) },
     gym: { rot: 0, sessions: [], body: [], info: {}, ...(raw.gym || {}) },
+    future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [], ...(raw.future || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule'] as const) {
@@ -127,6 +129,14 @@ export function migrate(raw: any): AppState {
     (s.gym as any)[k] = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
   }
   if (!s.gym.info || typeof s.gym.info !== 'object') s.gym.info = {};
+  for (const k of ['stages', 'skills', 'projects', 'wins', 'postings', 'reviews'] as const) {
+    const v = s.future[k] as unknown[];
+    (s.future as any)[k] = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
+  }
+  if (s.future.vision && typeof s.future.vision !== 'object') delete s.future.vision;
+  s.future.skills = s.future.skills.map((k: any) => ({ cat: 'pro', level: 0, target: 3, priority: 2, prereqs: [], step: 'none', resources: [], log: [], ...k }));
+  s.future.projects = s.future.projects.map((p: any) => ({ skillIds: [], steps: [], links: [], status: 'idea', ...p }));
+  s.future.wins = s.future.wins.map((w: any) => ({ skillIds: [], kind: 'other', ...w }));
   s.tasks = s.tasks.map((t: any) => ({ checklist: [], notes: '', spent: 0, deferrals: 0, hard: false, priority: 1, area: 'life', status: 'open', ...t }));
   s.procedures = s.procedures.map((p: any) => ({ fields: [], steps: [], log: [], notes: '', archived: false, priority: 1, ...p }));
   s.units = s.units.map((u: any) => ({ progress: 0, reviewed: false, spent: 0, order: 0, size: 1, ...u }));

@@ -33,7 +33,16 @@ export type SheetSpec =
   | { type: 'gym-done'; id: string }
   | { type: 'gym-session'; id: string }
   | { type: 'gym-body' }
-  | { type: 'gym-info' };
+  | { type: 'gym-info' }
+  | { type: 'fu-setup' }
+  | { type: 'fu-starters' }
+  | { type: 'fu-skill'; id?: string; stageId?: string }
+  | { type: 'fu-log'; id: string }
+  | { type: 'fu-project'; id?: string; skillId?: string; stageId?: string }
+  | { type: 'fu-win'; id?: string; skillId?: string; projectId?: string }
+  | { type: 'fu-stage'; id?: string }
+  | { type: 'fu-review'; kind: 'week' | 'month' }
+  | { type: 'fu-posting'; id?: string };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

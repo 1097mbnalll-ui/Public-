@@ -333,6 +333,8 @@ export interface Expense {
   time?: string; // HH:MM
   worth?: Worth;
   source?: 'sms' | 'sub' | 'import';
+  /** spent on growing yourself (a course, an exam, a tool) — counted against «مستقبلي»'s budget */
+  growth?: boolean;
   createdAt: number;
   updatedAt?: number;
 }
@@ -451,6 +453,147 @@ export interface GymState {
   info: { sex?: 'm' | 'f'; birthYear?: number; height?: number; activity?: number };
 }
 
+// ---------------- Future (مستقبلي) ----------------
+
+export type FutureKind = 'student' | 'career' | 'skills' | 'project' | 'personal';
+
+export interface FutureVision {
+  kind: FutureKind;
+  title: string;
+  why: string;
+  /** what it looks like when you get there */
+  outcome?: string;
+  /** for a student: the major, the year you're in (1-based) and how many years in all */
+  field?: string;
+  year?: number;
+  years?: number;
+  start: string;
+  target: string;
+  weeklyHours: number;
+  /** optional budget for growing yourself, per year */
+  budget?: number;
+  strengths?: string;
+  growth?: string;
+  commitments?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface FutureStage {
+  id: string;
+  title: string;
+  focus?: string;
+  from: string;
+  to: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export type SkillCat = 'core' | 'tech' | 'pro' | 'lang' | 'advanced' | 'personal';
+/** read about it → practised → used on a real problem → proven with evidence */
+export type SkillStep = 'none' | 'learning' | 'practicing' | 'applied' | 'proven';
+
+export interface FutureResource {
+  id: string;
+  title: string;
+  url?: string;
+  cost?: number;
+  done?: boolean;
+  /** the expense it was logged as, so it's never logged twice */
+  expenseId?: string;
+}
+
+export interface FutureSkill {
+  id: string;
+  name: string;
+  cat: SkillCat;
+  why?: string;
+  /** 0 none · 1 beginner · 2 basics · 3 capable · 4 strong */
+  level: number;
+  target: number;
+  priority: 1 | 2 | 3;
+  /** skills to have first (ids) */
+  prereqs: string[];
+  /** your estimate of the hours it takes from here */
+  hours?: number;
+  stageId?: string;
+  step: SkillStep;
+  resources: FutureResource[];
+  /** practice time */
+  log: { day: string; min: number }[];
+  /** what proves it: a link, a certificate, a result */
+  evidence?: string;
+  notes?: string;
+  paused?: boolean;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface FutureProject {
+  id: string;
+  title: string;
+  goal?: string;
+  skillIds: string[];
+  /** a step sent to مهامي keeps its task's id — the task is the one source of truth then */
+  steps: { id: string; title: string; done: boolean; taskId?: string }[];
+  due?: string;
+  stageId?: string;
+  links: string[];
+  result?: string;
+  status: 'idea' | 'active' | 'done';
+  createdAt: number;
+  updatedAt?: number;
+  doneAt?: number;
+}
+
+export type WinKind = 'skill' | 'project' | 'cert' | 'experience' | 'academic' | 'work' | 'other';
+
+export interface FutureWin {
+  id: string;
+  kind: WinKind;
+  title: string;
+  day: string;
+  evidence?: string;
+  skillIds: string[];
+  note?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+/** a job or internship ad you pasted, to see what's asked for */
+export interface FuturePosting {
+  id: string;
+  title: string;
+  text: string;
+  day: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface FutureReview {
+  id: string;
+  kind: 'week' | 'month';
+  /** the week's first day, or YYYY-MM */
+  period: string;
+  went?: string;
+  blocked?: string;
+  keep?: string;
+  stop?: string;
+  next?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface FutureState {
+  vision?: FutureVision;
+  stages: FutureStage[];
+  skills: FutureSkill[];
+  projects: FutureProject[];
+  wins: FutureWin[];
+  postings: FuturePosting[];
+  reviews: FutureReview[];
+}
+
 export interface AppState {
   version: number;
   tasks: Task[];
@@ -489,6 +632,7 @@ export interface AppState {
   subs: Subscription[];
   money: MoneyState;
   gym: GymState;
+  future: FutureState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

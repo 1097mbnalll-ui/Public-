@@ -1,4 +1,4 @@
-// Two places share one button in the tab bar: العمل with الدراسة, مصاريفي with النادي. The button
+// Two places share one button in the tab bar: المهام with مستقبلي, العمل with الدراسة, مصاريفي with النادي. The button
 // opens whichever of the two you used last; inside, a switch at the top moves to the other.
 
 import { L } from '../lib/i18n';
@@ -10,6 +10,7 @@ export interface PairItem {
 }
 
 export const PAIRS: { key: string; items: [PairItem, PairItem] }[] = [
+  { key: 'tf', items: [{ id: 'tasks', icon: 'tasks', label: () => L('المهام', 'Tasks') }, { id: 'future', icon: 'target', label: () => L('مستقبلي', 'Future') }] },
   { key: 'ws', items: [{ id: 'work', icon: 'work', label: () => L('العمل', 'Work') }, { id: 'study', icon: 'study', label: () => L('الدراسة', 'Study') }] },
   { key: 'mg', items: [{ id: 'money', icon: 'wallet', label: () => L('مصاريفي', 'Spending') }, { id: 'gym', icon: 'gym', label: () => L('النادي', 'Gym') }] },
 ];

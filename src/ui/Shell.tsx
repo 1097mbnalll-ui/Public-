@@ -20,6 +20,7 @@ import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
+import { FutureLogSheet, FuturePostingSheet, FutureProjectSheet, FutureReviewSheet, FutureSetupSheet, FutureSkillSheet, FutureStageSheet, FutureStartersSheet, FutureWinSheet } from '../pages/Future';
 import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
 import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
@@ -90,6 +91,24 @@ export function SheetHost() {
       return <GymBodySheet />;
     case 'gym-info':
       return <GymInfoSheet />;
+    case 'fu-setup':
+      return <FutureSetupSheet />;
+    case 'fu-starters':
+      return <FutureStartersSheet />;
+    case 'fu-skill':
+      return <FutureSkillSheet key={sh.id || 'new'} id={sh.id} stageId={sh.stageId} />;
+    case 'fu-log':
+      return <FutureLogSheet key={sh.id} id={sh.id} />;
+    case 'fu-project':
+      return <FutureProjectSheet key={sh.id || 'new'} id={sh.id} skillId={sh.skillId} stageId={sh.stageId} />;
+    case 'fu-win':
+      return <FutureWinSheet key={sh.id || 'new'} id={sh.id} skillId={sh.skillId} projectId={sh.projectId} />;
+    case 'fu-stage':
+      return <FutureStageSheet key={sh.id || 'new'} id={sh.id} />;
+    case 'fu-review':
+      return <FutureReviewSheet kind={sh.kind} />;
+    case 'fu-posting':
+      return <FuturePostingSheet key={sh.id || 'new'} id={sh.id} />;
   }
 }
 

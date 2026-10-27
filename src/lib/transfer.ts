@@ -189,6 +189,17 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     info: { ...theirs.gym?.info, ...mine.gym?.info },
     ...(mine.gym?.profile || theirs.gym?.profile ? { profile: mine.gym?.profile || theirs.gym?.profile } : {}),
   };
+  const fm = mine.future || ({} as AppState['future']);
+  const ft = theirs.future || ({} as AppState['future']);
+  out.future = {
+    stages: unionById(fm.stages || [], ft.stages || []),
+    skills: unionById(fm.skills || [], ft.skills || []),
+    projects: unionById(fm.projects || [], ft.projects || []),
+    wins: unionById(fm.wins || [], ft.wins || []),
+    postings: unionById(fm.postings || [], ft.postings || []),
+    reviews: unionById(fm.reviews || [], ft.reviews || []),
+    ...(fm.vision || ft.vision ? { vision: (fm.vision?.updatedAt ?? fm.vision?.createdAt ?? 0) >= (ft.vision?.updatedAt ?? ft.vision?.createdAt ?? 0) ? fm.vision || ft.vision : ft.vision } : {}),
+  };
   out.templates = unionById(mine.templates, theirs.templates.filter((t) => !names.has(t.name.trim()) || mine.templates.some((m) => m.id === t.id)));
   out.dayOverrides = { ...theirs.dayOverrides, ...mine.dayOverrides };
   out.skipClass = { ...theirs.skipClass, ...mine.skipClass };
