@@ -28,6 +28,7 @@ import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
 import { CoachFab } from './ui/Coach';
 import { todayKey } from './lib/dates';
+import { lastOf, PAIRS, remember } from './ui/pairs';
 import { L } from './lib/i18n';
 
 // Five places, each answering one question:
@@ -101,6 +102,7 @@ export function App() {
   }, [s.procedures, s.templates]);
 
   const { page, id } = resolve(route.page, route.id);
+  useEffect(() => remember(page), [page]);
   const wide = page === 'today' || (page === 'work' && !!id);
   let body: React.ReactNode;
   switch (page) {
@@ -180,11 +182,17 @@ export function App() {
         <button className="tab-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })} aria-label={L("إضافة", "Add")}>
           <Icon name="plus" size={24} stroke={2.4} />
         </button>
-        {NAV.slice(2).map((n) => (
-          <button key={n.id} className={`tab ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
-            <Icon name={n.icon} size={22} /> {n.label}
-          </button>
-        ))}
+        {PAIRS.map((pr) => {
+          // the pair's button shows the page you're on, or the one you used last
+          const here = pr.items.find((i) => i.id === page);
+          const it = here || lastOf(pr.key);
+          return (
+            <button key={pr.key} className={`tab ${here ? 'active' : ''}`} onClick={() => go(it.id)} aria-label={`${it.label()} — ${pr.items.map((x) => x.label()).join(L(' و', ' & '))}`}>
+              <Icon name={it.icon} size={22} /> {it.label()}
+              <span className="tab-pair" aria-hidden><i className={pr.items[0].id === it.id ? 'on' : ''} /><i className={pr.items[1].id === it.id ? 'on' : ''} /></span>
+            </button>
+          );
+        })}
       </nav>
 
       <datalist id="masar-targets">

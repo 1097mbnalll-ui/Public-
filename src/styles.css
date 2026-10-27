@@ -3891,3 +3891,17 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .gy-tools[open] summary::after { content: '−'; }
 .gy-tools .gy-tool { background: none; margin-bottom: 0; }
 .gy-rec-card .bm, .gy-next .bm, .gy-tool .bm { width: 100%; max-width: 420px; margin-inline: auto; }
+
+/* two places, one tab */
+.tab { position: relative; }
+.tab-pair { display: flex; gap: 3px; margin-top: 1px; }
+.tab-pair i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .3; }
+.tab-pair i.on { opacity: 1; }
+.tab.active .tab-pair i.on { background: var(--accent); }
+.pair-switch { margin-bottom: 6px; display: flex; background: var(--surface); border-radius: 999px; padding: 3px; gap: 2px; }
+.pair-switch button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; min-height: 34px; transition: background .2s var(--spring, ease), color .2s; }
+.pair-switch button.on { background: var(--surface-2); color: var(--text); box-shadow: 0 1px 4px var(--line-2); }
+.pair-switch button.on svg { color: var(--accent); }
+@media (min-width: 700px) {
+  .pair-switch { display: none; }
+}

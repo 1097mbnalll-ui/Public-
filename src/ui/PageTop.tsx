@@ -1,10 +1,13 @@
 import { Icon } from './Icon';
 import { openSheet } from './sheets';
-import { go } from './router';
+import { go, useRoute } from './router';
+import { pairOf } from './pairs';
 import { L } from '../lib/i18n';
 
 /** shared page header: big title, optional subtitle, search + profile on phones */
 export function PageTop({ title, sub, actions, back }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode; back?: { label: string; to: string } }) {
+  const page = useRoute().page;
+  const pair = back ? undefined : pairOf(page);
   return (
     <header style={{ marginBottom: 18 }}>
       <div className="top">
@@ -12,6 +15,15 @@ export function PageTop({ title, sub, actions, back }: { title: React.ReactNode;
           <button className="btn sm ghost" style={{ paddingInlineStart: 4 }} onClick={() => go(back.to)}>
             <Icon name="back" size={16} /> {back.label}
           </button>
+        ) : pair ? (
+          // two places share one tab: switch between them here (phones; the sidebar lists both)
+          <div className="pair-switch hide-desktop" role="tablist" aria-label={L('بدّل القسم', 'Switch section')}>
+            {pair.items.map((it) => (
+              <button key={it.id} role="tab" aria-selected={it.id === page} className={it.id === page ? 'on' : ''} onClick={() => it.id !== page && go(it.id)}>
+                <Icon name={it.icon} size={15} /> {it.label()}
+              </button>
+            ))}
+          </div>
         ) : (
           <span />
         )}
