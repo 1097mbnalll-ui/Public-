@@ -983,10 +983,23 @@ const withSession = (id: string, fn: (x: GymSession) => void) =>
     x.updatedAt = Date.now();
   });
 
+/** change a set; the sets after it that aren't done yet follow (change the weight once, not three times) */
 export function setGymSet(sid: string, ei: number, si: number, patch: Partial<GymSet>) {
   withSession(sid, (x) => {
-    const set = x.entries[ei]?.sets[si];
-    if (set) Object.assign(set, patch);
+    const sets = x.entries[ei]?.sets;
+    if (!sets?.[si]) return;
+    Object.assign(sets[si], patch);
+    const carry = { ...patch };
+    delete carry.done;
+    if (Object.keys(carry).length) for (let i = si + 1; i < sets.length; i++) if (!sets[i].done) Object.assign(sets[i], carry);
+  });
+}
+
+/** how an exercise felt — easy, about right, hard — steers next time's weight */
+export function setGymEffort(sid: string, ei: number, effort: 'easy' | 'ok' | 'hard' | undefined) {
+  withSession(sid, (x) => {
+    const e = x.entries[ei];
+    if (e) e.effort = effort;
   });
 }
 

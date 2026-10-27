@@ -3905,3 +3905,59 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 @media (min-width: 700px) {
   .pair-switch { display: none; }
 }
+
+/* ---------------- the workout, one set at a time ---------------- */
+.gy-xlist { display: grid; gap: 8px; }
+.gy-xr { width: 100%; display: flex; align-items: center; gap: 12px; background: var(--surface); border: 0; border-radius: 18px; padding: 12px 14px; color: inherit; text-align: start; cursor: pointer; }
+.gy-xr .st { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--hover); color: var(--muted); }
+.gy-xr.part .st { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.gy-xr.done .st { background: var(--green); color: #fff; }
+.gy-xr .m { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.gy-xr .m b { font-size: 15px; }
+.gy-xr .m span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gy-xr.done .m b { color: var(--muted); }
+.gy-xlist .gy-ex { margin: 0; padding: 14px; gap: 12px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.gy-xlist .gy-ex.done { opacity: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 40%, transparent); }
+.gy-wu { margin: 0; font-size: 12.5px; color: var(--muted); background: var(--hover); border-radius: 12px; padding: 8px 10px; }
+.gy-wu bdi { font-weight: 700; color: var(--text); }
+.gy-chips-sets { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.gy-chips-sets button { flex: none; display: grid; justify-items: center; gap: 1px; min-width: 64px; border: 0; background: var(--hover); border-radius: 14px; padding: 7px 10px; color: inherit; cursor: pointer; }
+.gy-chips-sets .i { font-size: 11px; font-weight: 800; color: var(--muted); }
+.gy-chips-sets .v { font-size: 13.5px; font-weight: 700; direction: ltr; }
+.gy-chips-sets button.on { background: var(--green-soft); }
+.gy-chips-sets button.on .i { color: var(--green); }
+.gy-chips-sets button.sel { box-shadow: 0 0 0 2px var(--accent); background: var(--surface-2); }
+.gy-chips-sets .add { min-width: 40px; place-items: center; color: var(--muted); }
+.gy-panel { display: grid; gap: 10px; }
+.gy-panel-h { font-size: 13px; font-weight: 700; color: var(--muted); }
+.gy-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gy-steps.one { grid-template-columns: 1fr; }
+.gy-step { display: flex; align-items: stretch; background: var(--surface-2); border-radius: 16px; overflow: hidden; min-height: 64px; }
+.gy-step > button { width: 44px; flex: none; border: 0; background: var(--hover); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.gy-step > button:active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.gy-step label { flex: 1; min-width: 0; display: grid; justify-items: center; align-content: center; gap: 0; }
+.gy-step input { width: 100%; border: 0; background: none; text-align: center; font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--text); padding: 0; -moz-appearance: textfield; }
+.gy-step input::-webkit-inner-spin-button, .gy-step input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.gy-step input:focus { outline: none; }
+.gy-step:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+.gy-step small { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: -2px; }
+.gy-done-set { min-height: 52px; font-size: 16px; justify-content: center; border-radius: 16px; }
+.gy-effort { display: grid; gap: 8px; justify-items: start; }
+.gy-effort > b { font-size: 15px; }
+.gy-effort > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+.gy-effort > div button { display: grid; justify-items: center; gap: 2px; border: 0; background: var(--hover); border-radius: 14px; padding: 10px 6px; font: inherit; font-weight: 700; font-size: 13.5px; color: inherit; cursor: pointer; }
+.gy-effort > div button span { font-size: 22px; }
+.gy-effort > div button.on { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: 0 0 0 2px var(--accent); }
+
+/* sets per muscle this week */
+.gy-ws { background: var(--surface); border-radius: 18px; padding: 10px 14px; display: grid; gap: 8px; margin-bottom: 6px; }
+.gy-ws > div { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; }
+.gy-ws .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gy-ws .bar { position: relative; height: 8px; border-radius: 5px; background: color-mix(in srgb, var(--text) 7%, transparent); overflow: hidden; }
+.gy-ws .bar .band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--green) 22%, transparent); }
+.gy-ws .bar .fill { position: absolute; inset-inline-start: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--muted); }
+.gy-ws .ok .fill, .gy-ws .over .fill { background: var(--green); }
+.gy-ws .low .fill { background: var(--amber); }
+.gy-ws .v { font-weight: 800; min-width: 56px; text-align: end; direction: ltr; unicode-bidi: isolate; }
+.gy-ws .v small { font-weight: 600; color: var(--muted); }
+.gy-sub { font-size: 14px; }

@@ -467,24 +467,33 @@ export function program(p: GymProfile): Program {
 export interface Target {
   kg?: number;
   reps: number;
-  /** first: no history · up: add weight · more: one more rep · same: hold */
-  tag: 'first' | 'up' | 'more' | 'same';
-  last?: { kg?: number; reps: number[] };
+  /** first: no history · up: add weight · more: one more rep · same: hold · down: lighten to climb back */
+  tag: 'first' | 'up' | 'more' | 'same' | 'down';
+  last?: { kg?: number; reps: number[]; effort?: 'easy' | 'ok' | 'hard' };
+  /** why, in a few words */
+  why?: string;
 }
 
 const finished = (s: AppState) => (s.gym?.sessions || []).filter((x) => x.end);
 
 /** the last finished session that did this exercise */
-export function lastOf(s: AppState, exId: string, before = Infinity): { session: GymSession; sets: { kg?: number; reps: number }[] } | null {
+export function lastOf(s: AppState, exId: string, before = Infinity): { session: GymSession; sets: { kg?: number; reps: number }[]; effort?: 'easy' | 'ok' | 'hard' } | null {
+  return recentOf(s, exId, before, 1)[0] || null;
+}
+
+/** the last `n` finished sessions that did this exercise, newest first */
+function recentOf(s: AppState, exId: string, before: number, n: number) {
+  const out: { session: GymSession; sets: { kg?: number; reps: number }[]; effort?: 'easy' | 'ok' | 'hard' }[] = [];
   const list = finished(s)
     .filter((x) => x.start < before)
     .sort((a, b) => b.start - a.start);
   for (const ses of list) {
     const e = ses.entries.find((x) => x.exId === exId);
     const sets = e?.sets.filter((x) => x.done && x.reps > 0) || [];
-    if (sets.length) return { session: ses, sets };
+    if (sets.length) out.push({ session: ses, sets, effort: e?.effort });
+    if (out.length >= n) break;
   }
-  return null;
+  return out;
 }
 
 const step = (ex: Exercise) => (ex.kind === 'bar' ? 2.5 : ex.kind === 'machine' ? 5 : 2);
@@ -494,23 +503,55 @@ const round = (kg: number, ex: Exercise) => {
 };
 
 /** double progression: reach the top of the range on every set, then add weight and start again at the bottom */
+/**
+ * what to lift today, from the last time (double progression, steered by how it felt):
+ * - every set at the top of the range → add weight and start at the bottom (two steps if it felt easy;
+ *   none if it felt hard — you hold until it doesn't)
+ * - inside the range → same weight, one more rep than the weakest set
+ * - under the range → hold; under it twice in a row → take 10% off and climb back
+ */
 export function target(s: AppState, exId: string, sc: Scheme, before = Infinity): Target {
   const ex = exercise(exId);
-  const last = lastOf(s, exId, before);
+  const [last, prev] = recentOf(s, exId, before, 2);
   if (!last) return { reps: sc.lo, tag: 'first' };
   const reps = last.sets.map((x) => x.reps);
-  const kgs = last.sets.map((x) => x.kg || 0);
-  const kg = Math.max(...kgs) || undefined;
-  const info = { kg, reps };
+  const kg = Math.max(...last.sets.map((x) => x.kg || 0)) || undefined;
+  const info = { kg, reps, effort: last.effort };
   if (ex.unit === 'min') return { reps: Math.max(sc.lo, reps[0]), tag: 'same', last: info };
   const top = last.sets.filter((x) => (x.kg || 0) >= (kg || 0)).map((x) => x.reps);
-  const all = top.length >= Math.min(sc.sets, last.sets.length) && Math.min(...top) >= sc.hi;
-  if (ex.unit === 'sec') return { reps: all ? sc.hi + 5 : Math.min(sc.hi, Math.min(...reps) + 5), tag: 'more', last: info };
-  if (!kg) return { reps: all ? sc.hi + 1 : Math.min(...reps) + 1, tag: 'more', last: info };
-  if (all) return { kg: round(kg + step(ex), ex), reps: sc.lo, tag: 'up', last: info };
   const low = Math.min(...top);
-  if (low < sc.lo) return { kg, reps: sc.lo, tag: 'same', last: info };
+  const all = top.length >= Math.min(sc.sets, last.sets.length) && low >= sc.hi;
+  const hard = last.effort === 'hard';
+  const easy = last.effort === 'easy';
+  if (ex.unit === 'sec') return { reps: all ? sc.hi + 5 : Math.min(sc.hi, Math.min(...reps) + 5), tag: 'more', last: info };
+  if (!kg) {
+    // bodyweight: reps are the only dial
+    if (hard && !all) return { reps: Math.max(low, 1), tag: 'same', last: info, why: L('كانت صعبة', 'it was hard') };
+    return { reps: low + (easy ? 2 : 1), tag: 'more', last: info };
+  }
+  if (all && hard) return { kg, reps: sc.hi, tag: 'same', last: info, why: L('وصلت الحد بس كانت صعبة — ثبّتها مرة', 'top reached but hard — hold once more') };
+  if (all) return { kg: round(kg + step(ex) * (easy ? 2 : 1), ex), reps: sc.lo, tag: 'up', last: info, why: easy ? L('كانت سهلة — قفزة أكبر', 'it was easy — a bigger jump') : undefined };
+  if (low < sc.lo) {
+    const prevKg = prev ? Math.max(...prev.sets.map((x) => x.kg || 0)) : 0;
+    const prevLow = prev ? Math.min(...prev.sets.filter((x) => (x.kg || 0) >= prevKg).map((x) => x.reps)) : sc.lo;
+    if (prev && prevKg >= kg && prevLow < sc.lo) return { kg: round(kg * 0.9, ex), reps: sc.hi, tag: 'down', last: info, why: L('تحت المدى مرتين — خفّف وارجع اطلع', 'under range twice — lighten and climb back') };
+    return { kg, reps: sc.lo, tag: 'same', last: info };
+  }
+  if (hard) return { kg, reps: low, tag: 'same', last: info, why: L('كانت صعبة', 'it was hard') };
   return { kg, reps: Math.min(sc.hi, low + 1), tag: 'more', last: info };
+}
+
+/** warm-up before the first heavy lift: lighter sets that aren't counted */
+export function warmup(exId: string, kg?: number): { kg: number; reps: number }[] {
+  const ex = exercise(exId);
+  if (!kg || ex.iso || ex.kind === 'body' || ex.kind === 'cardio' || kg < 30) return [];
+  const bar = ex.kind === 'bar' ? 20 : 0;
+  const out = [
+    ...(bar ? [{ kg: bar, reps: 10 }] : []),
+    { kg: round(Math.max(bar, kg * 0.5), ex), reps: 6 },
+    { kg: round(kg * 0.75, ex), reps: 3 },
+  ];
+  return out.filter((x, i) => x.kg < kg && (i === 0 || x.kg > out[i - 1].kg));
 }
 
 export function targetLine(t: Target, ex: Exercise): string {
@@ -519,6 +560,7 @@ export function targetLine(t: Target, ex: Exercise): string {
   if (t.tag === 'first') return ex.unit === 'min' ? L(`${t.reps} دقيقة`, `${t.reps} min`) : ex.kind === 'body' ? L(`ابدأ بـ ${t.reps}${u}`, `Start with ${t.reps}${u}`) : L(`أول مرة: اختر وزن تقدر ترفعه ${t.reps} مرات بصعوبة`, `First time: pick a weight you can just lift ${t.reps} times`);
   if (t.tag === 'up') return L(`زِد الوزن: ${w(t.kg)}${t.reps}`, `Add weight: ${w(t.kg)}${t.reps}`);
   if (t.tag === 'more') return L(`تكرار زيادة: ${w(t.kg)}${t.reps}${u}`, `One more: ${w(t.kg)}${t.reps}${u}`);
+  if (t.tag === 'down') return L(`خفّف: ${w(t.kg)}${t.reps}`, `Lighten: ${w(t.kg)}${t.reps}`);
   return ex.unit === 'min' ? L(`${t.reps} دقيقة`, `${t.reps} min`) : L(`ثبّت: ${w(t.kg)}${t.reps}`, `Hold: ${w(t.kg)}${t.reps}`);
 }
 
@@ -820,4 +862,33 @@ export function suggestToday(s: AppState, now = Date.now()): { groups: GroupId[]
       ? L(`${groupsName(best)} ما تمرّنتها من ${waited} أيام.`, `${groupsName(best)}: not trained for ${waited} days.`)
       : L(`ابدأ بـ ${groupsName(best)}.`, `Start with ${groupsName(best)}.`);
   return { groups: best, why };
+}
+
+// ---------------- weekly sets per muscle ----------------
+
+/**
+ * hard sets this week for each muscle group: a set counts in full for the muscles it works mainly
+ * and half for the ones it works too. Growth needs roughly 10–20 a week for each (6–12 to start).
+ */
+export function weeklySets(s: AppState, now = Date.now()): { g: GroupId; sets: number; lo: number; hi: number }[] {
+  const from = weekStart(todayKey(now));
+  const per = new Map<GroupId, number>();
+  for (const ses of s.gym?.sessions || []) {
+    if (ses.day < from) continue;
+    for (const e of ses.entries) {
+      const ex = exercise(e.exId);
+      if (ex.kind === 'cardio') continue;
+      const n = e.sets.filter((x) => x.done).length;
+      if (!n) continue;
+      const hit = new Map<GroupId, number>();
+      for (const g of GROUPS) {
+        if (ex.hits.some((h) => g.parts.includes(h))) hit.set(g.id, 1);
+        else if (ex.also.some((h) => g.parts.includes(h))) hit.set(g.id, Math.max(hit.get(g.id) || 0, 0.5));
+      }
+      for (const [g, w] of hit) per.set(g, (per.get(g) || 0) + n * w);
+    }
+  }
+  const lvl = s.gym?.profile?.level || 'mid';
+  const [lo, hi] = lvl === 'new' ? [6, 12] : lvl === 'pro' ? [12, 20] : [10, 16];
+  return GROUPS.filter((g) => g.id !== 'cardio').map((g) => ({ g: g.id, sets: Math.round((per.get(g.id) || 0) * 2) / 2, lo: g.big ? lo : Math.round(lo * 0.6), hi: g.big ? hi : Math.round(hi * 0.7) }));
 }

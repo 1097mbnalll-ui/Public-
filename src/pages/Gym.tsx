@@ -11,7 +11,7 @@ import * as A from '../lib/actions';
 import { fmtClock, fmtDate, relDay, todayKey } from '../lib/dates';
 import {
   ACTIVITY, alternatives, bmi, bodyNow, e1rm, exercise, exerciseHistory, exName, fmtKg, GOAL_INFO, gymToday, gymWeek, history, liveSession, nextWorkout, nutrition, plates,
-  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, GROUPS, groupLabel, groupsName, recovery, suggestToday, allExercises, exercisesFor, PARTS, partName,
+  program, records, scheme, sessionSummary, streakWeeks, target, targetLine, weightSeries, dayPlan, partsOf, GROUPS, groupLabel, groupsName, recovery, suggestToday, warmup, weeklySets, allExercises, exercisesFor, PARTS, partName,
   type GroupId, type Part, type Kind, type Readiness,
 } from '../lib/engine/gym';
 import type { AppState, GymGoal, GymProfile, GymSession } from '../lib/types';
@@ -172,6 +172,31 @@ function TodayScreen() {
   );
 }
 
+/** hard sets this week for each muscle group, against the range that builds it */
+function WeekSets({ only }: { only?: GroupId[] }) {
+  const s = useApp();
+  const now = useNow(60_000);
+  const rows = weeklySets(s, now).filter((r) => (only ? only.includes(r.g) : true));
+  return (
+    <div className="gy-ws">
+      {rows.map((r) => {
+        const max = Math.max(r.hi * 1.25, r.sets);
+        const tone = r.sets >= r.hi ? 'over' : r.sets >= r.lo ? 'ok' : r.sets > 0 ? 'low' : 'none';
+        return (
+          <div key={r.g} className={tone}>
+            <span className="n">{groupLabel(r.g)}</span>
+            <span className="bar" aria-hidden>
+              <i className="band" style={{ insetInlineStart: `${(r.lo / max) * 100}%`, width: `${((r.hi - r.lo) / max) * 100}%` }} />
+              <i className="fill" style={{ width: `${Math.min(100, (r.sets / max) * 100)}%` }} />
+            </span>
+            <span className="v num">{r.sets}<small>/{r.lo}–{r.hi}</small></span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** the program and every workout so far */
 function LogScreen() {
   const s = useApp();
@@ -186,6 +211,11 @@ function LogScreen() {
     <div>
       <PageTop title={L('سجل تمارينك', 'Workout log')} back={{ label: L('النادي', 'Gym'), to: 'gym' }} />
       <WeekCard s={s} now={now} />
+      <section>
+        <div className="group-title"><span className="sh-h2">{L('مجموعاتك هالأسبوع', 'Your sets this week')}</span></div>
+        <WeekSets />
+        <p className="faint tiny">{L('المنطقة المظللة: كم مجموعة بالأسبوع تبني العضلة. المجموعة على العضلة الأساسية تنحسب كاملة، وعلى المساعدة نص.', 'The shaded band is how many weekly sets build a muscle. A set counts in full for its main muscle, half for one it also works.')}</p>
+      </section>
       {p && prog && next && (
         <section>
           <div className="group-title"><span className="sh-h2">{L('برنامجك', 'Your program')}</span><button onClick={() => openSheet({ type: 'gym-setup' })}>{L('غيّره', 'Change')}</button></div>
@@ -314,12 +344,12 @@ function clock(ms: number) {
 }
 
 function Live({ ses }: { ses: GymSession }) {
-  const s = useApp();
   const now = useNow(1000);
-  const p = s.gym.profile;
   const total = ses.entries.reduce((a, e) => a + e.sets.length, 0);
   const done = ses.entries.reduce((a, e) => a + e.sets.filter((x) => x.done).length, 0);
   const rest = ses.restUntil ? ses.restUntil - now : 0;
+  const firstOpen = () => Math.max(0, ses.entries.findIndex((e) => e.sets.some((x) => !x.done)));
+  const [open, setOpen] = useState<number>(firstOpen);
   useEffect(() => {
     if (ses.restUntil && rest <= 0 && rest > -1500) navigator.vibrate?.([200, 100, 200]);
   }, [rest, ses.restUntil]);
@@ -331,6 +361,12 @@ function Live({ ses }: { ses: GymSession }) {
     addEventListener('hashchange', () => openSheet({ type: 'gym-done', id: ses.id }), { once: true });
     go('gym');
   };
+  /** after an exercise: the next one with sets left */
+  const next = (from: number) => {
+    const n = ses.entries.findIndex((en, k) => k > from && en.sets.some((x) => !x.done));
+    const m = n >= 0 ? n : ses.entries.findIndex((e) => e.sets.some((x) => !x.done));
+    setOpen(m >= 0 ? m : -1);
+  };
 
   return (
     <div className="gy-live">
@@ -341,51 +377,13 @@ function Live({ ses }: { ses: GymSession }) {
       </header>
       <h1 className="title-xl">{ses.name}</h1>
       <div className="gy-prog-bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label={L('المجموعات', 'Sets')}><i style={{ width: `${total ? (done / total) * 100 : 0}%` }} /></div>
-      <p className="faint small num">{L(`${done} من ${total} مجموعة`, `${done} of ${total} sets`)}</p>
+      <p className="faint small num">{L(`${done} من ${total} مجموعة`, `${done} of ${total} sets`)}{done === total && total ? L(' — كلها خلصت، اضغط «خلّصت» فوق 💪', ' — all done, press Finish 💪') : ''}</p>
 
-      {ses.entries.map((e, ei) => {
-        const ex = exercise(e.exId);
-        const sc = p ? scheme(p, ex) : { sets: 3, lo: 10, hi: 12, rest: 60 };
-        const t = target(s, e.exId, sc, ses.start);
-        const unit = ex.unit === 'sec' ? L('ث', 's') : ex.unit === 'min' ? L('د', 'min') : L('عدّة', 'reps');
-        const weighted = ex.kind !== 'body' && ex.kind !== 'cardio';
-        const allDone = e.sets.every((x) => x.done);
-        return (
-          <section key={ei} className={`gy-ex ${allDone ? 'done' : ''}`}>
-            <div className="gy-ex-h">
-              <span className="gy-mini" aria-hidden><BodyMap size="xs" only={sideOf(ex.hits[0])} main={new Set(ex.hits)} also={new Set(ex.also)} /></span>
-              <button className="n" onClick={() => openSheet({ type: 'gym-ex', exId: e.exId, sid: ses.id, ei })}>
-                <b>{exName(e.exId)}</b>
-                <span className={`tg ${t.tag}`}>{targetLine(t, ex)}</span>
-              </button>
-              <button className="icon-btn sm" aria-label={L(`بدّل ${exName(e.exId)}`, `Swap ${exName(e.exId)}`)} title={L('بدّل التمرين', 'Swap exercise')} onClick={() => openSheet({ type: 'gym-ex', exId: e.exId, sid: ses.id, ei })}><Icon name="repeat" size={16} /></button>
-            </div>
-            <div className="gy-sets">
-              <div className="gy-set head" aria-hidden>
-                <span>#</span>
-                {weighted && <span>{L('كجم', 'kg')}</span>}
-                <span>{unit}</span>
-                <span />
-              </div>
-              {e.sets.map((x, si) => (
-                <div key={si} className={`gy-set ${x.done ? 'on' : ''} ${weighted ? '' : 'nokg'}`}>
-                  <span className="i num">{si + 1}</span>
-                  {weighted && <input className="input num" inputMode="decimal" type="number" step="0.5" min={0} value={x.kg ?? ''} placeholder="—" aria-label={L(`وزن المجموعة ${si + 1}`, `Set ${si + 1} weight`)} onChange={(ev) => A.setGymSet(ses.id, ei, si, { kg: ev.target.value === '' ? undefined : Math.max(0, +ev.target.value) })} />}
-                  <input className="input num" inputMode="numeric" type="number" min={0} value={x.reps || ''} placeholder="0" aria-label={L(`تكرارات المجموعة ${si + 1}`, `Set ${si + 1} reps`)} onChange={(ev) => A.setGymSet(ses.id, ei, si, { reps: Math.max(0, Math.round(+ev.target.value || 0)) })} />
-                  <button className={`gy-tick ${x.done ? 'on' : ''}`} aria-pressed={x.done} aria-label={x.done ? L(`إلغاء المجموعة ${si + 1}`, `Undo set ${si + 1}`) : L(`خلّصت المجموعة ${si + 1}`, `Done set ${si + 1}`)} onClick={() => A.tickGymSet(ses.id, ei, si, si === e.sets.length - 1 && ei === ses.entries.length - 1 ? 0 : sc.rest)}><Icon name="check" size={16} stroke={3} /></button>
-                </div>
-              ))}
-            </div>
-            <div className="gy-ex-a">
-              <button className="btn sm ghost" onClick={() => A.addGymSet(ses.id, ei)}><Icon name="plus" size={13} /> {L('مجموعة', 'Set')}</button>
-              {e.sets.length > 1 && <button className="btn sm ghost" onClick={() => A.removeGymSet(ses.id, ei)}><Icon name="minus" size={13} /> {L('شيل وحدة', 'Remove one')}</button>}
-              {weighted && e.sets[0]?.kg && ex.kind === 'bar' ? <span className="faint tiny">{plateText(e.sets.find((x) => !x.done)?.kg ?? e.sets[0].kg)}</span> : null}
-            </div>
-          </section>
-        );
-      })}
+      <div className="gy-xlist">
+        {ses.entries.map((e, ei) => (ei === open ? <ExerciseOpen key={`${e.exId}-${ei}`} ses={ses} ei={ei} onDone={() => next(ei)} /> : <ExerciseRow key={`${e.exId}-${ei}`} ses={ses} ei={ei} onOpen={() => setOpen(ei)} />))}
+      </div>
 
-      <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
+      <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
         <button className="btn" onClick={() => openSheet({ type: 'gym-pick', sid: ses.id })}><Icon name="plus" size={14} /> {L('أضف تمرين', 'Add exercise')}</button>
         <button className="btn ghost" onClick={() => { if (confirm(L('تلغي هذا التمرين؟ ما ينحسب.', 'Cancel this workout? It won’t count.'))) { A.cancelWorkout(ses.id); go('gym'); toast(L('ألغيته', 'Cancelled'), { undoable: true }); } }}>{L('ألغِ التمرين', 'Cancel workout')}</button>
       </div>
@@ -399,6 +397,127 @@ function Live({ ses }: { ses: GymSession }) {
         </div>
       )}
     </div>
+  );
+}
+
+const EFFORT: { v: 'easy' | 'ok' | 'hard'; l: [string, string]; e: string }[] = [
+  { v: 'easy', l: ['سهلة', 'Easy'], e: '😌' },
+  { v: 'ok', l: ['مناسبة', 'About right'], e: '👍' },
+  { v: 'hard', l: ['صعبة', 'Hard'], e: '🥵' },
+];
+
+const fmtSet = (x: { kg?: number; reps: number }, unit?: string) => (x.kg ? `${fmtKg(x.kg)}×${x.reps}` : `${x.reps}${unit === 'sec' ? L('ث', 's') : unit === 'min' ? L('د', 'm') : ''}`);
+
+/** an exercise not being worked on: one line — done with its best set, or what's coming */
+function ExerciseRow({ ses, ei, onOpen }: { ses: GymSession; ei: number; onOpen: () => void }) {
+  const s = useApp();
+  const e = ses.entries[ei];
+  const ex = exercise(e.exId);
+  const n = e.sets.filter((x) => x.done).length;
+  const all = n === e.sets.length;
+  const sc = s.gym.profile ? scheme(s.gym.profile, ex) : { sets: 3, lo: 10, hi: 12, rest: 60 };
+  const t = target(s, e.exId, sc, ses.start);
+  const best = e.sets.filter((x) => x.done).sort((a, b) => (b.kg || 0) - (a.kg || 0) || b.reps - a.reps)[0];
+  return (
+    <button className={`gy-xr ${all ? 'done' : n ? 'part' : ''}`} onClick={onOpen}>
+      <span className="st num" aria-hidden>{all ? <Icon name="check" size={15} stroke={3} /> : `${n}/${e.sets.length}`}</span>
+      <span className="m">
+        <b>{exName(e.exId)}</b>
+        <span className="num">{all ? `${best ? fmtSet(best, ex.unit) : ''} · ${L(`${n} مجموعات`, `${n} sets`)}${e.effort ? ` · ${EFFORT.find((x) => x.v === e.effort)!.e}` : ''}` : targetLine(t, ex)}</span>
+      </span>
+      <Icon name="chevron" size={14} className="chev-end" />
+    </button>
+  );
+}
+
+/** a − value + control for the thumb; the number can still be typed */
+function Stepper({ value, onChange, step, unit, label, min = 0 }: { value?: number; onChange: (v: number | undefined) => void; step: number; unit: string; label: string; min?: number }) {
+  const v = value ?? 0;
+  return (
+    <div className="gy-step" role="group" aria-label={label}>
+      <button aria-label={L(`نقّص ${label}`, `Less ${label}`)} onClick={() => onChange(Math.max(min, +(v - step).toFixed(2)))}><Icon name="minus" size={18} stroke={2.6} /></button>
+      <label>
+        <input className="num" inputMode="decimal" type="number" step={step} min={min} value={value ?? ''} placeholder="—" aria-label={label} onChange={(ev) => onChange(ev.target.value === '' ? undefined : Math.max(min, +ev.target.value))} />
+        <small>{unit}</small>
+      </label>
+      <button aria-label={L(`زِد ${label}`, `More ${label}`)} onClick={() => onChange(+(v + step).toFixed(2))}><Icon name="plus" size={18} stroke={2.6} /></button>
+    </div>
+  );
+}
+
+/** the exercise being worked on: what to lift and why, the warm-up, then one set at a time */
+function ExerciseOpen({ ses, ei, onDone }: { ses: GymSession; ei: number; onDone: () => void }) {
+  const s = useApp();
+  const e = ses.entries[ei];
+  const ex = exercise(e.exId);
+  const sc = s.gym.profile ? scheme(s.gym.profile, ex) : { sets: 3, lo: 10, hi: 12, rest: 60 };
+  const t = target(s, e.exId, sc, ses.start);
+  const weighted = ex.kind !== 'body' && ex.kind !== 'cardio';
+  const firstUndone = e.sets.findIndex((x) => !x.done);
+  const [pick, setPick] = useState<number | null>(null);
+  const sel = pick != null && pick < e.sets.length ? pick : firstUndone >= 0 ? firstUndone : e.sets.length - 1;
+  const set = e.sets[sel];
+  const all = firstUndone < 0;
+  const wu = !e.sets.some((x) => x.done) ? warmup(e.exId, set?.kg) : [];
+  const isLast = ei === ses.entries.length - 1 && sel === e.sets.length - 1;
+  const unit = ex.unit === 'sec' ? L('ثانية', 'sec') : ex.unit === 'min' ? L('دقيقة', 'min') : L('عدّة', 'reps');
+  const kgStep = ex.kind === 'db' ? 2 : 2.5;
+  const repStep = ex.unit === 'sec' ? 5 : 1;
+  return (
+    <section className={`gy-ex ${all ? 'done' : ''}`}>
+      <div className="gy-ex-h">
+        <span className="gy-mini" aria-hidden><BodyMap size="xs" only={sideOf(ex.hits[0])} main={new Set(ex.hits)} also={new Set(ex.also)} /></span>
+        <button className="n" onClick={() => openSheet({ type: 'gym-ex', exId: e.exId, sid: ses.id, ei })}>
+          <b>{exName(e.exId)}</b>
+          <span className={`tg ${t.tag}`}>{targetLine(t, ex)}{t.why ? ` — ${t.why}` : ''}</span>
+        </button>
+        <button className="icon-btn sm" aria-label={L(`بدّل ${exName(e.exId)}`, `Swap ${exName(e.exId)}`)} title={L('بدّل التمرين', 'Swap exercise')} onClick={() => openSheet({ type: 'gym-ex', exId: e.exId, sid: ses.id, ei })}><Icon name="repeat" size={16} /></button>
+      </div>
+
+      {wu.length > 0 && <p className="gy-wu num">{L('إحماء قبلها (ما ينحسب): ', 'Warm up first (not counted): ')}<bdi dir="ltr">{wu.map((w) => `${fmtKg(w.kg)}×${w.reps}`).join('  ·  ')}</bdi></p>}
+
+      <div className="gy-chips-sets" role="tablist" aria-label={L('المجموعات', 'Sets')}>
+        {e.sets.map((x, si) => (
+          <button key={si} role="tab" aria-selected={si === sel} className={`${x.done ? 'on' : ''} ${si === sel ? 'sel' : ''}`} onClick={() => setPick(si)}>
+            <span className="i num">{x.done ? '✓' : si + 1}</span>
+            <span className="v num">{fmtSet(x, ex.unit)}</span>
+          </button>
+        ))}
+        <button className="add" aria-label={L('أضف مجموعة', 'Add a set')} onClick={() => A.addGymSet(ses.id, ei)}><Icon name="plus" size={14} /></button>
+      </div>
+
+      {set && !all && (
+        <div className="gy-panel">
+          <div className="gy-panel-h">{L(`المجموعة ${sel + 1} من ${e.sets.length}`, `Set ${sel + 1} of ${e.sets.length}`)}{weighted && ex.kind === 'bar' && set.kg ? <span className="faint"> · {plateText(set.kg)}</span> : null}</div>
+          <div className={`gy-steps ${weighted ? '' : 'one'}`}>
+            {weighted && <Stepper value={set.kg} step={kgStep} unit={L('كجم', 'kg')} label={L('الوزن', 'weight')} onChange={(v) => A.setGymSet(ses.id, ei, sel, { kg: v })} />}
+            <Stepper value={set.reps} step={repStep} unit={unit} label={unit} onChange={(v) => A.setGymSet(ses.id, ei, sel, { reps: Math.round(v || 0) })} />
+          </div>
+          <button className="btn primary gy-done-set" onClick={() => { A.tickGymSet(ses.id, ei, sel, set.done || isLast ? 0 : sc.rest); setPick(null); }}>
+            {set.done ? L('رجّعها', 'Undo it') : <><Icon name="check" size={17} stroke={3} /> {L(`خلّصت المجموعة ${sel + 1}`, `Done set ${sel + 1}`)}</>}
+          </button>
+        </div>
+      )}
+
+      {all && (
+        <div className="gy-effort">
+          <b>{L('كيف كانت؟', 'How did it feel?')}</b>
+          <div>
+            {EFFORT.map((x) => (
+              <button key={x.v} className={e.effort === x.v ? 'on' : ''} aria-pressed={e.effort === x.v} onClick={() => { A.setGymEffort(ses.id, ei, x.v); onDone(); }}>
+                <span aria-hidden>{x.e}</span>{L(...x.l)}
+              </button>
+            ))}
+          </div>
+          <small className="faint">{L('سهلة: أزيد لك أكثر المرة الجاية. صعبة: نثبّت الوزن.', 'Easy: a bigger step next time. Hard: we hold the weight.')}</small>
+          {pick != null && e.sets[pick]?.done && <button className="btn ghost sm" onClick={() => { A.tickGymSet(ses.id, ei, pick, 0); setPick(null); }}>{L(`رجّع المجموعة ${pick + 1}`, `Undo set ${pick + 1}`)}</button>}
+        </div>
+      )}
+
+      {!all && e.sets.length > 1 && !e.sets[e.sets.length - 1].done && (
+        <div className="gy-ex-a"><button className="btn sm ghost" onClick={() => A.removeGymSet(ses.id, ei)}><Icon name="minus" size={13} /> {L('شيل آخر مجموعة', 'Drop the last set')}</button></div>
+      )}
+    </section>
   );
 }
 
@@ -800,6 +919,7 @@ export function GymDoneSheet({ id }: { id: string }) {
           </div>
         )}
         <p className="gy-note">{wk.done >= wk.target ? L(`كمّلت أسبوعك (${wk.done}/${wk.target})${st > 1 ? ` — ${st} أسابيع ورا بعض 🔥` : ' 🔥'}`, `Week complete (${wk.done}/${wk.target})${st > 1 ? ` — ${st} weeks in a row 🔥` : ' 🔥'}`) : L(`${wk.done} من ${wk.target} هالأسبوع — باقي ${wk.target - wk.done}.`, `${wk.done} of ${wk.target} this week — ${wk.target - wk.done} to go.`)}</p>
+        {ses.groups?.length ? <><b className="gy-sub">{L('مجموعاتك هالأسبوع', 'Your sets this week')}</b><WeekSets only={ses.groups as GroupId[]} /></> : null}
         <p className="faint small">{L('المرة الجاية أقولك وش تزيد: الوزن لو وصلت أعلى عدّة في كل المجموعات، وإلا عدّة زيادة.', 'Next time I’ll tell you what to add: weight if you hit the top reps on every set, else one more rep.')}</p>
       </div>
     </Sheet>

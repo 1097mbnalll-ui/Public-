@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialState, migrate } from '../src/lib/defaults';
-import { allExercises, dayPlan, recovery, suggestToday, exercisesFor, GROUPS, gymWeek, nextWorkout, nutrition, partsOf, plates, program, records, registerCustom, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
+import { allExercises, dayPlan, recovery, suggestToday, warmup, weeklySets, exercisesFor, GROUPS, gymWeek, nextWorkout, nutrition, partsOf, plates, program, records, registerCustom, scheme, sessionSummary, streakWeeks, target, exercise } from '../src/lib/engine/gym';
 import { busyOn } from '../src/lib/engine/schedule';
 import type { AppState, GymProfile, GymSession } from '../src/lib/types';
 
@@ -193,5 +193,45 @@ describe('recovery', () => {
     expect(sug.why.length).toBeGreaterThan(5);
     expect(suggestToday(withGym({ profile: P(), rot: 1 }), at('2026-10-29', 10)).groups).toEqual(['back', 'biceps']);
     expect(suggestToday(withGym({}), at('2026-10-29', 10)).groups.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the calculation, steered by how it felt', () => {
+  const sc = scheme(P(), exercise('bench'));
+  const with_ = (day: string, sets: [number, number][], effort?: 'easy' | 'ok' | 'hard') => {
+    const x = ses(day, 'bench', sets);
+    x.entries[0].effort = effort;
+    return x;
+  };
+  it('top of the range and easy → two steps up; hard → hold', () => {
+    expect(target(withGym({ sessions: [with_('2026-10-20', [[60, 12], [60, 12], [60, 12]], 'easy')] }), 'bench', sc)).toMatchObject({ tag: 'up', kg: 65 });
+    expect(target(withGym({ sessions: [with_('2026-10-20', [[60, 12], [60, 12], [60, 12]], 'hard')] }), 'bench', sc)).toMatchObject({ tag: 'same', kg: 60 });
+  });
+  it('inside the range and hard → same reps; easy bodyweight → two more', () => {
+    expect(target(withGym({ sessions: [with_('2026-10-20', [[60, 9], [60, 9], [60, 9]], 'hard')] }), 'bench', sc)).toMatchObject({ tag: 'same', kg: 60, reps: 9 });
+    const pu = ses('2026-10-20', 'pushup', [[undefined, 12], [undefined, 12]]);
+    pu.entries[0].effort = 'easy';
+    expect(target(withGym({ sessions: [pu] }), 'pushup', scheme(P(), exercise('pushup')))).toMatchObject({ reps: 14 });
+  });
+  it('under the range twice in a row → 10% off', () => {
+    const a = with_('2026-10-15', [[80, 6], [80, 5]]);
+    const b = with_('2026-10-20', [[80, 6], [80, 5]]);
+    b.start = at('2026-10-20');
+    expect(target(withGym({ sessions: [a, b] }), 'bench', sc)).toMatchObject({ tag: 'down', kg: 72.5 });
+    expect(target(withGym({ sessions: [b] }), 'bench', sc)).toMatchObject({ tag: 'same', kg: 80 });
+  });
+  it('warm-up only before heavy compound lifts, lighter each step', () => {
+    expect(warmup('bench', 100)).toEqual([{ kg: 20, reps: 10 }, { kg: 50, reps: 6 }, { kg: 75, reps: 3 }]);
+    expect(warmup('lateral', 12)).toEqual([]);
+    expect(warmup('pushup', undefined)).toEqual([]);
+    expect(warmup('bench', 25)).toEqual([]);
+  });
+  it('sets per muscle this week: main counts in full, also half', () => {
+    const x = ses('2026-10-26', 'bench', [[60, 8], [60, 8], [60, 8]]);
+    const r = weeklySets(withGym({ profile: P(), sessions: [x] }), at('2026-10-28'));
+    expect(r.find((y) => y.g === 'chest')!.sets).toBe(3);
+    expect(r.find((y) => y.g === 'triceps')!.sets).toBe(1.5);
+    expect(r.find((y) => y.g === 'legs')!.sets).toBe(0);
+    expect(weeklySets(withGym({}), at('2026-10-28')).every((y) => y.sets === 0)).toBe(true);
   });
 });

@@ -404,7 +404,8 @@ export interface GymSession {
   name: string;
   /** the muscles you picked for it */
   groups?: string[];
-  entries: { exId: string; sets: GymSet[] }[];
+  /** effort: how the exercise felt — it decides how fast the weight climbs */
+  entries: { exId: string; sets: GymSet[]; effort?: 'easy' | 'ok' | 'hard' }[];
   /** the rest after the last set ends here */
   restUntil?: number;
   note?: string;
