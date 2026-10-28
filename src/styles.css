@@ -2971,7 +2971,8 @@ html[lang='ar'] * {
 .m-card .ft .over { background: rgba(0,0,0,.18); padding: 0 8px; border-radius: 8px; }
 .m-card-btn { color: #fff; font-weight: 700; font-size: 14px; background: rgba(255,255,255,.2); border-radius: 14px; padding: 8px 14px; position: relative; z-index: 1; }
 .m-strip { display: flex; gap: 6px; }
-.m-strip div { flex: 1; border-radius: 16px; padding: 8px 0; text-align: center; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--glass-border); }
+.m-strip > button { font: inherit; cursor: pointer; }
+.m-strip > * { flex: 1; border-radius: 16px; padding: 8px 0; text-align: center; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--glass-border); }
 .m-strip b { display: block; font-size: 14px; color: var(--text); margin: 2px 0; }
 .m-strip i { display: block; width: 8px; height: 8px; border-radius: 4px; margin: 3px auto 0; }
 .m-strip .on { background: var(--text); color: var(--bg, #fff); }
@@ -4115,3 +4116,27 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .fu-today .m b { font-size: 14.5px; }
 .fu-today .m span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile.fu-today, .tile.gy-today { flex-direction: row; text-align: start; align-items: center; }
+
+/* مصاريفي: week, day and category pages */
+.m-cats-r .cr { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); color: inherit; text-align: start; cursor: pointer; font: inherit; }
+.m-limits .lr { cursor: pointer; }
+.m-weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border-radius: 18px; padding: 8px; }
+.m-weeknav > div { display: grid; justify-items: center; gap: 2px; }
+.m-weeknav > div b { font-size: 15px; }
+.m-weeknav > div span { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.m-weeknav.sm { margin-bottom: 14px; }
+.m-weeknav.sm > b { font-size: 15px; }
+.m-days { padding: 4px 14px; }
+.m-days button { width: 100%; display: grid; grid-template-columns: minmax(84px, 26%) 1fr auto 14px; align-items: center; gap: 10px; padding: 11px 0; background: none; border: 0; border-bottom: 1px solid var(--line); color: inherit; text-align: start; cursor: pointer; font: inherit; }
+.m-days button:last-child { border-bottom: 0; }
+.m-days button:disabled { cursor: default; opacity: .45; }
+.m-days .n { display: grid; gap: 1px; }
+.m-days .n b { font-size: 14px; }
+.m-days .n small, .m-days .v small { font-size: 11.5px; color: var(--muted); }
+.m-days .today .n b { color: var(--accent); }
+.m-days .bar { height: 8px; border-radius: 5px; background: var(--track); overflow: hidden; }
+.m-days .bar i { display: block; height: 100%; border-radius: 5px; background: var(--accent); }
+.m-days .v { display: grid; justify-items: end; gap: 1px; min-width: 64px; }
+.m-days .v b { font-size: 14.5px; }
+.m-daylink { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+.m-daily .bars i[role="link"] { cursor: pointer; }

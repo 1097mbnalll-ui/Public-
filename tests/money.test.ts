@@ -156,3 +156,30 @@ describe('budget month, limits and habits', () => {
     expect(suggestBudget(s, NOW)).toEqual({ avg: 3800, suggest: 3500 });
   });
 });
+
+import { fmtMoney as fm2, fmtNum as fn2, parseBankSms as pbs2, parseMoney } from '../src/lib/engine/money';
+describe('halalas', () => {
+  it('a separator before one or two digits is halalas, before three is thousands', () => {
+    expect(parseMoney('12.75')).toBe(12.75);
+    expect(parseMoney('12,75')).toBe(12.75);
+    expect(parseMoney('12٫5')).toBe(12.5);
+    expect(parseMoney('١٢٫٥٠')).toBe(12.5);
+    expect(parseMoney('12،25')).toBe(12.25);
+    expect(parseMoney('1,500')).toBe(1500);
+    expect(parseMoney('1,234.50')).toBe(1234.5);
+    expect(parseMoney('12.')).toBe(12);
+    expect(parseMoney('')).toBeUndefined();
+    expect(parseMoney('abc')).toBeUndefined();
+  });
+  it('shows halalas when there are any', () => {
+    expect(fn2(12)).toBe('12');
+    expect(fn2(12.5)).toBe('12.50');
+    expect(fn2(1234.75)).toBe('1,234.75');
+    expect(fn2(0.1 + 0.2)).toBe('0.30');
+    expect(fm2(9.99)).toContain('9.99');
+  });
+  it('bank messages keep the halalas', () => {
+    expect(pbs2('شراء عبر نقاط البيع\nبمبلغ: 23.75 SAR\nلدى: STARBUCKS', Date.now())[0]?.amount).toBe(23.75);
+    expect(pbs2('Purchase SAR 1,250.50 at JARIR', Date.now())[0]?.amount).toBe(1250.5);
+  });
+});

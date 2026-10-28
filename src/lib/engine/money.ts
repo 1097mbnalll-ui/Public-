@@ -36,8 +36,25 @@ export const allCats = (): ExpenseCat[] => [...CAT_ORDER.filter((c) => c !== 'ot
 
 export const CAT_COLORS = ['#F06BB5', '#5B9BFF', '#7ED9A6', '#F7B84B', '#B36BF0', '#F08A5D', '#2FA9D6', '#E8B04A'];
 
-export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('en-US')} ${L('ر.س', 'SAR')}`;
-export const fmtNum = (n: number) => Math.round(n).toLocaleString('en-US');
+/** riyals with their halalas when there are any: 12 · 12.50 · 1,234.75 */
+export const fmtNum = (n: number) => {
+  const r = Math.round(n * 100) / 100;
+  return r.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(r) ? 0 : 2, maximumFractionDigits: 2 });
+};
+export const fmtMoney = (n: number) => `${fmtNum(n)} ${L('ر.س', 'SAR')}`;
+
+/**
+ * an amount as typed or pasted: Arabic or Western digits; «.», «,», «٫» or «،» before one or two
+ * digits are halalas (12,5 · 12٫75 · 12.50), a comma before three digits groups thousands (1,500).
+ */
+export function parseMoney(raw: string): number | undefined {
+  let t = toWestern(raw).replace(/[\s\u200e\u200f]/g, '').replace(/٫/g, '.').replace(/،/g, ',');
+  while (/\d,\d{3}(?!\d)/.test(t)) t = t.replace(/(\d),(\d{3})(?!\d)/, '$1$2');
+  t = t.replace(/,(\d{1,2})$/, '.$1').replace(/,/g, '');
+  if (!/^\d*\.?\d*$/.test(t) || t === '' || t === '.') return undefined;
+  const n = Number(t);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : undefined;
+}
 
 // coffee and delivery first: «توصيل ماكدونالدز» is delivery, «قهوة» beats «مطعم»
 const KEYWORDS: [ExpenseCat, RegExp][] = [
@@ -386,7 +403,7 @@ export function potential(state: AppState, now = Date.now()) {
 
 export type Period = 'week' | 'month' | 'year';
 
-function rangeOf(period: Period, today: string, back = 0): [string, string] {
+export function rangeOf(period: Period, today: string, back = 0): [string, string] {
   if (period === 'week') {
     const to = addDays(today, -7 * back);
     return [addDays(to, -6), to];
@@ -596,7 +613,7 @@ export function parseBankSms(text: string, now = Date.now()) {
       c.match(/([\d,]+(?:\.\d+)?)\s*(?:SAR|ر\.?\s?س|ريال|SR)\b/i) ||
       c.match(/(?:مبلغ|بمبلغ|المبلغ|amount)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
     if (!m) continue;
-    const amount = Number(m[1].replace(/,/g, ''));
+    const amount = parseMoney(m[1]) || 0;
     if (!(amount > 0)) continue;
     // merchant: the specific words first, the vague ones («من», «في») only as a fallback
     let title = '';

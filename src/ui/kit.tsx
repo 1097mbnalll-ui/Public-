@@ -172,8 +172,13 @@ export function NumInput({ value, onChange, min = 0, step = 1, className = 'inpu
   const [v, setV] = useState(value == null ? '' : String(value));
   useEffect(() => setV(value == null ? '' : String(value)), [value]);
   const commit = () => {
-    const n = v.trim() === '' ? undefined : Math.max(min, Number(v.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))));
-    if (n === undefined || !Number.isNaN(n)) onChange(n);
+    if (v.trim() === '') return onChange(undefined);
+    // Arabic digits, and «,» «٫» «،» before one or two digits as the decimal point (halalas)
+    let t = v.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\s/g, '').replace(/٫/g, '.').replace(/،/g, ',');
+    while (/\d,\d{3}(?!\d)/.test(t)) t = t.replace(/(\d),(\d{3})(?!\d)/, '$1$2');
+    t = t.replace(/,(\d{1,2})$/, '.$1').replace(/,/g, '');
+    const n = Number(t);
+    if (!Number.isNaN(n)) onChange(Math.max(min, Math.round(n * 100) / 100));
   };
   return (
     <div className="row" style={{ gap: 6 }}>

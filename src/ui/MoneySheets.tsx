@@ -6,7 +6,7 @@ import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, addMonths, fmtDate, todayKey } from '../lib/dates';
-import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, suggestBudget } from '../lib/engine/money';
+import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, parseMoney, suggestBudget } from '../lib/engine/money';
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
 import { L } from '../lib/i18n';
@@ -39,7 +39,10 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
   const existing = id ? s.expenses.find((e) => e.id === id) : undefined;
   const parsed = useMemo(() => (text ? parseExpense(text) : undefined), [text]);
   const today = todayKey();
-  const [amount, setAmount] = useState<number | undefined>(existing?.amount ?? parsed?.amount);
+  // the amount as typed: «12.» or «12,» stays on screen while you type the halalas
+  const [amountText, setAmountText] = useState<string>(() => { const a = existing?.amount ?? parsed?.amount; return a != null ? String(a) : ''; });
+  const amount = parseMoney(amountText);
+  const setAmount = (n: number | undefined) => setAmountText(n == null ? '' : String(n));
   const [title, setTitle] = useState(existing?.title ?? parsed?.title ?? '');
   const [cat, setCat] = useState<ExpenseCat>(existing?.cat ?? parsed?.cat ?? 'other');
   const [catPicked, setCatPicked] = useState(!!existing);
@@ -95,10 +98,11 @@ export function ExpenseSheet({ id, text }: { id?: string; text?: string }) {
             className="m-amount-in"
             inputMode="decimal"
             placeholder="0"
-            value={amount ?? ''}
+            value={amountText}
             onChange={(e) => {
-              const v = Number(e.target.value.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[٫,]/g, '.'));
-              setAmount(e.target.value === '' || isNaN(v) ? undefined : v);
+              // digits and one separator only — the separator before 1–2 digits is halalas
+              const v = e.target.value.replace(/[^\d٠-٩.,٫،]/g, '');
+              setAmountText(v);
             }}
             autoFocus
             aria-label={L('المبلغ', 'Amount')}

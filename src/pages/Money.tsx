@@ -8,20 +8,29 @@ import { toast } from '../ui/toast';
 import { worthColor, worthLabel } from '../ui/MoneySheets';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
+import { addDays, fmtDate, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
 import {
   catInfo, catLimits, cutHabit, noSpend, suggestBudget, upcomingBills, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
-  subIdle, subMonthly, suggestions, upcomingSubs, weekStrip, type Period,
+  rangeOf, subIdle, subMonthly, suggestions, upcomingSubs, weekStrip, type Period,
 } from '../lib/engine/money';
 import type { Expense } from '../lib/types';
 import { L } from '../lib/i18n';
 
 const short = (d: string) => (L('ح ن ث ر خ ج س', 'Su Mo Tu We Th Fr Sa').split(' '))[parseKey(d).getDay()];
-
 /** مصاريفي: today (budget card, last 7 days, quick chips, list) · where to save · report */
+
+const buysAr = (n: number) => (n === 1 ? 'مشترى واحد' : n === 2 ? 'مشتريين' : n <= 10 ? `${n} مشتريات` : `${n} مشترى`);
+
 export function Money() {
   const route = useRoute();
-  const view = route.id === 'save' ? 'save' : route.id === 'report' ? 'report' : 'day';
+  if (route.id === 'd') return <DayPage day={route.query.get('d') || todayKey()} />;
+  if (route.id === 'cat') return <CatPage cat={route.query.get('c') || 'food'} period={(route.query.get('p') as Period) || 'month'} />;
+  return <MoneyHome />;
+}
+
+function MoneyHome() {
+  const route = useRoute();
+  const view = route.id === 'save' ? 'save' : route.id === 'report' ? 'report' : route.id === 'week' ? 'week' : 'day';
   const s = useApp();
   const now = useNow(60_000);
   useEffect(() => {
@@ -40,10 +49,10 @@ export function Money() {
       />
       <div style={{ marginBottom: 14 }}>
         <Seg value={view} onChange={(v) => go(v === 'day' ? 'money' : `money/${v}`)} options={[
-          { v: 'day', l: L('اليوم', 'Today') }, { v: 'save', l: L('التوفير', 'Save') }, { v: 'report', l: L('التقرير', 'Report') },
+          { v: 'day', l: L('اليوم', 'Today') }, { v: 'week', l: L('الأسبوع', 'Week') }, { v: 'save', l: L('التوفير', 'Save') }, { v: 'report', l: L('التقرير', 'Report') },
         ]} />
       </div>
-      {view === 'day' ? <DayView now={now} /> : view === 'save' ? <SaveView now={now} /> : <ReportView now={now} />}
+      {view === 'day' ? <DayView now={now} /> : view === 'week' ? <WeekView now={now} /> : view === 'save' ? <SaveView now={now} /> : <ReportView now={now} />}
     </div>
   );
 }
@@ -115,9 +124,9 @@ function DayView({ now }: { now: number }) {
 
       <div className="m-strip">
         {strip.map((d) => (
-          <div key={d.day} className={d.day === today ? 'on' : ''} title={fmtMoney(d.spent)}>
+          <button key={d.day} className={d.day === today ? 'on' : ''} title={fmtMoney(d.spent)} aria-label={L(`${relDay(d.day, today)}: ${fmtMoney(d.spent)}`, `${relDay(d.day, today)}: ${fmtMoney(d.spent)}`)} onClick={() => go(`money/d?d=${d.day}`)}>
             {short(d.day)}<b>{Number(d.day.slice(8))}</b><i className={`mk-${d.mark}`} />
-          </div>
+          </button>
         ))}
       </div>
 
@@ -135,7 +144,7 @@ function DayView({ now }: { now: number }) {
           {limits.map((l) => {
             const info = catInfo(l.cat);
             return (
-              <div key={l.cat} className="lr">
+              <div key={l.cat} className="lr" role="link" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); go(`money/cat?c=${encodeURIComponent(l.cat)}&p=month`); }} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); go(`money/cat?c=${encodeURIComponent(l.cat)}&p=month`); } }}>
                 <div className="h"><b>{info.emoji} {info.label}</b><span className={l.used > l.limit ? 'bad' : ''}>{L(`${fmtNum(l.used)} من ${fmtNum(l.limit)}`, `${fmtNum(l.used)} of ${fmtNum(l.limit)}`)}{l.used > l.limit ? L(' — تجاوزت!', ' — over!') : ''}</span></div>
                 <div className="bar"><i style={{ width: `${Math.min(100, l.pct * 100)}%`, background: l.used > l.limit ? 'var(--red)' : l.pct >= 0.8 ? 'var(--amber)' : info.color }} /></div>
               </div>
@@ -318,7 +327,7 @@ function ReportView({ now }: { now: number }) {
           <div className="bars">
             {r.dailyLine ? <div className="lim" style={{ bottom: `${(r.dailyLine / maxD) * 100}%` }}><span>{L('حدّ اليوم', 'daily line')}</span></div> : null}
             {r.daily.map((d) => (
-              <i key={d.day} title={`${Number(d.day.slice(8))}: ${fmtMoney(d.total)}`} className={d.future ? 'f' : d.day === todayKey(now) ? 't' : r.dailyLine && d.total > r.dailyLine ? 'o' : ''} style={{ height: `${d.future ? 4 : Math.max(3, (d.total / maxD) * 100)}%` }} />
+              <i key={d.day} role={d.future ? undefined : 'link'} onClick={() => !d.future && go(`money/d?d=${d.day}`)} title={`${Number(d.day.slice(8))}: ${fmtMoney(d.total)}`} className={d.future ? 'f' : d.day === todayKey(now) ? 't' : r.dailyLine && d.total > r.dailyLine ? 'o' : ''} style={{ height: `${d.future ? 4 : Math.max(3, (d.total / maxD) * 100)}%` }} />
             ))}
           </div>
           <div className="axis"><span>1</span><span>10</span><span>20</span><span>{r.daily.length}</span></div>
@@ -330,11 +339,11 @@ function ReportView({ now }: { now: number }) {
           {r.cats.map((c) => {
             const info = catInfo(c.cat);
             return (
-              <div key={c.cat} className="cr">
+              <button key={c.cat} className="cr" onClick={() => go(`money/cat?c=${encodeURIComponent(c.cat)}&p=${period}`)}>
                 <span className="em" style={{ background: info.bg }}>{info.emoji}</span>
                 <span className="grow"><b>{info.label}</b><span className="mb"><i style={{ width: `${(c.total / r.cats[0].total) * 100}%`, background: info.color }} /></span></span>
                 <span className="v"><b className="money">{fmtNum(c.total)}</b>{c.change !== undefined && <small className={c.change > 0 ? 'bad' : 'good'}>{c.change > 0 ? '↑' : '↓'} {Math.abs(Math.round(c.change * 100))}%</small>}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -369,6 +378,124 @@ function ReportView({ now }: { now: number }) {
           <div className="card faint small" style={{ padding: 14 }}>{L('أضف اشتراكاتك وأنبهك قبل التجديد، وأقول لك إذا فيه اشتراك ما تستخدمه.', "Add your subscriptions — I'll flag renewals and the ones you don't use.")}</div>
         )}
       </section>
+    </div>
+  );
+}
+
+const DAY_NAMES = () => L('الأحد الإثنين الثلاثاء الأربعاء الخميس الجمعة السبت', 'Sunday Monday Tuesday Wednesday Thursday Friday Saturday').split(' ');
+const sumOf = (list: Expense[]) => list.reduce((a, e) => a + e.amount, 0);
+const byTime = (a: Expense, b: Expense) => (b.time || '').localeCompare(a.time || '') || b.createdAt - a.createdAt;
+
+/** «الأسبوع»: a calendar week, Sunday to Saturday — each day with its total; tap one for its purchases */
+function WeekView({ now }: { now: number }) {
+  const s = useApp();
+  const r = useRoute();
+  const today = todayKey(now);
+  const thisWeek = addDays(today, -parseKey(today).getDay());
+  const w = r.query.get('w') || thisWeek;
+  const days = Array.from({ length: 7 }, (_, i) => addDays(w, i));
+  const rows = days.map((d) => {
+    const list = s.expenses.filter((e) => e.day === d);
+    return { d, list, total: sumOf(list) };
+  });
+  const total = rows.reduce((a, x) => a + x.total, 0);
+  const max = Math.max(1, ...rows.map((x) => x.total));
+  const prev = sumOf(s.expenses.filter((e) => e.day >= addDays(w, -7) && e.day <= addDays(w, -1)));
+  const cats = new Map<string, number>();
+  for (const x of rows) for (const e of x.list) cats.set(e.cat, (cats.get(e.cat) || 0) + e.amount);
+  const topCats = [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const goWeek = (k: number) => go(`money/week?w=${addDays(w, 7 * k)}`);
+  return (
+    <div className="stack">
+      <div className="m-weeknav">
+        <button className="icon-btn" aria-label={L('الأسبوع اللي قبل', 'Previous week')} onClick={() => goWeek(-1)}><Icon name="back" size={18} /></button>
+        <div><b>{w === thisWeek ? L('هالأسبوع', 'This week') : w === addDays(thisWeek, -7) ? L('الأسبوع اللي فات', 'Last week') : `${fmtDate(w, false)} – ${fmtDate(addDays(w, 6), false)}`}</b><span className="money">{fmtMoney(total)}</span></div>
+        <button className="icon-btn" aria-label={L('الأسبوع اللي بعد', 'Next week')} disabled={w >= thisWeek} onClick={() => goWeek(1)}><Icon name="chevron" size={18} /></button>
+      </div>
+      {prev > 0 && <p className="faint small" style={{ margin: '0 4px' }}>{total <= prev ? L(`أقل من الأسبوع اللي قبله بـ ${fmtMoney(prev - total)}`, `${fmtMoney(prev - total)} less than the week before`) : L(`أكثر من الأسبوع اللي قبله بـ ${fmtMoney(total - prev)}`, `${fmtMoney(total - prev)} more than the week before`)}</p>}
+      <div className="card m-days">
+        {rows.map((x) => (
+          <button key={x.d} className={`${x.d === today ? 'today' : ''} ${x.d > today ? 'later' : ''}`} disabled={x.d > today} onClick={() => go(`money/d?d=${x.d}`)}>
+            <span className="n"><b>{DAY_NAMES()[parseKey(x.d).getDay()]}</b><small>{fmtDate(x.d, false)}</small></span>
+            <span className="bar"><i style={{ width: `${(x.total / max) * 100}%` }} /></span>
+            <span className="v"><b className="money">{x.total ? fmtNum(x.total) : '—'}</b><small>{x.list.length ? L(buysAr(x.list.length), `${x.list.length} items`) : x.d > today ? '' : L('بدون صرف', 'no spend')}</small></span>
+            {x.d <= today && <Icon name="chevron" size={14} className="chev-end" />}
+          </button>
+        ))}
+      </div>
+      {topCats.length > 0 && (
+        <section>
+          <div className="group-title"><span>{L('على وش صرفت', 'Where it went')}</span></div>
+          <div className="card m-cats-r">
+            {topCats.map(([cat, t]) => {
+              const info = catInfo(cat);
+              return (
+                <button key={cat} className="cr" onClick={() => go(`money/cat?c=${encodeURIComponent(cat)}&p=week&w=${w}`)}>
+                  <span className="em" style={{ background: info.bg }}>{info.emoji}</span>
+                  <span className="grow"><b>{info.label}</b><span className="mb"><i style={{ width: `${(t / topCats[0][1]) * 100}%`, background: info.color }} /></span></span>
+                  <span className="v"><b className="money">{fmtNum(t)}</b></span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** one day: its purchases, newest first; tap one to edit it */
+function DayPage({ day }: { day: string }) {
+  const s = useApp();
+  const today = todayKey();
+  const list = s.expenses.filter((e) => e.day === day).sort(byTime);
+  const total = sumOf(list);
+  const w = addDays(day, -parseKey(day).getDay());
+  return (
+    <div>
+      <PageTop title={`${DAY_NAMES()[parseKey(day).getDay()]} ${fmtDate(day, false)}`} sub={list.length ? L(`${fmtMoney(total)} · ${buysAr(list.length)}`, `${fmtMoney(total)} · ${list.length} items`) : L('ما صرفت شي هاليوم', 'Nothing spent this day')} back={{ label: L('الأسبوع', 'Week'), to: `money/week?w=${w}` }} />
+      <div className="m-weeknav sm">
+        <button className="icon-btn" aria-label={L('اليوم اللي قبل', 'Previous day')} onClick={() => go(`money/d?d=${addDays(day, -1)}`)}><Icon name="back" size={18} /></button>
+        <b>{relDay(day, today)}</b>
+        <button className="icon-btn" aria-label={L('اليوم اللي بعد', 'Next day')} disabled={day >= today} onClick={() => go(`money/d?d=${addDays(day, 1)}`)}><Icon name="chevron" size={18} /></button>
+      </div>
+      {list.length ? <div className="card m-list">{list.map((e) => <ExpenseRow key={e.id} e={e} />)}</div> : (
+        <div className="card"><Empty icon="wallet" title={L('يوم بدون صرف 🌱', 'A no-spend day 🌱')} /></div>
+      )}
+    </div>
+  );
+}
+
+/** one category: its purchases in the period, grouped by day, each with amount and time */
+function CatPage({ cat, period }: { cat: string; period: Period }) {
+  const s = useApp();
+  const r = useRoute();
+  const today = todayKey();
+  const w = r.query.get('w');
+  const [from, to] = period === 'week' && w ? [w, addDays(w, 6)] : rangeOf(period, today);
+  const info = catInfo(cat);
+  const list = s.expenses.filter((e) => e.cat === cat && e.day >= from && e.day <= to).sort((a, b) => b.day.localeCompare(a.day) || byTime(a, b));
+  const total = sumOf(list);
+  const days: { day: string; items: Expense[]; total: number }[] = [];
+  for (const e of list) {
+    let g = days.find((x) => x.day === e.day);
+    if (!g) days.push((g = { day: e.day, items: [], total: 0 }));
+    g.items.push(e);
+    g.total += e.amount;
+  }
+  return (
+    <div>
+      <PageTop title={`${info.emoji} ${info.label}`} sub={list.length ? L(`${fmtMoney(total)} · ${list.length === 1 ? 'مرة' : list.length === 2 ? 'مرتين' : `${list.length} مرات`} · متوسط ${fmtMoney(total / list.length)}`, `${fmtMoney(total)} · ${list.length} times · avg ${fmtMoney(total / list.length)}`) : L('ما فيه مشتريات بهالفترة', 'No purchases in this period')} back={{ label: L('مصاريفي', 'Spending'), to: period === 'week' && w ? `money/week?w=${w}` : 'money/report' }} />
+      <div style={{ marginBottom: 14 }}>
+        <Seg value={period} onChange={(p) => go(`money/cat?c=${encodeURIComponent(cat)}&p=${p}`)} options={[{ v: 'week', l: L('الأسبوع', 'Week') }, { v: 'month', l: L('الشهر', 'Month') }, { v: 'year', l: L('السنة', 'Year') }]} />
+      </div>
+      <p className="faint small" style={{ margin: '0 4px 12px' }}>{fmtDate(from, false)} – {fmtDate(to, false)}</p>
+      {days.length ? days.map((g) => (
+        <section key={g.day}>
+          <div className="group-title"><button className="m-daylink" onClick={() => go(`money/d?d=${g.day}`)}>{relDay(g.day, today)} · {fmtDate(g.day, false)}</button><span className="money">{fmtMoney(g.total)}</span></div>
+          <div className="card m-list">{g.items.map((e) => <ExpenseRow key={e.id} e={e} />)}</div>
+        </section>
+      )) : <div className="card"><Empty icon="wallet" title={L('ما صرفت على هالتصنيف بهالفترة 👏', 'Nothing in this category for this period 👏')} /></div>}
     </div>
   );
 }
