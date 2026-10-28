@@ -28,6 +28,7 @@ const SyncJoin = lazy(() => import('./pages/SyncJoin').then((m) => ({ default: m
 import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
 import { CoachFab } from './ui/Coach';
+import { RemindersPage } from './ui/Remind';
 import { todayKey } from './lib/dates';
 import { lastOf, PAIRS, remember } from './ui/pairs';
 import { L } from './lib/i18n';
@@ -63,7 +64,7 @@ function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'settings') return { page: 'me' };
   if (page === 'install') return { page: 'install' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders') return { page, id };
   return { page: 'today' };
 }
 
@@ -158,6 +159,9 @@ export function App() {
       break;
     case 'schedule':
       body = <Schedule />;
+      break;
+    case 'reminders':
+      body = <RemindersPage />;
       break;
     case 'install':
       body = <div><PageTop title={L('ثبّت «مدار»', 'Install Madar')} /><InstallCard always /></div>;

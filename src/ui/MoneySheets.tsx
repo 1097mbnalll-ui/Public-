@@ -5,7 +5,7 @@ import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, addMonths, fmtDate, todayKey } from '../lib/dates';
+import { addDays, addMonths, atTime, fmtDate, todayKey } from '../lib/dates';
 import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, parseMoney, suggestBudget } from '../lib/engine/money';
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
@@ -375,6 +375,7 @@ export function SubSheet({ id }: { id?: string }) {
             A.saveSub({ id, name: name.trim(), amount: amount || 0, cycle, next, kind, lastUsed: existing?.lastUsed ?? today });
             closeSheet();
           }}>{L('حفظ', 'Save')}</button>
+          {existing && <button className="icon-btn" aria-label={L('ذكّرني قبلها بيوم', 'Remind me a day before')} onClick={() => openSheet({ type: 'remind', title: L(`${existing.kind === 'bill' ? 'فاتورة' : 'اشتراك'} ${existing.name}: ${fmtMoney(existing.amount)}`, `${existing.name}: ${fmtMoney(existing.amount)}`), ref: 'money/save', at: Math.max(Date.now() + 3600_000, atTime(addDays(existing.next, -1), '20:00')) })}><Icon name="bell" size={18} /></button>}
           {existing && <button className="btn danger" onClick={() => { A.deleteSub(existing.id); closeSheet(); toast(L('حُذف الاشتراك', 'Subscription removed'), { undoable: true }); }}><Icon name="trash" size={15} /></button>}
         </>
       }

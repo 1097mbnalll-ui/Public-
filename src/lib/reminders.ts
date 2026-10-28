@@ -8,6 +8,7 @@ import { mutate } from './store';
 import { planDay } from './engine/planner';
 import { nextWorkout } from './engine/gym';
 import { L } from './i18n';
+import { nextAfter } from './engine/remind';
 import { isNative, nativeNotifyNow, nativePermission, requestNativeNotifications } from './native';
 
 export interface DueReminder {
@@ -19,6 +20,7 @@ export interface DueReminder {
   kind: 'manual' | 'auto';
   task?: string;
   proc?: string;
+  rem?: string;
 }
 
 export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
@@ -31,6 +33,10 @@ export function collectDue(state: AppState, now = Date.now()): DueReminder[] {
     if (p.archived || p.completedAt || !p.reminder || p.reminder.fired || p.reminder.at > now) continue;
     const next = p.steps.find((s) => !s.done);
     out.push({ id: `proc:${p.id}`, title: p.title, body: p.reminder.note || (next ? L(`الخطوة التالية: ${next.title}`, `Next step: ${next.title}`) : L('تذكير بإجراء', "Procedure reminder")), at: p.reminder.at, ref: `work/${p.id}`, kind: 'manual', proc: p.id });
+  }
+  for (const r of state.reminds || []) {
+    if (r.done || r.at > now) continue;
+    out.push({ id: `rem:${r.id}:${r.at}`, title: r.title, body: r.note || L('تذكير', 'Reminder'), at: r.at, ref: r.ref || 'reminders', kind: 'manual', rem: r.id });
   }
   if (!state.settings.nudges) return out;
 
@@ -159,6 +165,16 @@ export function tick(state: AppState, now = Date.now()): DueReminder[] {
       } else if (r.proc) {
         const p = s.procedures.find((x) => x.id === r.proc);
         if (p?.reminder) p.reminder.fired = true;
+      } else if (r.rem) {
+        const x = s.reminds.find((y) => y.id === r.rem);
+        if (x) {
+          // a repeat moves to its next time after now (alerts missed while away collapse into one)
+          const next = nextAfter(x, Math.max(now, x.at));
+          if (next == null) x.done = true;
+          else x.at = next;
+          x.lastAt = r.at;
+          x.updatedAt = now;
+        }
       } else s.fired[r.id] = now;
     }
     for (const r of missed) s.missed.push({ id: r.id, title: r.title, at: r.at, ref: r.ref });
@@ -179,6 +195,8 @@ export interface CalEvent {
   allDay?: boolean;
   description?: string;
   alarmMinutes?: number[];
+  /** e.g. FREQ=WEEKLY;BYDAY=SU,TU — the calendar repeats it on its own */
+  rrule?: string;
 }
 
 const icsEsc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => '\\' + m);
@@ -197,6 +215,7 @@ export function buildIcs(events: CalEvent[]): string {
     } else {
       lines.push(`DTSTART:${icsDate(e.start)}`, `DTEND:${icsDate(e.start + (e.minutes || 30) * 60000)}`);
     }
+    if (e.rrule) lines.push(`RRULE:${e.rrule}`);
     lines.push(`SUMMARY:${icsEsc(e.title)}`);
     if (e.description) lines.push(`DESCRIPTION:${icsEsc(e.description)}`);
     for (const m of e.alarmMinutes || [0])

@@ -95,6 +95,7 @@ export function initialState(): AppState {
     money: { swaps: {} },
     gym: { rot: 0, sessions: [], body: [], info: {} },
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] },
+    reminds: [],
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -113,10 +114,11 @@ export function migrate(raw: any): AppState {
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [], ...(raw.future || {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
-  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule'] as const) {
+  for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule', 'reminds'] as const) {
     // a damaged entry (null, a number…) would crash every page that lists it
     (s as any)[k] = Array.isArray(s[k]) ? (s[k] as unknown[]).filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
   }
+  s.reminds = s.reminds.filter((r) => typeof r.at === 'number' && Number.isFinite(r.at)).map((r) => ({ ...r, title: String(r.title ?? ''), repeat: ['none', 'daily', 'weekly', 'monthly', 'yearly'].includes(r.repeat) ? r.repeat : 'none' }));
   for (const k of ['available', 'studyCap'] as const) {
     const v = s.settings[k];
     if (!Array.isArray(v) || v.length !== 7 || v.some((m) => typeof m !== 'number' || !(m >= 0))) s.settings[k] = [...DEFAULT_SETTINGS[k]];

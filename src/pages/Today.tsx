@@ -23,6 +23,7 @@ import { MoneyTile } from './Money';
 import { StudyToday } from './Study';
 import { GymTodayCard } from './Gym';
 import { FutureTodayCard } from './Future';
+import { RemindTodayStrip } from '../ui/Remind';
 import { fmtNum, moneyToday } from '../lib/engine/money';
 import type { AppState } from '../lib/types';
 
@@ -709,6 +710,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         <WrapUp plan={plan} now={now} />
         {hero}
+        <RemindTodayStrip />
         <StudyToday plan={study} compact />
         <GymTodayCard />
         <FutureTodayCard />
@@ -735,6 +737,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     main = (
       <>
         {hero}
+        <RemindTodayStrip />
         <StudyToday plan={study} compact />
         <GymTodayCard />
         <FutureTodayCard />
@@ -780,6 +783,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       ) : empty ? (
         <div className="stack">
         <InstallCard />
+        <RemindTodayStrip />
         <GymTodayCard />
         <FutureTodayCard />
         <MoneyTile now={now} />
@@ -788,6 +792,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
               <button className="btn primary sm" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>
               <button className="btn sm" onClick={() => openSheet({ type: 'quick', text: '' , mode: 'proc' })}>{L("إجراء عمل", "Work procedure")}</button>
               <button className="btn sm" onClick={() => openSheet({ type: 'course' })}>{L("مادة دراسية", "Course")}</button>
+              <button className="btn sm" onClick={() => openSheet({ type: 'remind' })}><Icon name="bell" size={15} />{L(" تذكير", " Reminder")}</button>
             </div>
           </Empty>
         </div>

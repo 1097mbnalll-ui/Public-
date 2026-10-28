@@ -21,6 +21,7 @@ import { AUTO, THEMES } from '../lib/themes';
 import { getAiKey, hasAiKey, setAiKey, testAiKey } from '../lib/ai';
 import { useSyncConf } from '../lib/sync';
 import { isNative } from '../lib/native';
+import { NotifyStatus } from '../ui/Remind';
 import { clearOwnFont, setOwnFont, useOwnFont } from '../lib/localFont';
 
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
@@ -54,8 +55,8 @@ export function Settings() {
     setPerm(r);
     if (r === 'granted') {
       A.updateSettings({ notifications: true });
-      toast(L('فُعّلت إشعارات المتصفح', "Browser notifications enabled"));
-    } else if (r === 'denied') toast(L('الإذن مرفوض من المتصفح. فعّله من إعدادات الموقع في المتصفح.', "The browser denied permission. Allow it in the browser's site settings."));
+      toast(isNative() ? L('فُعّلت الإشعارات', 'Notifications enabled') : L('فُعّلت إشعارات المتصفح', "Browser notifications enabled"));
+    } else if (r === 'denied') toast(isNative() ? L('الإذن مرفوض — فعّله من إعدادات الجوال ← التطبيقات ← مدار ← الإشعارات', 'Denied — allow it in phone Settings → Apps → Madar → Notifications') : L('الإذن مرفوض من المتصفح. فعّله من إعدادات الموقع في المتصفح.', "The browser denied permission. Allow it in the browser's site settings."));
   };
 
   const onFile = async (f?: File) => {
@@ -119,6 +120,7 @@ export function Settings() {
       </Section>
 
       <Section title={L("التذكيرات والتنبيهات", "Reminders & notifications")}>
+        <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => go('reminders')}><Icon name="bell" size={16} />{L(` تذكيراتي${s.reminds.filter((r) => !r.done).length ? ` (${s.reminds.filter((r) => !r.done).length})` : ''} — ذكّرني بأي شي`, ` My reminders${s.reminds.filter((r) => !r.done).length ? ` (${s.reminds.filter((r) => !r.done).length})` : ''} — remind me of anything`)}<Icon name="chevron" size={14} /></button>
         <div className="notice">
           <Icon name="info" size={18} />
           <div>
@@ -127,7 +129,7 @@ export function Settings() {
         </div>
         <div className="row between">
           <div>
-            <div style={{ fontWeight: 500 }}>{L("إشعارات المتصفح", "Browser notifications")}</div>
+            <div style={{ fontWeight: 500 }}>{isNative() ? L('الإشعارات', 'Notifications') : L("إشعارات المتصفح", "Browser notifications")}</div>
             <div className="faint tiny">
               {perm === 'unsupported' ? L('غير مدعومة في هذا المتصفح — التذكيرات تظهر داخل الموقع', "Not supported in this browser — reminders show inside the site") : perm === 'granted' ? L('الإذن ممنوح', "Permission granted") : perm === 'denied' ? L('مرفوضة من المتصفح', "Denied by the browser") : L('لم يُطلب الإذن بعد', "Not requested yet")}
             </div>
@@ -138,6 +140,7 @@ export function Settings() {
             <button className="btn sm" onClick={enableNotif}>{L("تفعيل", "Enable")}</button>
           ) : null}
         </div>
+        {isNative() && perm === 'granted' && st.notifications && <NotifyStatus />}
         {perm === 'granted' && st.notifications && (
           <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={async () => {
             const ok = await showSystemNotification(L('تجربة من مدار', "Test from Madar"), L('هكذا ستصلك التذكيرات.', "This is how reminders will reach you."), 'test');

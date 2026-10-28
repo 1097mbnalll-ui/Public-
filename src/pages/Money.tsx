@@ -17,10 +17,9 @@ import type { Expense } from '../lib/types';
 import { L } from '../lib/i18n';
 
 const short = (d: string) => (L('ح ن ث ر خ ج س', 'Su Mo Tu We Th Fr Sa').split(' '))[parseKey(d).getDay()];
-/** مصاريفي: today (budget card, last 7 days, quick chips, list) · where to save · report */
-
 const buysAr = (n: number) => (n === 1 ? 'مشترى واحد' : n === 2 ? 'مشتريين' : n <= 10 ? `${n} مشتريات` : `${n} مشترى`);
 
+/** مصاريفي: today (budget card, last 7 days, quick chips, list) · where to save · report */
 export function Money() {
   const route = useRoute();
   if (route.id === 'd') return <DayPage day={route.query.get('d') || todayKey()} />;

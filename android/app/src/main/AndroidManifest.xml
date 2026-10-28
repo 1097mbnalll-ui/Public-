@@ -38,4 +38,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- reminders ring on the minute: Android 13+ grants this to reminder/calendar apps at install,
+         so nothing has to be switched on by hand (older phones use SCHEDULE_EXACT_ALARM from the plugin) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>

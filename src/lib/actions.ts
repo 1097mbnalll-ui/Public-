@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, FutureProject, FutureReview, FutureSkill, FutureStage, FutureVision, FutureWin, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Step, StepKind, Subscription, Task, Template, Unit } from './types';
+import type { AppState, Area, BodyLog, FutureProject, FutureReview, FutureSkill, FutureStage, FutureVision, FutureWin, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, StepKind, Subscription, Task, Template, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
@@ -12,6 +12,7 @@ import { L } from './i18n';
 import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
 import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
+import { nextAfter } from './engine/remind';
 
 const now = () => Date.now();
 
@@ -1267,4 +1268,45 @@ export function saveReview(r: Omit<FutureReview, 'id' | 'createdAt'>) {
   mutate((s) => {
     s.future.reviews.push({ ...r, id: uid(), createdAt: now() });
   });
+}
+
+// ---------- «ذكّرني» ----------
+
+export function saveRemind(r: Omit<Remind, 'id' | 'createdAt'> & { id?: string }): string {
+  const id = r.id || uid();
+  const now = Date.now();
+  mutate((s) => {
+    const old = s.reminds.find((x) => x.id === id);
+    // a time set in the past for a repeat starts from its next turn
+    const at = r.at <= now && r.repeat !== 'none' ? nextAfter(r, now) ?? r.at : r.at;
+    const next: Remind = { ...old, ...r, id, at, done: false, createdAt: old?.createdAt ?? now, updatedAt: now };
+    if (!next.note) delete next.note;
+    if (!next.ref) delete next.ref;
+    if (next.repeat !== 'weekly') delete next.days;
+    if (old) Object.assign(old, next);
+    else s.reminds.push(next);
+  }, L('حفظ التذكير', 'Save reminder'));
+  return id;
+}
+
+export function deleteRemind(id: string) {
+  mutate((s) => {
+    s.reminds = s.reminds.filter((x) => x.id !== id);
+  }, L('حذف التذكير', 'Delete reminder'));
+}
+
+/** «أجّل»: the same reminder again in `minutes` (a repeat keeps its schedule afterwards) */
+export function snoozeRemind(id: string, minutes: number, now = Date.now()) {
+  mutate((s) => {
+    const r = s.reminds.find((x) => x.id === id);
+    if (!r) return;
+    if (r.repeat === 'none') {
+      r.at = now + minutes * 60000;
+      r.done = false;
+    } else {
+      // a one-off copy, so the repeat isn't shifted
+      s.reminds.push({ id: uid(), title: r.title, ...(r.note ? { note: r.note } : {}), ...(r.ref ? { ref: r.ref } : {}), at: now + minutes * 60000, repeat: 'none', createdAt: now, updatedAt: now });
+    }
+    r.updatedAt = now;
+  }, L('تأجيل التذكير', 'Snooze reminder'));
 }

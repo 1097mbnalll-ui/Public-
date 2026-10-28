@@ -415,6 +415,7 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
             <button className="btn" onClick={() => { A.startTimer({ kind: 'study', refId: existing!.id, courseId: cid, unitId: ep?.todayUnits[0]?.unit.id, label: L(`مذاكرة ${course?.name}`, `Study ${course?.name}`) }); closeSheet(); }}>
               <Icon name="play" size={15} />{L(" ابدأ مؤقت", " Start timer")}</button>
             <span className="grow" />
+            <button className="icon-btn" aria-label={L('ذكّرني', 'Remind me')} onClick={() => openSheet({ type: 'remind', title: L(`اختبار ${course?.name || ''}: ${existing!.title}`, `${course?.name || ''} exam: ${existing!.title}`), ref: 'study', at: Math.max(Date.now() + 3600_000, atTime(addDays(existing!.date, -2), '20:00')) })}><Icon name="bell" size={18} /></button>
             <button className="btn ghost" onClick={exportCal}><Icon name="calplus" size={16} />{L(" للتقويم", " Calendar")}</button>
           </>
         )

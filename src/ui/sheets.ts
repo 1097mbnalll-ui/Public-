@@ -42,7 +42,8 @@ export type SheetSpec =
   | { type: 'fu-win'; id?: string; skillId?: string; projectId?: string }
   | { type: 'fu-stage'; id?: string }
   | { type: 'fu-review'; kind: 'week' | 'month' }
-  | { type: 'fu-posting'; id?: string };
+  | { type: 'fu-posting'; id?: string }
+  | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };
 
 let current: SheetSpec | null = null;
 const ls = new Set<() => void>();

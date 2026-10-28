@@ -10,6 +10,26 @@ export interface Reminder {
   note?: string;
 }
 
+export type RemindRepeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/** «ذكّرني»: a reminder for anything, on its own or tied to a page */
+export interface Remind {
+  id: string;
+  title: string;
+  note?: string;
+  /** the next time it alerts (epoch ms); for a repeat it moves forward after each alert */
+  at: number;
+  repeat: RemindRepeat;
+  /** weekly: the weekdays (0 = Sunday); empty means the weekday of `at` */
+  days?: number[];
+  /** the page it opens */
+  ref?: string;
+  done?: boolean;
+  lastAt?: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export interface Recurrence {
   every: number;
   unit: 'day' | 'week' | 'month';
@@ -635,6 +655,7 @@ export interface AppState {
   money: MoneyState;
   gym: GymState;
   future: FutureState;
+  reminds: Remind[];
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

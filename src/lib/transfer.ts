@@ -131,7 +131,7 @@ function unionById<T extends WithId>(mine: T[], theirs: T[]): T[] {
   return [...map.values()];
 }
 
-const LISTS = ['tasks', 'procedures', 'goals', 'courses', 'units', 'exams', 'sessions', 'thoughts', 'templates', 'expenses', 'subs', 'schedule'] as const;
+const LISTS = ['tasks', 'procedures', 'goals', 'courses', 'units', 'exams', 'sessions', 'thoughts', 'templates', 'expenses', 'subs', 'schedule', 'reminds'] as const;
 export type IdSnapshot = Partial<Record<(typeof LISTS)[number], string[]>>;
 
 /** the ids in each list — what both devices agreed on at the last sync */
@@ -169,6 +169,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   out.expenses = unionById(mine.expenses || [], theirs.expenses || []);
   out.subs = unionById(mine.subs || [], theirs.subs || []);
   out.schedule = unionById(mine.schedule || [], theirs.schedule || []);
+  out.reminds = unionById(mine.reminds || [], theirs.reminds || []);
   out.money = {
     ...theirs.money,
     ...mine.money,

@@ -5,6 +5,7 @@ import type { AppState } from './types';
 import { addDays, atTime, fmtClock, todayKey } from './dates';
 import { getState, subscribe } from './store';
 import { L } from './i18n';
+import { occurrences } from './engine/remind';
 
 /** the public site — links made in the app (pairing, sharing) must point here, not inside the app */
 export const SITE_URL = 'https://1097mbnalll-ui.github.io/Public-/';
@@ -14,20 +15,60 @@ export const isNative = (): boolean => !!(globalThis as { Capacitor?: { isNative
 let permission: NotificationPermission | 'unsupported' = 'default';
 export const nativePermission = () => permission;
 
+/** Android 12+ asks separately for alarms that ring on the minute («المنبهات والتذكيرات») */
+let exact: 'granted' | 'denied' = 'granted';
+export const nativeExact = () => exact;
+
+// our own channel at high importance, so a reminder pops up and makes a sound instead of landing silently
+const CHANNEL = 'madar-reminders';
+const ICON = 'ic_stat_madar';
+const COLOR = '#7E62F0';
+
 const plugin = () => import('@capacitor/local-notifications').then((m) => m.LocalNotifications);
 
 export async function requestNativeNotifications(): Promise<NotificationPermission> {
   const ln = await plugin();
   const r = await ln.requestPermissions();
   permission = r.display === 'granted' ? 'granted' : 'denied';
-  if (permission === 'granted') void reschedule();
+  if (permission === 'granted') void reschedule(true);
   return permission;
+}
+
+async function checkExact() {
+  try {
+    const ln = await plugin();
+    exact = (await ln.checkExactNotificationSetting()).exact_alarm === 'granted' ? 'granted' : 'denied';
+  } catch {
+    exact = 'granted';
+  }
+  return exact;
+}
+
+/** opens the phone's «المنبهات والتذكيرات» page for this app; back from it, reminds on the minute */
+export async function requestNativeExact() {
+  const ln = await plugin();
+  try {
+    exact = (await ln.changeExactNotificationSetting()).exact_alarm === 'granted' ? 'granted' : 'denied';
+  } catch {
+    await checkExact();
+  }
+  void reschedule(true);
+  return exact;
+}
+
+/** how many alerts the phone is holding for us right now (shown in settings) */
+export async function nativePendingCount() {
+  try {
+    return (await (await plugin()).getPending()).notifications.length;
+  } catch {
+    return 0;
+  }
 }
 
 /** shows now (the settings "test" button) */
 export async function nativeNotifyNow(title: string, body: string) {
   const ln = await plugin();
-  await ln.schedule({ notifications: [{ id: 1, title, body, schedule: { at: new Date(Date.now() + 1000) } }] });
+  await ln.schedule({ notifications: [{ id: 1, title, body, channelId: CHANNEL, smallIcon: ICON, iconColor: COLOR, isExactNotification: exact === 'granted', schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true } }] });
 }
 
 interface Upcoming {
@@ -59,6 +100,7 @@ function upcoming(state: AppState, now: number): Upcoming[] {
       const course = state.courses.find((c) => c.id === e.courseId);
       add({ key: `exam:${e.id}`, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well.`), at: atTime(addDays(e.date, -1), '20:00'), ref: 'study' });
     }
+  for (const r of state.reminds || []) for (const at of occurrences(r, now, until)) add({ key: `rem:${r.id}:${at}`, title: r.title, body: r.note || L('تذكير', 'Reminder'), at, ref: r.ref || 'reminders' });
   const gp = state.gym?.profile;
   if (gp?.time)
     for (let i = 0; i < 7; i++) {
@@ -81,14 +123,46 @@ const idOf = (key: string) => {
 };
 
 let timer: ReturnType<typeof setTimeout> | null = null;
+let lastSig = '';
+let running: Promise<void> = Promise.resolve();
 
-async function reschedule() {
-  if (permission !== 'granted' || !getState().settings.notifications) return;
-  const ln = await plugin();
-  const pending = await ln.getPending();
-  if (pending.notifications.length) await ln.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
-  const list = upcoming(getState(), Date.now());
-  if (list.length) await ln.schedule({ notifications: list.map((u) => ({ id: idOf(u.key), title: u.title, body: u.body, schedule: { at: new Date(u.at), allowWhileIdle: true }, extra: { ref: u.ref } })) });
+/**
+ * Hands the phone the coming week's alerts. Only when the list changed — every edit in the app
+ * triggers this, and redoing it each time is wasted work. Never lets the plugin open the
+ * exact-alarm settings page by itself: without that permission alerts are scheduled as
+ * «تقريبي» (may come a few minutes late), and settings offers the switch.
+ */
+function reschedule(force = false) {
+  running = running.then(async () => {
+    const off = permission !== 'granted' || !getState().settings.notifications;
+    const list = off ? [] : upcoming(getState(), Date.now());
+    const sig = off ? 'off' : `${exact}|${list.map((u) => `${u.key}@${u.at}:${u.title}:${u.body}`).join('|')}`;
+    if (!force && sig === lastSig) return;
+    lastSig = sig;
+    const ln = await plugin();
+    const pending = await ln.getPending();
+    const mine = pending.notifications.filter((n) => n.id !== 1);
+    if (mine.length) await ln.cancel({ notifications: mine.map((n) => ({ id: n.id })) });
+    if (list.length)
+      await ln.schedule({
+        notifications: list.map((u) => ({ id: idOf(u.key), title: u.title, body: u.body, channelId: CHANNEL, smallIcon: ICON, iconColor: COLOR, isExactNotification: exact === 'granted', schedule: { at: new Date(u.at), allowWhileIdle: true }, extra: { ref: u.ref } })),
+      });
+  }).catch(() => {
+    lastSig = '';
+  });
+  return running;
+}
+
+async function refreshNative() {
+  try {
+    const ln = await plugin();
+    const r = await ln.checkPermissions();
+    permission = r.display === 'granted' ? 'granted' : r.display === 'denied' ? 'denied' : 'default';
+    await checkExact();
+  } catch {
+    return;
+  }
+  void reschedule();
 }
 
 /** on start in the app: permission, tapping a notification opens its page, and keep the schedule current */
@@ -98,6 +172,8 @@ export async function startNative() {
     const ln = await plugin();
     const r = await ln.checkPermissions();
     permission = r.display === 'granted' ? 'granted' : r.display === 'denied' ? 'denied' : 'default';
+    await checkExact();
+    await ln.createChannel({ id: CHANNEL, name: L('تذكيرات مدار', 'Madar reminders'), description: L('التذكيرات ومواعيد المهام والاختبارات', 'Reminders, task times and exams'), importance: 5, visibility: 1, vibration: true, lights: true, lightColor: COLOR }).catch(() => {});
     await ln.addListener('localNotificationActionPerformed', (a) => {
       const ref = a.notification.extra?.ref;
       if (typeof ref === 'string') location.hash = `#/${ref}`;
@@ -106,7 +182,12 @@ export async function startNative() {
     permission = 'unsupported';
     return;
   }
-  void reschedule();
+  void reschedule(true);
+  // back to the app (maybe after changing a permission in the phone's settings): check again
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    void refreshNative();
+  });
   subscribe(() => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => void reschedule(), 2000);

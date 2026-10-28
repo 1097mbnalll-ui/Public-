@@ -137,7 +137,7 @@ export function QuickAdd({ initial = '', initialMode = 'task' }: { initial?: str
       }
     >
       <div className="qa">
-        <Seg value={isProc ? 'proc' : 'task'} onChange={(m: Mode) => { setMode(m); setModeTouched(true); setPicked(null); }} options={[{ v: 'task', l: L('مهمة', 'Task') }, { v: 'proc', l: L('إجراء عمل', 'Work procedure') }]} />
+        <Seg<Mode | 'remind'> value={isProc ? 'proc' : 'task'} onChange={(m) => { if (m === 'remind') return openSheet({ type: 'remind', title: text.trim() || undefined }); setMode(m); setModeTouched(true); setPicked(null); }} options={[{ v: 'task', l: L('مهمة', 'Task') }, { v: 'proc', l: L('إجراء عمل', 'Work procedure') }, { v: 'remind', l: L('تذكير', 'Reminder') }]} />
 
         <input
           className="input big"

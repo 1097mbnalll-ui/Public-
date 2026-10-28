@@ -11,6 +11,8 @@ import { closeSheet, openSheet, useSheet } from './sheets';
 import { toast } from './toast';
 import { go } from './router';
 import { QuickAdd } from './QuickAdd';
+import { isNative } from '../lib/native';
+import { RemindSheet } from './Remind';
 import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
@@ -109,6 +111,8 @@ export function SheetHost() {
       return <FutureReviewSheet kind={sh.kind} />;
     case 'fu-posting':
       return <FuturePostingSheet key={sh.id || 'new'} id={sh.id} />;
+    case 'remind':
+      return <RemindSheet key={sh.id || sh.title || 'new'} id={sh.id} title={sh.title} refTo={sh.ref} at={sh.at} />;
   }
 }
 
@@ -253,14 +257,14 @@ function Onboarding() {
       {step === 2 && (
         <div className="col" style={{ gap: 12 }}>
           <div className="notice"><Icon name="shield" size={18} /><div><b>{L("بياناتك على جهازك فقط.", "Your data stays on your device.")}</b>{L(" بدون حسابات. لا يخرج منه شيء إلا إذا فعّلت المزامنة (لسكربت قوقل الخاص بك، مشفّرة) أو أضفت مفتاح Claude. نزّل نسخة احتياطية بين فترة وأخرى.", " No accounts. Nothing leaves it unless you turn on sync (to your own Google script, encrypted) or add a Claude key. Download a backup every now and then.")}</div></div>
-          <div className="notice"><Icon name="bell" size={18} /><div><b>{L("التنبيهات تعمل والموقع مفتوح.", "Reminders work while the site is open.")}</b>{L(" ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».", " Anything missed while it's closed shows up when you open it. For guaranteed alerts use the “Add to calendar” button.")}</div></div>
+          <div className="notice"><Icon name="bell" size={18} /><div>{isNative() ? <><b>{L('التذكيرات توصلك حتى و«مدار» مسكّر.', 'Reminders arrive even with Madar closed.')}</b>{L(' فعّل الإشعارات تحت عشان تشتغل.', ' Enable notifications below so they work.')}</> : <><b>{L("التنبيهات تعمل والموقع مفتوح.", "Reminders work while the site is open.")}</b>{L(" ما يفوتك وهو مغلق يظهر لك عند فتحه. للتنبيهات المضمونة استخدم زر «أضف للتقويم».", " Anything missed while it's closed shows up when you open it. For guaranteed alerts use the “Add to calendar” button.")}</>}</div></div>
           <div className="notice"><Icon name="info" size={18} /><div><b>{L("كل الحسابات من بياناتك.", "All calculations come from your data.")}</b>{L(" التقديرات تتحسن كلما سجلت وقتك الفعلي. الذكاء الاصطناعي اختياري ولا يعمل إلا بمفتاحك.", " Estimates improve as you log your real time. AI is optional and only runs with your own key.")}</div></div>
           <button className="btn" onClick={async () => {
             const r = await requestNotifications();
-            if (r === 'granted') { A.updateSettings({ notifications: true }); toast(L('فُعّلت إشعارات المتصفح', "Browser notifications enabled")); }
+            if (r === 'granted') { A.updateSettings({ notifications: true }); toast(isNative() ? L('فُعّلت الإشعارات', 'Notifications enabled') : L('فُعّلت إشعارات المتصفح', "Browser notifications enabled")); }
             else toast(r === 'unsupported' ? L('هذا المتصفح لا يدعم الإشعارات — ستظهر التذكيرات داخل الموقع', "This browser doesn't support notifications — reminders will show inside the site") : L('لم يُمنح الإذن — ستظهر التذكيرات داخل الموقع', "Permission not granted — reminders will show inside the site"));
           }}>
-            <Icon name="bell" size={16} />{L(" فعّل إشعارات المتصفح", " Enable browser notifications")}</button>
+            <Icon name="bell" size={16} />{isNative() ? L(' فعّل الإشعارات', ' Enable notifications') : L(" فعّل إشعارات المتصفح", " Enable browser notifications")}</button>
         </div>
       )}
     </Sheet>
