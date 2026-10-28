@@ -193,6 +193,8 @@ export interface StudySession {
   amount: number;
   /** went over a lesson that was already studied */
   review?: boolean;
+  /** ticked as done (no time recorded): counts toward the day, never toward your pace */
+  tick?: boolean;
   at: number;
 }
 

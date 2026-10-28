@@ -3494,7 +3494,7 @@ html[lang='ar'] * {
 .ss-ls { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .ss-ls + .ss-ls { border-top: 1px solid var(--line); }
 .ss-bx { width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--line); background: none; flex: none; display: grid; place-items: center; font-weight: 900; font-size: 13px; color: #fff; cursor: pointer; }
-.ss-bx.half { border-color: var(--accent); }
+.ss-bx.half { border-color: var(--accent); color: var(--accent); }
 .ss-bx.on { background: #2FA98C; border-color: #2FA98C; }
 .ss-ls .t { flex: 1; min-width: 0; background: none; border: 0; color: inherit; text-align: start; font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0; }
 .ss-ls .t bdi { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

@@ -131,6 +131,42 @@ export function coveredOn(state: AppState, course: Course, pace: number, reviewF
   return m;
 }
 
+/**
+ * Tick a lesson done (or part-done, or reviewed) on `day`, without a timer. The day has to know you
+ * covered it today, or the share stays the same and hands you the next lesson; so a tick records a
+ * session with the material and no minutes — today's share counts it (coveredOn), your pace doesn't
+ * (it only learns from timed sessions). Changing the tick the same day replaces it; unticking
+ * removes it, giving the lesson back to today.
+ */
+export function markLessonIn(state: AppState, unitId: string, patch: { progress?: number; reviewed?: boolean }, day: string, at: number) {
+  const u = state.units.find((x) => x.id === unitId);
+  if (!u) return;
+  const mine = (review: boolean) => (x: AppState['sessions'][number]) => x.unitId === unitId && x.date === day && !!x.tick && !!x.review === review;
+  const drop = (review: boolean) => {
+    state.sessions = state.sessions.filter((x) => !mine(review)(x));
+  };
+  if (patch.progress != null) {
+    const p = clamp01(patch.progress);
+    // where the lesson stood before today's ticks
+    const ticked = state.sessions.filter(mine(false)).reduce((a, x) => a + x.amount, 0);
+    const base = u.size > 0 ? clamp01(u.progress - ticked / u.size) : u.progress;
+    drop(false);
+    if (p > base + 1e-6 && u.size > 0) state.sessions.push({ id: `t${at.toString(36)}${Math.random().toString(36).slice(2, 6)}`, courseId: u.courseId, unitId, date: day, minutes: 0, amount: (p - base) * u.size, tick: true, at });
+    u.progress = p;
+    if (p < 1 && patch.reviewed == null) {
+      drop(true);
+      u.reviewed = false;
+    }
+  }
+  if (patch.reviewed != null) {
+    const byTick = state.sessions.some(mine(true));
+    drop(true);
+    // reviewed before today by a real session: nothing new to count
+    if (patch.reviewed && (byTick || !u.reviewed)) state.sessions.push({ id: `r${at.toString(36)}${Math.random().toString(36).slice(2, 6)}`, courseId: u.courseId, unitId, date: day, minutes: 0, amount: 0, review: true, tick: true, at });
+    u.reviewed = patch.reviewed;
+  }
+}
+
 /** cut `minutes` out of the work: lessons in course order first, then their review */
 export function portionOf(work: UnitWork[], minutes: number): Portion[] {
   const out: Portion[] = [];

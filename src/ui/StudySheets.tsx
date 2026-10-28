@@ -256,7 +256,7 @@ export function LessonSheet({ id }: { id: string }) {
   const [draft, setDraft] = useState(u?.notes || '');
   if (!u) return null;
   const c = s.courses.find((x) => x.id === u.courseId);
-  const sessions = s.sessions.filter((x) => x.unitId === id);
+  const sessions = s.sessions.filter((x) => x.unitId === id && !x.tick);
   const up = (patch: Partial<Unit>) => A.updateUnit(id, patch);
   const saveNotes = () => {
     const v = draft.trim();
@@ -285,7 +285,7 @@ export function LessonSheet({ id }: { id: string }) {
           <label>{L("وين وصلت؟", "How far are you?")}</label>
           <div className="row wrap" style={{ gap: 6 }}>
             {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-              <button key={v} className={`chip btnish ${Math.abs(u.progress - v) < 0.13 ? 'on' : ''}`} onClick={() => up({ progress: v, ...(v < 1 ? { reviewed: false } : {}) })}>
+              <button key={v} className={`chip btnish ${Math.abs(u.progress - v) < 0.13 ? 'on' : ''}`} onClick={() => A.markLesson(id, { progress: v })}>
                 {v === 0 ? L('ما بدأت', "Not started") : v === 1 ? L('خلصته ✓', "Finished ✓") : `${v * 100}%`}
               </button>
             ))}
@@ -297,7 +297,7 @@ export function LessonSheet({ id }: { id: string }) {
               <div style={{ fontWeight: 600 }}>{L("راجعته", "Reviewed")}</div>
               <div className="faint tiny">{L("بعد المراجعة ما أحسب له وقت مراجعة.", "Once reviewed, no review time is counted for it.")}</div>
             </div>
-            <Switch on={u.reviewed} onChange={(v) => up({ reviewed: v })} label={L("راجعته", "Reviewed")} />
+            <Switch on={u.reviewed} onChange={(v) => A.markLesson(id, { reviewed: v })} label={L("راجعته", "Reviewed")} />
           </div>
         )}
 

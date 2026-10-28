@@ -676,9 +676,11 @@ export function SubjectSheet({ examId }: { examId: string }) {
     setTitle('');
     setMinutes('');
   };
+  // one tap: learned · a second: reviewed · a third: back to not done — today's share counts each
   const toggle = (u: Unit) => {
-    const finished = u.progress >= 1 && u.reviewed;
-    A.updateUnit(u.id, finished ? { progress: 0, reviewed: false } : { progress: 1, reviewed: true });
+    if (u.progress < 1) A.markLesson(u.id, { progress: 1 });
+    else if (!u.reviewed) A.markLesson(u.id, { reviewed: true });
+    else A.markLesson(u.id, { progress: 0, reviewed: false });
   };
   return (
     <Sheet title={course.name} onClose={closeSheet} footer={<button className="btn ghost grow" onClick={() => { closeSheet(); go(`study/${course.id}`); }}>{L('صفحة المادة كاملة', 'Full course page')}</button>}>
@@ -728,11 +730,11 @@ export function SubjectSheet({ examId }: { examId: string }) {
             const finished = u.progress >= 1 && u.reviewed;
             return (
               <div key={u.id} className={`ss-ls ${finished ? 'ok' : ''} ${todays.has(u.id) ? 'td' : ''}`}>
-                <button className={`ss-bx ${finished ? 'on' : u.progress > 0 ? 'half' : ''}`} onClick={() => toggle(u)} aria-label={finished ? L(`ارجع ${u.title} غير منتهي`, `Mark ${u.title} not done`) : L(`خلّصت ${u.title}`, `Mark ${u.title} done`)}>{finished ? '✓' : ''}</button>
+                <button className={`ss-bx ${finished ? 'on' : u.progress > 0 ? 'half' : ''}`} onClick={() => toggle(u)} title={finished ? L('خلّصته وراجعته', 'Learned and reviewed') : u.progress >= 1 ? L('خلّصته — اضغط لما تراجعه', 'Learned — tap when reviewed') : undefined} aria-label={finished ? L(`ارجع ${u.title} غير منتهي`, `Mark ${u.title} not done`) : u.progress >= 1 ? L(`راجعت ${u.title}`, `Reviewed ${u.title}`) : L(`خلّصت ${u.title}`, `Mark ${u.title} done`)}>{finished || u.progress >= 1 ? '✓' : ''}</button>
                 <button className="t" onClick={() => openSheet({ type: 'unit', id: u.id })}>
                   <bdi>{u.title}</bdi>
                   {todays.has(u.id) && <em>{L('اليوم', 'today')}</em>}
-                  {!finished && u.progress > 0 && <small className="num">{Math.round(u.progress * 100)}%</small>}
+                  {!finished && u.progress >= 1 ? <small>{L('باقي مراجعته', 'review left')}</small> : !finished && u.progress > 0 && <small className="num">{Math.round(u.progress * 100)}%</small>}
                 </button>
                 <label className="ss-min">
                   <input className="num" inputMode="numeric" value={u.size} aria-label={L(`مدة ${u.title}`, `${u.title} length`)} onChange={(e) => { const v = Number(e.target.value.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))); if (v > 0) A.updateUnit(u.id, { size: v }); }} />
@@ -885,7 +887,7 @@ function CourseDetail({ id }: { id: string }) {
   const units = s.units.filter((u) => u.courseId === id).sort((a, b) => a.order - b.order);
   const pace = coursePace(s, c);
   const remaining = units.reduce((a, u) => a + unitMinutes(u, c, pace.pace, s.settings.reviewFactor), 0);
-  const sessions = s.sessions.filter((x) => x.courseId === id).sort((a, b) => b.at - a.at);
+  const sessions = s.sessions.filter((x) => x.courseId === id && !x.tick).sort((a, b) => b.at - a.at);
   const exams = s.exams.filter((e) => e.courseId === id).sort((a, b) => b.date.localeCompare(a.date));
   const studied = sessions.reduce((a, x) => a + x.minutes, 0);
   const finished = units.filter((u) => u.progress >= 1).length;

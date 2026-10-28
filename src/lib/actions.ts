@@ -5,6 +5,7 @@ import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
 import { taskTime } from './engine/learning';
+import { markLessonIn } from './engine/study';
 import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro } from './engine/focus';
 import { L } from './i18n';
@@ -469,6 +470,11 @@ export function deleteExam(id: string) {
   mutate((s) => {
     s.exams = s.exams.filter((e) => e.id !== id);
   }, L('حذف اختبار', "Delete exam"));
+}
+
+/** tick a lesson done, part-done or reviewed — today's study counts it, your pace doesn't */
+export function markLesson(unitId: string, patch: { progress?: number; reviewed?: boolean }) {
+  mutate((s) => markLessonIn(s, unitId, patch, todayKey(), now()), L('تحديث الدرس', 'Update lesson'));
 }
 
 /** log real study: feeds progress, pace learning and today's capacity */
