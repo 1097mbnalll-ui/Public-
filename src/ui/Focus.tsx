@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { fmtMinutes, fmtTime } from '../lib/dates';
-import { planSession, pomodoro } from '../lib/engine/focus';
+import { partAt, planSession, pomodoro } from '../lib/engine/focus';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
@@ -73,6 +73,12 @@ export function FocusScreen() {
   const plan = t.plan ? planSession(0, t.plan.total, rh) : null;
   const finished = !!t.plan && p.workMs >= t.plan.total * 60000;
   const endsAt = plan ? Date.now() + Math.max(0, plan.end - elapsed) : 0;
+  // several subjects in one session: the one you're on now, and what's left of it
+  const parts = t.plan?.parts && t.plan.parts.length > 1 ? t.plan.parts : null;
+  const cur = parts ? partAt(parts, p.workMs / 60000) : null;
+  const part = parts && cur ? parts[cur.index] : null;
+  const label = part ? part.label : t.label;
+  const unitId = part ? part.unitId : t.unitId;
   useWakeLock(true);
 
   useEffect(() => {
@@ -82,12 +88,13 @@ export function FocusScreen() {
   }, [t.running]);
 
   // signal phase changes (end of a work block / end of a break)
-  const phaseKey = finished ? 'finished' : `${p.phase}:${p.done}`;
+  const phaseKey = finished ? 'finished' : `${p.phase}:${p.done}:${cur?.index ?? 0}`;
   useEffect(() => {
     if (lastPhase.current && lastPhase.current !== phaseKey && t.running) {
       chime();
       const brk = Math.round(p.length / 60000);
-      const msg = finished ? L('خلصت جلستك 🎉 سجّلها', 'Session done 🎉 log it') : p.phase === 'break' ? L(`أحسنت — استراحة ${p.long ? 'طويلة ' : ''}${brk} د`, `Well done — ${p.long ? 'long ' : ''}${brk} min break`) : L('انتهت الاستراحة — نرجع للتركيز', "Break's over — back to focus");
+      const switched = !!part && !lastPhase.current.endsWith(`:${cur!.index}`) && lastPhase.current !== 'finished';
+      const msg = finished ? L('خلصت جلستك 🎉 سجّلها', 'Session done 🎉 log it') : switched && p.phase === 'work' ? L(`خلصت حصة المادة — الحين: ${part!.label}`, `Subject done — now: ${part!.label}`) : p.phase === 'break' ? L(`أحسنت — استراحة ${p.long ? 'طويلة ' : ''}${brk} د`, `Well done — ${p.long ? 'long ' : ''}${brk} min break`) : L('انتهت الاستراحة — نرجع للتركيز', "Break's over — back to focus");
       if (document.visibilityState === 'hidden' && s.settings.notifications) showSystemNotification(L('جلسة التركيز', "Focus session"), msg, 'focus-phase', '#/today');
     }
     lastPhase.current = phaseKey;
@@ -114,13 +121,13 @@ export function FocusScreen() {
     const pr = s.procedures.find((x) => x.id === t.refId);
     const n = pr && nextStep(pr);
     if (n) sub = L(`الخطوة التالية: ${n.title}`, `Next step: ${n.title}`);
-  } else if (t.unitId) {
+  } else if (unitId) {
     // the lesson, and how much of it is left — the goal of the session
-    const u = s.units.find((x) => x.id === t.unitId);
+    const u = s.units.find((x) => x.id === unitId);
     const c = u && s.courses.find((x) => x.id === u.courseId);
     if (u) {
       const left = Math.round(u.size * (1 - Math.min(1, u.progress)) * 10) / 10;
-      const title = t.label.endsWith(u.title) ? '' : `${u.title} · `;
+      const title = label.endsWith(u.title) ? '' : `${u.title} · `;
       sub = left > 0 ? L(`${title}باقي ${szn(left, c?.sizeLabel)}`, `${title}${szn(left, c?.sizeLabel)} left`) : L(`${title}مراجعة`, `${title}review`);
     }
   }
@@ -172,7 +179,8 @@ export function FocusScreen() {
         </div>
 
         <div className="focus-task">
-          <div className="focus-title">{t.label}</div>
+          <div className="focus-title">{label}</div>
+          {parts && cur && !finished && <div className="faint small">{L(`المادة ${cur.index + 1} من ${parts.length} · باقي لها ${fmtMinutes(cur.left)}${parts[cur.index + 1] ? ` · بعدها ${parts[cur.index + 1].label}` : ''}`, `Subject ${cur.index + 1} of ${parts.length} · ${fmtMinutes(cur.left)} left${parts[cur.index + 1] ? ` · then ${parts[cur.index + 1].label}` : ''}`)}</div>}
           {sub && <div className="muted">{sub}</div>}
           {plan && !finished && <div className="focus-ends">{L(`تخلص الساعة ${fmtTime(endsAt)}`, `Ends at ${fmtTime(endsAt)}`)}{t.running ? '' : L(' (إذا كمّلت الحين)', ' (if you resume now)')}</div>}
           <div className="faint small">{L("عملت ", "Worked ")}{fmtMinutes(Math.min(p.workMs, (t.plan?.total ?? Infinity) * 60000) / 60000)}{plan ? L(` من ${fmtMinutes(t.plan!.total)}`, ` of ${fmtMinutes(t.plan!.total)}`) : ''}{p.done ? L(` · ${p.done} ${p.done === 1 ? 'جولة مكتملة' : 'جولات مكتملة'}`, ` · ${p.done} ${p.done === 1 ? 'round done' : 'rounds done'}`) : ''}

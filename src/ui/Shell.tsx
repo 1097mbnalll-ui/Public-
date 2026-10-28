@@ -37,7 +37,7 @@ export function SheetHost() {
     case 'task':
       return <TaskEditor key={sh.id} id={sh.id} />;
     case 'study-log':
-      return <StudyLog {...sh} />;
+      return <StudyLog key={`${sh.courseId}:${sh.queue?.length ?? -1}`} {...sh} />;
     case 'exam':
       return <ExamEditor key={sh.id || 'new'} id={sh.id} courseId={sh.courseId} />;
     case 'course':
@@ -132,7 +132,10 @@ function clock(ms: number) {
 export function finishTimerUI() {
   const r = A.stopTimer();
   if (!r) return;
-  if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
+  if (r.timer.kind === 'study' && r.parts?.length) {
+    const [first, ...rest] = r.parts;
+    openSheet({ type: 'study-log', courseId: first.courseId, unitId: first.unitId, minutes: first.minutes, fromTimer: true, ...(rest.length ? { queue: rest } : {}) });
+  } else if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
   else toast(L(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`, `Logged ${fmtMinutes(r.minutes)} on “${r.timer.label}”`));
 }
 

@@ -299,7 +299,7 @@ export interface Timer {
   /** full-screen focus view is open (the timer keeps running when minimised) */
   focus?: boolean;
   /** a planned session: how long to focus in all, and its own rhythm */
-  plan?: { total: number; work: number; brk: number; longEvery?: number; longBrk?: number };
+  plan?: { total: number; work: number; brk: number; longEvery?: number; longBrk?: number; parts?: { examId?: string; courseId?: string; unitId?: string; label: string; minutes: number }[] };
 }
 
 /** a thought jotted down during focus, to deal with later */

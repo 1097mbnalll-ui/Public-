@@ -114,3 +114,60 @@ export function focusAlerts(t: Timer, st: Settings, now: number): { at: number; 
   if (t.plan && plan.end > elapsed) out.push({ at: now + (plan.end - elapsed), kind: 'end', min: 0 });
   return out.slice(0, 12);
 }
+
+/** one subject (or lesson) inside a planned session, studied in order */
+export interface SessionPart {
+  examId?: string;
+  courseId?: string;
+  unitId?: string;
+  label: string;
+  /** focus minutes it gets */
+  minutes: number;
+}
+
+/** which part `workMin` minutes of focus are in, and how much of it is left */
+export function partAt(parts: SessionPart[], workMin: number): { index: number; left: number } {
+  let acc = 0;
+  for (let i = 0; i < parts.length; i++) {
+    acc += parts[i].minutes;
+    if (workMin < acc - 1e-9) return { index: i, left: acc - workMin };
+  }
+  return { index: Math.max(0, parts.length - 1), left: 0 };
+}
+
+/** focus minutes actually worked, handed to the parts in order (the last one takes any extra) */
+export function splitWorked(parts: SessionPart[], minutes: number): number[] {
+  let left = minutes;
+  return parts.map((p, i) => {
+    const m = i === parts.length - 1 ? left : Math.min(p.minutes, left);
+    left -= m;
+    return Math.max(0, Math.round(m));
+  });
+}
+
+/** what each focus block covers: «الإحصاء 20 د · إنجليزي 5 د» */
+export function blockParts(plan: SessionPlan, parts: SessionPart[]): { label: string; min: number; index: number }[][] {
+  let i = 0;
+  let used = 0;
+  return plan.blocks.map((b) => {
+    if (b.kind !== 'work') return [];
+    const out: { label: string; min: number; index: number }[] = [];
+    let need = b.min;
+    while (need > 0 && i < parts.length) {
+      const take = Math.min(need, parts[i].minutes - used);
+      if (take > 0) out.push({ label: parts[i].label, min: take, index: i });
+      need -= take;
+      used += take;
+      if (used >= parts[i].minutes - 1e-9) { i++; used = 0; }
+    }
+    return out;
+  });
+}
+
+/** the most focus that fits between `start` and `end` with this rhythm (breaks included) */
+export function fitTotal(start: number, end: number, r: Rhythm): number {
+  const span = Math.floor((end - start) / 60000);
+  let best = 0;
+  for (let m = 1; m <= Math.min(span, 1440); m++) if (planSession(start, m, r).end <= end) best = m;
+  return best;
+}

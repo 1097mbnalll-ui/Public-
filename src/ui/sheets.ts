@@ -5,7 +5,7 @@ import type { GymGoal } from '../lib/types';
 export type SheetSpec =
   | { type: 'quick'; text?: string; mode?: 'task' | 'proc' }
   | { type: 'task'; id: string }
-  | { type: 'study-log'; courseId?: string; unitId?: string; minutes?: number; fromTimer?: boolean }
+  | { type: 'study-log'; courseId?: string; unitId?: string; minutes?: number; fromTimer?: boolean; queue?: { courseId?: string; unitId?: string; minutes: number }[] }
   | { type: 'exam'; id?: string; courseId?: string }
   | { type: 'course'; id?: string }
   | { type: 'unit'; id: string }

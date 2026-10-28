@@ -7,7 +7,7 @@ import { addDays, addMonths, todayKey } from './dates';
 import { taskTime } from './engine/learning';
 import { markLessonIn } from './engine/study';
 import { isProcDone, kindInfo } from './engine/procedures';
-import { pomodoro, rhythmOf } from './engine/focus';
+import { pomodoro, rhythmOf, splitWorked } from './engine/focus';
 import { L } from './i18n';
 import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
 import { CAT_ORDER, guessCat } from './engine/money';
@@ -529,7 +529,7 @@ export function resumeTimer() {
 }
 
 /** stops the timer; tasks get the minutes immediately, study returns them for the amount prompt */
-export function stopTimer(): { minutes: number; timer: NonNullable<AppState['timer']> } | null {
+export function stopTimer(): { minutes: number; timer: NonNullable<AppState['timer']>; parts?: { courseId?: string; unitId?: string; minutes: number }[] } | null {
   const t = getState().timer;
   if (!t) return null;
   // credit work blocks only — Pomodoro breaks are not work time
@@ -548,6 +548,13 @@ export function stopTimer(): { minutes: number; timer: NonNullable<AppState['tim
       bumpDay(s, { minutes });
     }
   });
+  // a session over several subjects: each gets the focus time spent on it, in order
+  const ps = t.plan?.parts;
+  if (ps && ps.length > 1) {
+    const split = splitWorked(ps, minutes);
+    const parts = ps.map((p, i) => ({ courseId: p.courseId, unitId: p.unitId, minutes: split[i] })).filter((p) => p.minutes > 0);
+    return { minutes, timer: t, parts };
+  }
   return { minutes, timer: t };
 }
 

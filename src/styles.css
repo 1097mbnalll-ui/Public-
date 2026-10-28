@@ -4190,9 +4190,6 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .ps-step-c button { width: 30px; height: 32px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg-2, transparent); color: inherit; font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
 .ps-step-c button:disabled { opacity: 0.35; cursor: default; }
 .ps-sum { border-radius: 20px; padding: 16px; background: var(--accent-soft); border: 1px solid var(--accent-line); }
-.ps-end { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.ps-end small { color: var(--muted); font-size: 13px; }
-.ps-end b { font-size: 34px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
 .ps-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
 .ps-line { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
 .ps-line li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
@@ -4206,3 +4203,23 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .sh-plan > svg:first-child { color: var(--accent); flex: none; }
 .sh-plan > span { flex: 1; display: grid; gap: 2px; }
 .sh-plan small { color: var(--muted); font-size: 12.5px; }
+.ps-subjects { display: flex; flex-wrap: wrap; gap: 6px; }
+.ps-subjects .chip svg { color: var(--accent); }
+.ps-parts { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.ps-parts li { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; font-size: 13px; padding: 8px 10px; border-radius: 12px; background: var(--surface); }
+.ps-parts li .faint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ps-parts li .num { font-weight: 600; }
+.ps .seg { margin-bottom: 8px; }
+.ps-start { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.ps-start .input { width: 132px; height: 34px; padding: 0 10px; opacity: 0.7; }
+.ps-start .input.on { opacity: 1; border-color: var(--accent-line); }
+.ps-se { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ps-se > div { display: grid; gap: 0; }
+.ps-se > div:last-child { text-align: end; }
+.ps-se small { color: var(--muted); font-size: 12.5px; }
+.ps-se b { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.15; }
+.ps-se > div:last-child b { color: var(--accent); }
+.ps-arrow { flex: 1; text-align: center; color: var(--accent-dim); font-size: 22px; }
+.ps-note { display: block; margin: -4px 0 10px; color: var(--amber); }
+.ps-line .k small { display: block; font-size: 11.5px; font-weight: 400; opacity: 0.9; }
+.ps-note.ok { color: var(--green); }

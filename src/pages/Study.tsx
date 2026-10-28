@@ -462,9 +462,9 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
             <div className="sh-rows">
               {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
             </div>
-            <button className="sh-plan" onClick={() => openSheet({ type: 'study-session', examId: (rows.find((ep) => ep.todayMinutes > 0) || rows[0]).exam.id })}>
+            <button className="sh-plan" onClick={() => openSheet({ type: 'study-session' })}>
               <Icon name="clock" size={17} />
-              <span><b>{L('خطّط جلستك', 'Plan your session')}</b><small>{L('اختر متى تبدأ وإيقاعك (٢٥ د + ٥ راحة…) وأقولك متى تخلص', 'Pick a start time and rhythm (25 + 5…) and see when you finish')}</small></span>
+              <span><b>{L('خطّط جلستك', 'Plan your session')}</b><small>{L('كل المواد أو بعضها · متى تبدأ ومتى تخلص بالضبط مع الراحات', 'All subjects or some · exactly when you start and finish, breaks included')}</small></span>
               <Icon name="chevron" size={14} className="chev-end" />
             </button>
             {ahead && (

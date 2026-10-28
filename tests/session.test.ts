@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { focusAlerts, planSession, pomodoro } from '../src/lib/engine/focus';
+import { blockParts, fitTotal, focusAlerts, partAt, planSession, pomodoro, splitWorked } from '../src/lib/engine/focus';
 import { DEFAULT_SETTINGS } from '../src/lib/defaults';
 import type { Timer } from '../src/lib/types';
 
@@ -43,5 +43,36 @@ describe('the timer follows the same rhythm', () => {
     expect(a.map((x) => x.kind)).toEqual(['break', 'work', 'end']);
     expect(a[2].at).toBe(start + 55 * M);
     expect(focusAlerts({ ...t, running: false }, DEFAULT_SETTINGS, start)).toEqual([]);
+  });
+});
+
+describe('several subjects in one session', () => {
+  const parts = [{ label: 'إحصاء', minutes: 40 }, { label: 'إنجليزي', minutes: 20 }];
+  it('which subject you are on', () => {
+    expect(partAt(parts, 0)).toEqual({ index: 0, left: 40 });
+    expect(partAt(parts, 39)).toEqual({ index: 0, left: 1 });
+    expect(partAt(parts, 45)).toEqual({ index: 1, left: 15 });
+  });
+  it('worked minutes split in order; extra goes to the last', () => {
+    expect(splitWorked(parts, 50)).toEqual([40, 10]);
+    expect(splitWorked(parts, 30)).toEqual([30, 0]);
+    expect(splitWorked(parts, 70)).toEqual([40, 30]);
+  });
+  it('each focus block says which subject it covers', () => {
+    const p = planSession(start, 60, { work: 25, brk: 5 });
+    const c = blockParts(p, parts);
+    expect(c[0]).toEqual([{ label: 'إحصاء', min: 25, index: 0 }]);
+    expect(c[2]).toEqual([{ label: 'إحصاء', min: 15, index: 0 }, { label: 'إنجليزي', min: 10, index: 1 }]);
+    expect(c[4]).toEqual([{ label: 'إنجليزي', min: 10, index: 1 }]);
+  });
+});
+
+describe('from… to…', () => {
+  it('fits the most focus between two times, breaks included', () => {
+    const t = fitTotal(start, start + 60 * M, { work: 25, brk: 5 });
+    expect(planSession(start, t, { work: 25, brk: 5 }).end).toBeLessThanOrEqual(start + 60 * M);
+    expect(planSession(start, t + 1, { work: 25, brk: 5 }).end).toBeGreaterThan(start + 60 * M);
+    expect(t).toBe(50); // 25 + 5 + 25 = 55; one more minute needs another break
+    expect(fitTotal(start, start + 2 * 3600_000, { work: 50, brk: 10 })).toBe(100);
   });
 });

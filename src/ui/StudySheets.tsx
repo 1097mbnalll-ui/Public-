@@ -27,7 +27,7 @@ export function parseUnitLines(text: string, defSize: number) {
     });
 }
 
-export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: string; unitId?: string; minutes?: number; fromTimer?: boolean }) {
+export function StudyLog({ courseId, unitId, minutes, fromTimer, queue }: { courseId?: string; unitId?: string; minutes?: number; fromTimer?: boolean; queue?: { courseId?: string; unitId?: string; minutes: number }[] }) {
   const s = useApp();
   const courses = s.courses.filter((c) => !c.archived);
   const [cid, setCid] = useState(courseId || courses[0]?.id || '');
@@ -54,6 +54,11 @@ export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: 
     if (!cid || !mins) return;
     A.logStudy(cid, uid || undefined, mins, amount || 0);
     closeSheet();
+    // a session over several subjects: log the next one
+    if (queue?.length) {
+      const [next, ...rest] = queue;
+      openSheet({ type: 'study-log', courseId: next.courseId, unitId: next.unitId, minutes: next.minutes, fromTimer: true, queue: rest });
+    }
     const after = getState();
     const pace = course && amount ? coursePace(after, course) : null;
     const u = uid ? after.units.find((x) => x.id === uid) : undefined;
@@ -70,7 +75,7 @@ export function StudyLog({ courseId, unitId, minutes, fromTimer }: { courseId?: 
   const half = left > 1 ? Math.round(left / 2) : 0;
   return (
     <Sheet
-      title={fromTimer ? L('خلصت الجلسة', 'Session done') : L('سجّل جلسة مذاكرة', 'Log a study session')}
+      title={fromTimer ? (queue ? L(`خلصت الجلسة · ${queue.length ? `باقي ${queue.length === 1 ? 'مادة' : `${queue.length} مواد`}` : 'آخر مادة'}`, `Session done · ${queue.length ? `${queue.length} more` : 'last subject'}`) : L('خلصت الجلسة', 'Session done')) : L('سجّل جلسة مذاكرة', 'Log a study session')}
       onClose={closeSheet}
       footer={<button className="btn primary grow" onClick={save} disabled={!mins}>{L("حفظ", "Save")}</button>}
     >
