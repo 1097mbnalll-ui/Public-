@@ -4172,3 +4172,37 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .rm-strip { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--accent-line); background: var(--accent-soft); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .rm-strip > svg:first-child { color: var(--accent); flex: none; }
 .rm-strip > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+
+/* ---------- planned study session ---------- */
+.ps { display: flex; flex-direction: column; gap: 16px; }
+.ps .field > label small { font-weight: 400; }
+.ps-start { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ps-start .input { width: 140px; height: 34px; padding: 0 10px; }
+.ps-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.ps-step { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 6px 6px 6px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+[dir='rtl'] .ps-step { padding: 6px 10px 6px 6px; }
+.field > .ps-step { margin-top: 8px; }
+.ps-step-l { font-size: 13px; color: var(--muted); }
+.ps-step-c { display: flex; align-items: center; gap: 4px; }
+@media (max-width: 420px) { .ps-steps { grid-template-columns: 1fr; } }
+.ps-step-c b { min-width: 40px; text-align: center; font-size: 16px; }
+.ps-step-c b small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.ps-step-c button { width: 30px; height: 32px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg-2, transparent); color: inherit; font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.ps-step-c button:disabled { opacity: 0.35; cursor: default; }
+.ps-sum { border-radius: 20px; padding: 16px; background: var(--accent-soft); border: 1px solid var(--accent-line); }
+.ps-end { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ps-end small { color: var(--muted); font-size: 13px; }
+.ps-end b { font-size: 34px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+.ps-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
+.ps-line { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
+.ps-line li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.ps-line .t { width: 64px; flex: none; color: var(--muted); font-size: 12px; }
+.ps-line .k { flex: 1; padding: 6px 10px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 500; }
+.ps-line li.break .k { background: var(--green-soft); color: var(--green); }
+.ps-line li.long .k { background: var(--green); color: #fff; }
+.ps-line li.end .k { background: none; color: inherit; font-weight: 700; padding-inline: 0; }
+.focus-ends { font-weight: 600; color: var(--accent); margin-top: 2px; }
+.sh-plan { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border-radius: 16px; border: 1px dashed var(--accent-line); background: var(--accent-soft); color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.sh-plan > svg:first-child { color: var(--accent); flex: none; }
+.sh-plan > span { flex: 1; display: grid; gap: 2px; }
+.sh-plan small { color: var(--muted); font-size: 12.5px; }

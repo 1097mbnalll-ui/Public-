@@ -270,6 +270,9 @@ export interface Settings {
   /** focus session lengths, minutes */
   pomodoroWork: number;
   pomodoroBreak: number;
+  /** a long break every N rounds (0 / missing = none), and its length */
+  pomodoroLongEvery?: number;
+  pomodoroLong?: number;
   morningBrief: string; // HH:MM or ''
   notifications: boolean;
   nudges: boolean;
@@ -295,6 +298,8 @@ export interface Timer {
   running: boolean;
   /** full-screen focus view is open (the timer keeps running when minimised) */
   focus?: boolean;
+  /** a planned session: how long to focus in all, and its own rhythm */
+  plan?: { total: number; work: number; brk: number; longEvery?: number; longBrk?: number };
 }
 
 /** a thought jotted down during focus, to deal with later */

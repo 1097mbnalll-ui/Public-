@@ -13,6 +13,7 @@ import { go } from './router';
 import { QuickAdd } from './QuickAdd';
 import { isNative } from '../lib/native';
 import { RemindSheet } from './Remind';
+import { StudySessionSheet } from './StudySession';
 import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
 import { StepConfirm, TemplateEditor } from './WorkSheets';
@@ -111,6 +112,8 @@ export function SheetHost() {
       return <FutureReviewSheet kind={sh.kind} />;
     case 'fu-posting':
       return <FuturePostingSheet key={sh.id || 'new'} id={sh.id} />;
+    case 'study-session':
+      return <StudySessionSheet examId={sh.examId} />;
     case 'remind':
       return <RemindSheet key={sh.id || sh.title || 'new'} id={sh.id} title={sh.title} refTo={sh.ref} at={sh.at} />;
   }

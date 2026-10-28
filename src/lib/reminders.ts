@@ -125,8 +125,8 @@ export async function requestNotifications(): Promise<NotificationPermission | '
 export async function showSystemNotification(title: string, body: string, tag: string, url = '#/today') {
   if (notificationSupport() !== 'granted') return false;
   if (isNative()) {
-    // in the app the phone already has every reminder scheduled; only the test and focus alerts show from here
-    if (tag !== 'test' && tag !== 'focus-phase') return true;
+    // in the app the phone already has every reminder (and the focus timer's breaks) scheduled; only the test shows from here
+    if (tag !== 'test') return true;
     return nativeNotifyNow(title, body).then(() => true, () => false);
   }
   try {

@@ -1,13 +1,13 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, FutureProject, FutureReview, FutureSkill, FutureStage, FutureVision, FutureWin, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, StepKind, Subscription, Task, Template, Unit } from './types';
+import type { AppState, Area, BodyLog, FutureProject, FutureReview, FutureSkill, FutureStage, FutureVision, FutureWin, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, todayKey } from './dates';
 import { taskTime } from './engine/learning';
 import { markLessonIn } from './engine/study';
 import { isProcDone, kindInfo } from './engine/procedures';
-import { pomodoro } from './engine/focus';
+import { pomodoro, rhythmOf } from './engine/focus';
 import { L } from './i18n';
 import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
 import { CAT_ORDER, guessCat } from './engine/money';
@@ -499,11 +499,13 @@ export function logStudy(courseId: string, unitId: string | undefined, minutes: 
 
 // ---------------- Timer ----------------
 
-export function startTimer(t: { kind: 'task' | 'study' | 'procedure'; refId: string; label: string; courseId?: string; unitId?: string }) {
+export function startTimer(t: { kind: 'task' | 'study' | 'procedure'; refId: string; label: string; courseId?: string; unitId?: string; plan?: Timer['plan'] }) {
   mutate((s) => {
     s.timer = { ...t, startedAt: now(), acc: 0, running: true, focus: true };
   });
 }
+
+export { rhythmOf };
 
 export function timerElapsed(t = getState().timer, at = now()): number {
   if (!t) return 0;
@@ -531,8 +533,9 @@ export function stopTimer(): { minutes: number; timer: NonNullable<AppState['tim
   const t = getState().timer;
   if (!t) return null;
   // credit work blocks only — Pomodoro breaks are not work time
-  const { pomodoroWork, pomodoroBreak } = getState().settings;
-  const minutes = Math.max(1, Math.round(pomodoro(timerElapsed(t), pomodoroWork, pomodoroBreak).workMs / 60000));
+  const r = rhythmOf(t, getState().settings);
+  // a planned session left running past its end counts only what was planned
+  const minutes = Math.max(1, Math.min(t.plan?.total ?? Infinity, Math.round(pomodoro(timerElapsed(t), r.work, r.brk, r.longEvery, r.longBrk).workMs / 60000)));
   mutate((s) => {
     s.timer = undefined;
     if (t.kind === 'task') {

@@ -6,6 +6,7 @@ import { addDays, atTime, fmtClock, todayKey } from './dates';
 import { getState, subscribe } from './store';
 import { L } from './i18n';
 import { occurrences } from './engine/remind';
+import { focusAlerts } from './engine/focus';
 
 /** the public site — links made in the app (pairing, sharing) must point here, not inside the app */
 export const SITE_URL = 'https://1097mbnalll-ui.github.io/Public-/';
@@ -101,6 +102,15 @@ function upcoming(state: AppState, now: number): Upcoming[] {
       add({ key: `exam:${e.id}`, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well.`), at: atTime(addDays(e.date, -1), '20:00'), ref: 'study' });
     }
   for (const r of state.reminds || []) for (const at of occurrences(r, now, until)) add({ key: `rem:${r.id}:${at}`, title: r.title, body: r.note || L('تذكير', 'Reminder'), at, ref: r.ref || 'reminders' });
+  if (state.timer)
+    for (const f of focusAlerts(state.timer, state.settings, now))
+      add({
+        key: `focus:${state.timer.startedAt}:${f.at}`,
+        title: f.kind === 'end' ? L('خلصت جلستك 🎉', 'Session done 🎉') : f.kind === 'work' ? L(`نرجع للتركيز — الجولة ${f.round}`, `Back to focus — round ${f.round}`) : L(`استراحة ${f.kind === 'long' ? 'طويلة ' : ''}${f.min} د`, `${f.kind === 'long' ? 'Long ' : ''}${f.min} min break`),
+        body: f.kind === 'end' ? L('افتح «مدار» وسجّل وش خلصت.', 'Open Madar and log what you covered.') : f.kind === 'work' ? state.timer.label : L('قم، تحرّك، اشرب موية.', 'Get up, move, drink water.'),
+        at: f.at,
+        ref: 'today',
+      });
   const gp = state.gym?.profile;
   if (gp?.time)
     for (let i = 0; i < 7; i++) {

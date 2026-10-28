@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { fmtMinutes } from '../lib/dates';
-import { pomodoro } from '../lib/engine/focus';
+import { fmtMinutes, fmtTime } from '../lib/dates';
+import { planSession, pomodoro } from '../lib/engine/focus';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
@@ -65,9 +65,14 @@ export function FocusScreen() {
   const [, tick] = useState(0);
   const [thought, setThought] = useState('');
   const lastPhase = useRef<string | null>(null);
-  const { pomodoroWork: w, pomodoroBreak: b } = s.settings;
+  const rh = A.rhythmOf(t, s.settings);
+  const { work: w, brk: b } = rh;
   const elapsed = A.timerElapsed(t);
-  const p = pomodoro(elapsed, w, b);
+  const p = pomodoro(elapsed, w, b, rh.longEvery, rh.longBrk);
+  // a planned session knows its length: how many rounds, and the clock time it ends (pauses push it)
+  const plan = t.plan ? planSession(0, t.plan.total, rh) : null;
+  const finished = !!t.plan && p.workMs >= t.plan.total * 60000;
+  const endsAt = plan ? Date.now() + Math.max(0, plan.end - elapsed) : 0;
   useWakeLock(true);
 
   useEffect(() => {
@@ -77,11 +82,12 @@ export function FocusScreen() {
   }, [t.running]);
 
   // signal phase changes (end of a work block / end of a break)
-  const phaseKey = `${p.phase}:${p.done}`;
+  const phaseKey = finished ? 'finished' : `${p.phase}:${p.done}`;
   useEffect(() => {
     if (lastPhase.current && lastPhase.current !== phaseKey && t.running) {
       chime();
-      const msg = p.phase === 'break' ? L(`أحسنت — استراحة ${b} د`, `Well done — ${b} min break`) : L('انتهت الاستراحة — نرجع للتركيز', "Break's over — back to focus");
+      const brk = Math.round(p.length / 60000);
+      const msg = finished ? L('خلصت جلستك 🎉 سجّلها', 'Session done 🎉 log it') : p.phase === 'break' ? L(`أحسنت — استراحة ${p.long ? 'طويلة ' : ''}${brk} د`, `Well done — ${p.long ? 'long ' : ''}${brk} min break`) : L('انتهت الاستراحة — نرجع للتركيز', "Break's over — back to focus");
       if (document.visibilityState === 'hidden' && s.settings.notifications) showSystemNotification(L('جلسة التركيز', "Focus session"), msg, 'focus-phase', '#/today');
     }
     lastPhase.current = phaseKey;
@@ -123,8 +129,9 @@ export function FocusScreen() {
   const size = 250;
   const r = (size - 14) / 2;
   const c = 2 * Math.PI * r;
-  const frac = p.length ? 1 - p.left / p.length : 0;
-  const isBreak = p.phase === 'break';
+  const frac = finished ? 1 : p.length ? 1 - p.left / p.length : 0;
+  const isBreak = !finished && p.phase === 'break';
+  const round = Math.min(p.done + 1, plan?.rounds ?? Infinity);
 
   const addThought = () => {
     const v = thought.trim();
@@ -138,7 +145,7 @@ export function FocusScreen() {
       <div className="focus-top">
         <button className="btn sm ghost" onClick={() => A.setFocus(false)}>
           <Icon name="down" size={15} />{L(" تصغير", " Minimise")}</button>
-        <span className="faint small">{isBreak ? L('استراحة قصيرة', "Short break") : L(`تركيز · الجولة ${p.done + 1}`, `Focus · round ${p.done + 1}`)}</span>
+        <span className="faint small">{finished ? L('خلصت الجلسة', 'Session done') : isBreak ? (p.long ? L('استراحة طويلة', 'Long break') : L('استراحة قصيرة', "Short break")) : plan ? L(`تركيز · الجولة ${round} من ${plan.rounds}`, `Focus · round ${round} of ${plan.rounds}`) : L(`تركيز · الجولة ${p.done + 1}`, `Focus · round ${p.done + 1}`)}</span>
       </div>
 
       <div className="focus-center">
@@ -159,15 +166,16 @@ export function FocusScreen() {
             />
           </svg>
           <div className="focus-clock">
-            <div className="num">{mmss(p.left)}</div>
-            <div className="faint small">{t.running ? (isBreak ? L('تنفّس، تحرّك، اشرب ماء', "Breathe, move, drink water") : L('ركّز على شيء واحد', "Focus on one thing")) : L('متوقف مؤقتًا', "Paused")}</div>
+            <div className="num">{finished ? '✓' : mmss(plan && p.phase === 'work' ? Math.min(p.left, t.plan!.total * 60000 - p.workMs) : p.left)}</div>
+            <div className="faint small">{finished ? L('اضغط ✓ وسجّل وش خلصت', 'Tap ✓ and log what you covered') : t.running ? (isBreak ? L('تنفّس، تحرّك، اشرب ماء', "Breathe, move, drink water") : L('ركّز على شيء واحد', "Focus on one thing")) : L('متوقف مؤقتًا', "Paused")}</div>
           </div>
         </div>
 
         <div className="focus-task">
           <div className="focus-title">{t.label}</div>
           {sub && <div className="muted">{sub}</div>}
-          <div className="faint small">{L("عملت ", "Worked ")}{fmtMinutes(p.workMs / 60000)}{p.done ? L(` · ${p.done} ${p.done === 1 ? 'جولة مكتملة' : 'جولات مكتملة'}`, ` · ${p.done} ${p.done === 1 ? 'round done' : 'rounds done'}`) : ''}
+          {plan && !finished && <div className="focus-ends">{L(`تخلص الساعة ${fmtTime(endsAt)}`, `Ends at ${fmtTime(endsAt)}`)}{t.running ? '' : L(' (إذا كمّلت الحين)', ' (if you resume now)')}</div>}
+          <div className="faint small">{L("عملت ", "Worked ")}{fmtMinutes(Math.min(p.workMs, (t.plan?.total ?? Infinity) * 60000) / 60000)}{plan ? L(` من ${fmtMinutes(t.plan!.total)}`, ` of ${fmtMinutes(t.plan!.total)}`) : ''}{p.done ? L(` · ${p.done} ${p.done === 1 ? 'جولة مكتملة' : 'جولات مكتملة'}`, ` · ${p.done} ${p.done === 1 ? 'round done' : 'rounds done'}`) : ''}
           </div>
         </div>
 
@@ -196,6 +204,9 @@ export function FocusScreen() {
         {sessionThoughts.length > 0 && (
           <div className="faint tiny" style={{ marginTop: 6 }}>{L("حفظت ", "Saved ")}{sessionThoughts.length} {sessionThoughts.length === 1 ? L('فكرة', "thought") : L('أفكار', "thoughts")}{L(" — تجدها في صفحة «اليوم» بعد الجلسة.", " — you'll find them on the “Today” page after the session.")}</div>
         )}
+        {plan ? (
+          <div className="faint tiny" style={{ marginTop: 10, textAlign: 'center' }}>{L(`${b ? `${w} د تركيز + ${b} د راحة` : `${w} د تركيز بدون راحات`}${rh.longEvery ? ` · راحة ${rh.longBrk} د كل ${rh.longEvery} جولات` : ''}`, `${w} min focus + ${b} min break${rh.longEvery ? ` · ${rh.longBrk} min every ${rh.longEvery} rounds` : ''}`)}</div>
+        ) : (
         <div className="row" style={{ gap: 6, marginTop: 10, justifyContent: 'center' }}>
           {[
             [25, 5],
@@ -207,6 +218,7 @@ export function FocusScreen() {
             </button>
           ))}
         </div>
+        )}
       </div>
     </div>,
     document.body,

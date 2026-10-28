@@ -43,6 +43,7 @@ export type SheetSpec =
   | { type: 'fu-stage'; id?: string }
   | { type: 'fu-review'; kind: 'week' | 'month' }
   | { type: 'fu-posting'; id?: string }
+  | { type: 'study-session'; examId?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };
 
 let current: SheetSpec | null = null;

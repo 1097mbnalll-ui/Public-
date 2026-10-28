@@ -186,6 +186,9 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
             <button className="btn primary sx-go" onClick={() => startStudy(lead)}>
               <Icon name="play" size={15} /> {L('ابدأ الجلسة', 'Start session')}
             </button>
+            <button className="btn sm" onClick={() => openSheet({ type: 'study-session', examId: lead.exam.id })}>
+              <Icon name="clock" size={14} /> {L('خطّط: متى أبدأ ومتى أخلص', 'Plan: start and finish times')}
+            </button>
             <button className="btn ghost sm" onClick={() => openSheet({ type: 'study-log', courseId: lead.course.id, unitId: first.unit.id })}>{L('ذاكرت من قبل؟ سجّلها', 'Studied already? Log it')}</button>
           </div>
         </div>
@@ -225,6 +228,12 @@ export function StudyToday({ plan, compact }: { plan: StudyPlan; compact?: boole
             </>
           )}
         </div>
+      )}
+
+      {!compact && !lead && (
+        <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet({ type: 'study-session' })}>
+          <Icon name="clock" size={14} /> {L('خطّط جلسة مذاكرة: متى أبدأ ومتى أخلص', 'Plan a study session: start and finish times')}
+        </button>
       )}
 
       {(compact ? rows : rest).length > 0 && (
@@ -453,6 +462,11 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
             <div className="sh-rows">
               {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
             </div>
+            <button className="sh-plan" onClick={() => openSheet({ type: 'study-session', examId: (rows.find((ep) => ep.todayMinutes > 0) || rows[0]).exam.id })}>
+              <Icon name="clock" size={17} />
+              <span><b>{L('خطّط جلستك', 'Plan your session')}</b><small>{L('اختر متى تبدأ وإيقاعك (٢٥ د + ٥ راحة…) وأقولك متى تخلص', 'Pick a start time and rhythm (25 + 5…) and see when you finish')}</small></span>
+              <Icon name="chevron" size={14} className="chev-end" />
+            </button>
             {ahead && (
               <button className="sh-ahead" onClick={() => startStudy(ahead.ep, ahead.unit)}>
                 <Icon name="play" size={13} /> {L(`عندك وقت؟ تقدّم في ${ahead.ep.course.name}: ${ahead.unit.title}`, `Got time? Get ahead in ${ahead.ep.course.name}: ${ahead.unit.title}`)}
@@ -463,6 +477,7 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
           <div className="sh-empty">
             {active.length ? L('ما عليك مذاكرة اليوم.', 'Nothing to study today.') : L('أضف موعد اختبار ودروسه، وأقولك كل يوم وش تذاكر وكم.', "Add an exam and its lessons, and I'll tell you every day what to study and for how long.")}
             {!active.length && <button className="btn sm primary" onClick={() => openSheet({ type: 'exam' })}><Icon name="plus" size={14} /> {L('موعد اختبار', 'Exam date')}</button>}
+            <button className="btn sm ghost" onClick={() => openSheet({ type: 'study-session' })}><Icon name="clock" size={14} /> {L('جلسة مذاكرة بوقت', 'A timed study session')}</button>
           </div>
         )}
         {later.map((ep) => (
