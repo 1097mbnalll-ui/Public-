@@ -74,7 +74,8 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
   const rows = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'unknown');
   const today = rows.filter((ep) => ep.todayMinutes > 0);
   const [picked, setPicked] = useState<string[]>(() => (examId ? [examId] : today.length ? today.map((ep) => ep.exam.id) : rows.slice(0, 1).map((ep) => ep.exam.id)));
-  const chosen = rows.filter((ep) => picked.includes(ep.exam.id));
+  // in the order you put them — that's the order you study them in
+  const chosen = picked.map((id) => rows.find((ep) => ep.exam.id === id)).filter((ep): ep is ExamPlan => !!ep);
   // a subject with nothing left today still gets a fair default (its next lesson's worth, or 30 min)
   const base = chosen.map((ep) => ({ ep, base: Math.max(1, Math.round(ep.todayMinutes > 0 ? ep.todayMinutes : ep.work[0]?.minutes || 30)) }));
   const todayTotal = base.reduce((a, r) => a + r.base, 0);
@@ -116,7 +117,14 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
   const startsNow = Math.abs(startAt - now) < 2 * MIN;
   const ok = total > 0 && parts.length > 0 && !late;
 
-  const toggle = (id: string) => setPicked((x) => (x.includes(id) ? x.filter((y) => y !== id) : rows.filter((ep) => ep.exam.id === id || x.includes(ep.exam.id)).map((ep) => ep.exam.id)));
+  const toggle = (id: string) => setPicked((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
+  const move = (i: number, d: -1 | 1) => setPicked((x) => {
+    const order = chosen.map((ep) => ep.exam.id);
+    const j = i + d;
+    if (j < 0 || j >= order.length) return x;
+    [order[i], order[j]] = [order[j], order[i]];
+    return order;
+  });
   const all = rows.length > 1 && picked.length === rows.length;
   const label = parts.length === 1 ? L(`مذاكرة ${parts[0].label}`, `Study ${parts[0].label}`) : L(`مذاكرة: ${parts.map((p) => p.label).join(' + ')}`, `Study: ${parts.map((p) => p.label).join(' + ')}`);
   const keepRhythm = () => A.updateSettings({ pomodoroWork: work, pomodoroBreak: brk, pomodoroLongEvery: longOn ? longEvery : 0, pomodoroLong: longBrk });
@@ -174,18 +182,25 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
                 );
               })}
             </div>
-            {chosen.length > 0 && (
+            {chosen.length > 0 && (<>
+              {base.length > 1 && <small className="faint">{L('بهالترتيب تذاكرها — غيّره بالأسهم.', 'You study them in this order — change it with the arrows.')}</small>}
               <ul className="ps-parts">
                 {base.map((b, i) => (
                   <li key={b.ep.exam.id}>
-                    <span className="sx-dot" style={{ background: b.ep.course.color }} />
+                    {base.length > 1 && <span className="ps-ord num">{i + 1}</span>}
                     <b>{b.ep.course.name}</b>
                     <span className="faint">{b.ep.todayMinutes > 0 ? lessonsOf(b.ep) : L('مو من حصة اليوم — تقدّم', 'not due today — getting ahead')}</span>
                     <span className="num">{fmtMinutes(mins[i])}</span>
+                    {base.length > 1 && (
+                      <span className="ps-move">
+                        <button aria-label={L(`قدّم ${b.ep.course.name}`, `Move ${b.ep.course.name} up`)} disabled={i === 0} onClick={() => move(i, -1)}><Icon name="up" size={14} /></button>
+                        <button aria-label={L(`أخّر ${b.ep.course.name}`, `Move ${b.ep.course.name} down`)} disabled={i === base.length - 1} onClick={() => move(i, 1)}><Icon name="down" size={14} /></button>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
-            )}
+            </>)}
           </div>
         )}
 
