@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { addDays, daysWord, diffDays, fmtClock, fmtDate, fmtMinutes, relDay, todayKey } from '../lib/dates';
-import { planStudy, portionText, postponePreview, unitMinutes, type ExamPlan, type StudyPlan } from '../lib/engine/study';
+import { planStudy, portionText, postponePreview, unitMinutes, unitSchedule, type ExamPlan, type StudyPlan, type UnitWhen } from '../lib/engine/study';
 import { coursePace } from '../lib/engine/learning';
 import { closeSheet, openSheet } from '../ui/sheets';
 import { go, useRoute } from '../ui/router';
@@ -435,6 +435,7 @@ function Hours({ m }: { m: number }) {
 
 /** «وش أذاكر اليوم»: today's total, then one row per subject — tap it for everything about it */
 function StudyHome({ plan }: { plan: StudyPlan }) {
+  const s = useApp();
   const today = todayKey();
   const active = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'unknown' && ep.lastDay >= today);
   const rows = active.filter((ep) => ep.quota > 0 || ep.postponed || ep.todayMinutes > 0);
@@ -445,6 +446,9 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
   const unknown = plan.exams.filter((ep) => ep.status === 'unknown');
   const upcoming = plan.exams.filter((ep) => ep.status !== 'unknown').sort((a, b) => a.exam.date.localeCompare(b.exam.date) || (a.exam.time || '').localeCompare(b.exam.time || ''));
   const ahead = !left && total > 0 ? aheadLesson(plan) : null;
+  // everything studied today (timer, logged sessions), whether or not it was today's share
+  const studied = s.sessions.filter((x) => x.date === today && !x.tick).reduce((a, x) => a + x.minutes, 0);
+  const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
 
   return (
     <>
@@ -457,7 +461,15 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
           <>
             <div className="sh-total">
               <Hours m={left || total} />
-              <span>{!left ? L('خلّصت مذاكرة اليوم ✓', 'Done for today ✓') : done > 0 ? L(`باقي من ${fmtMinutes(total)} · أنجزت ${Math.round((done / Math.max(1, total)) * 100)}%`, `left of ${fmtMinutes(total)} · ${Math.round((done / Math.max(1, total)) * 100)}% done`) : rows.length === 1 ? L('على مادة وحدة', 'on one subject') : L(`على ${rows.length} مواد`, `on ${rows.length} subjects`)}</span>
+              <span>{!left ? L('خلّصت مذاكرة اليوم ✓', 'Done for today ✓') : done > 0 ? L(`باقي من ${fmtMinutes(total)}`, `left of ${fmtMinutes(total)}`) : rows.length === 1 ? L('على مادة وحدة', 'on one subject') : L(`على ${rows.length} مواد`, `on ${rows.length} subjects`)}</span>
+            </div>
+            <div className="sh-prog" aria-label={L(`ذاكرت اليوم ${fmtMinutes(studied)}، ${pct}% من حصة اليوم`, `Studied ${fmtMinutes(studied)} today, ${pct}% of today's share`)}>
+              <DayBar rows={rows} />
+              <div className="t">
+                <span>{L('ذاكرت اليوم', 'Studied today')} <b className="num">{studied ? fmtMinutes(studied) : L('٠ د', '0 min')}</b></span>
+                <span className={pct >= 100 ? 'ok' : ''}>{L('أنجزت', 'Done')} <b className="num">{pct}%</b> {L(`من حصة اليوم`, `of today's share`)}</span>
+              </div>
+              {studied - done >= 10 && <small className="faint">{L(`الحصة تنحسب باللي غطيته من الدروس (${fmtMinutes(done)})، مو بالوقت — سجّل وش خلصت من كل جلسة عشان تنحسب صح.`, `The share counts the lessons you covered (${fmtMinutes(done)}), not the time — log what you finished each session so it counts.`)}</small>}
             </div>
             <div className="sh-rows">
               {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
@@ -475,6 +487,7 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
           </>
         ) : (
           <div className="sh-empty">
+            {studied > 0 && <b>{L(`ذاكرت اليوم ${fmtMinutes(studied)} 👏`, `Studied ${fmtMinutes(studied)} today 👏`)}</b>}
             {active.length ? L('ما عليك مذاكرة اليوم.', 'Nothing to study today.') : L('أضف موعد اختبار ودروسه، وأقولك كل يوم وش تذاكر وكم.', "Add an exam and its lessons, and I'll tell you every day what to study and for how long.")}
             {!active.length && <button className="btn sm primary" onClick={() => openSheet({ type: 'exam' })}><Icon name="plus" size={14} /> {L('موعد اختبار', 'Exam date')}</button>}
             <button className="btn sm ghost" onClick={() => openSheet({ type: 'study-session' })}><Icon name="clock" size={14} /> {L('جلسة مذاكرة بوقت', 'A timed study session')}</button>
@@ -905,10 +918,13 @@ function CourseDetail({ id }: { id: string }) {
   const sessions = s.sessions.filter((x) => x.courseId === id && !x.tick).sort((a, b) => b.at - a.at);
   const exams = s.exams.filter((e) => e.courseId === id).sort((a, b) => b.date.localeCompare(a.date));
   const studied = sessions.reduce((a, x) => a + x.minutes, 0);
+  const studiedToday = sessions.filter((x) => x.date === todayKey(now)).reduce((a, x) => a + x.minutes, 0);
   const finished = units.filter((u) => u.progress >= 1).length;
   const ep = nextExam(plan, id);
-  const todayIds = new Set(plan.exams.filter((x) => x.course.id === id).flatMap((x) => x.portion.map((p) => p.unit.id)));
   const today = todayKey(now);
+  // each lesson's day in the plan (a course with two exams: the nearer one first)
+  const when = new Map<string, UnitWhen>();
+  for (const x of plan.exams.filter((y) => y.course.id === id && y.status !== 'past' && y.status !== 'unknown')) for (const [k, v] of unitSchedule(x, today)) if (!when.has(k)) when.set(k, v);
 
   const addLessons = () => {
     const ids = A.addUnits(id, parseUnitLines(bulk, 10));
@@ -928,7 +944,7 @@ function CourseDetail({ id }: { id: string }) {
       <PageTop
         back={{ label: L('الدراسة', 'Study'), to: 'study' }}
         title={<span className="sx-title"><span className="sx-dot lg" style={{ background: c.color }} />{c.name}</span>}
-        sub={units.length ? L(`${finished} من ${units.length} دروس${remaining > 1 ? ` · باقي ~${fmtMinutes(remaining)}` : ''}${studied ? ` · ذاكرت ${fmtMinutes(studied)}` : ''}`, `${finished} of ${units.length} lessons${remaining > 1 ? ` · ~${fmtMinutes(remaining)} left` : ''}${studied ? ` · ${fmtMinutes(studied)} studied` : ''}`) : undefined}
+        sub={units.length ? L(`${finished} من ${units.length} دروس${remaining > 1 ? ` · باقي ~${fmtMinutes(remaining)}` : ''}${studiedToday ? ` · اليوم ${fmtMinutes(studiedToday)}` : studied ? ` · ذاكرت ${fmtMinutes(studied)}` : ''}`, `${finished} of ${units.length} lessons${remaining > 1 ? ` · ~${fmtMinutes(remaining)} left` : ''}${studiedToday ? ` · ${fmtMinutes(studiedToday)} today` : studied ? ` · ${fmtMinutes(studied)} studied` : ''}`) : undefined}
         actions={<button className="btn sm" onClick={() => openSheet({ type: 'course', id })}><Icon name="edit" size={14} /> {L('تعديل', 'Edit')}</button>}
       />
       <div className="sx-cols">
@@ -941,7 +957,7 @@ function CourseDetail({ id }: { id: string }) {
               <button onClick={() => setAdding(!adding)}>{adding ? L('إلغاء', 'Cancel') : L('+ دروس', '+ Lessons')}</button>
             </div>
             <div className="rows">
-              {units.map((u) => <LessonRow key={u.id} u={u} color={c.color} pace={pace.pace} sizeLabel={c.sizeLabel} today={todayIds.has(u.id)} />)}
+              {units.map((u) => <LessonRow key={u.id} u={u} color={c.color} pace={pace.pace} sizeLabel={c.sizeLabel} when={when.get(u.id)} today={today} />)}
               {!units.length && !adding && (
                 <button className="r" onClick={() => setAdding(true)}>
                   <span className="ic"><Icon name="plus" size={16} /></span>

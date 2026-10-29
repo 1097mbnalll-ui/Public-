@@ -399,6 +399,57 @@ export function postponePreview(state: AppState, examId: string, now = Date.now(
 }
 
 /** "ش1 · الدرس 3 (كامل)" or "ش1 · الدرس 4: 12 من 34 دقيقة فيديو" */
+/** when each lesson comes up in the plan: the day(s) you learn it, and the day(s) you review it */
+export interface UnitWhen {
+  learn?: { from: string; to: string };
+  review?: { from: string; to: string };
+  /** still has work but no day before the exam fits it */
+  unplanned?: boolean;
+}
+
+/**
+ * Walks the plan's days in order and hands each day's minutes to the lessons the same way today's
+ * share is cut (lessons in course order, then their review) — so a lesson's date here is the day it
+ * will show up as «اليوم».
+ */
+export function unitSchedule(p: ExamPlan, today: string): Map<string, UnitWhen> {
+  const out = new Map<string, UnitWhen>();
+  const segs = [
+    ...p.work.filter((w) => w.learn >= 1).map((w) => ({ id: w.unit.id, m: w.learn, k: 'learn' as const })),
+    ...p.work.filter((w) => w.review >= 1).map((w) => ({ id: w.unit.id, m: w.review, k: 'review' as const })),
+  ];
+  const mark = (id: string, k: 'learn' | 'review', day: string) => {
+    const x = out.get(id) || {};
+    const r = x[k];
+    x[k] = r ? { from: r.from, to: day } : { from: day, to: day };
+    out.set(id, x);
+  };
+  let i = 0;
+  let used = 0;
+  for (const day of Object.keys(p.alloc).filter((d) => d >= today).sort()) {
+    let m = day === today ? p.todayMinutes : round5(p.alloc[day] || 0);
+    while (m >= 1 && i < segs.length) {
+      const seg = segs[i];
+      const need = seg.m - used;
+      mark(seg.id, seg.k, day);
+      if (m >= need - 3) {
+        m -= need;
+        i++;
+        used = 0;
+      } else {
+        used += m;
+        m = 0;
+      }
+    }
+  }
+  for (; i < segs.length; i++) {
+    const x = out.get(segs[i].id) || {};
+    if (!x[segs[i].k]) x.unplanned = true;
+    out.set(segs[i].id, x);
+  }
+  return out;
+}
+
 export function portionText(x: Portion, sizeLabel: string): string {
   if (x.review) return L(`${x.unit.title} (مراجعة)`, `${x.unit.title} (review)`);
   if (x.whole) return x.unit.progress > 0 ? L(`${x.unit.title} (الباقي)`, `${x.unit.title} (the rest)`) : L(`${x.unit.title} (كامل)`, `${x.unit.title} (whole)`);

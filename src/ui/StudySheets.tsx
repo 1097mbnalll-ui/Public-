@@ -3,8 +3,8 @@ import { Collapse, Group, NumInput, Ring, Sheet, Seg, Switch } from './kit';
 import { Icon } from './Icon';
 import { getState, useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, atTime, daysWord, fmtDate, fmtMinutes, todayKey } from '../lib/dates';
-import { planStudy, unitMinutes, type ExamPlan } from '../lib/engine/study';
+import { addDays, atTime, dayNames, daysWord, fmtDate, fmtMinutes, todayKey } from '../lib/dates';
+import { planStudy, unitMinutes, unitSchedule, type ExamPlan, type UnitWhen } from '../lib/engine/study';
 import type { Unit } from '../lib/types';
 import { coursePace } from '../lib/engine/learning';
 import { buildIcs } from '../lib/reminders';
@@ -216,7 +216,16 @@ function LessonGlyph({ u, color }: { u: Unit; color: string }) {
 }
 
 /** lesson row: state · title · what's left. Tap for the lesson. */
-export function LessonRow({ u, color, pace, sizeLabel, today }: { u: Unit; color: string; pace: number; sizeLabel: string; today?: boolean }) {
+/** «اليوم» · «بكرة» · «الأحد» (this week) · «3 نوفمبر» */
+function dayWord(d: string, today: string) {
+  if (d === today) return L('اليوم', 'Today');
+  if (d === addDays(today, 1)) return L('بكرة', 'Tomorrow');
+  if (d < addDays(today, 7)) return dayNames()[new Date(`${d}T12:00:00`).getDay()];
+  return fmtDate(d, false);
+}
+const span = (r: { from: string; to: string }, today: string) => (r.from === r.to ? dayWord(r.from, today) : `${dayWord(r.from, today)} – ${dayWord(r.to, today)}`);
+
+export function LessonRow({ u, color, pace, sizeLabel, when, today: todayK = todayKey() }: { u: Unit; color: string; pace: number; sizeLabel: string; when?: UnitWhen; today?: string }) {
   const s = useApp();
   const c = s.courses.find((x) => x.id === u.courseId);
   const left = c ? unitMinutes(u, c, pace, s.settings.reviewFactor) : 0;
@@ -235,7 +244,16 @@ export function LessonRow({ u, color, pace, sizeLabel, today }: { u: Unit; color
         <div className="lbl">{u.title}{u.notes ? <Icon name="note" size={13} className="faint" style={{ marginInlineStart: 6, verticalAlign: '-2px' }} /> : null}</div>
         <div className="sub">{sub}</div>
       </span>
-      {today && <span className="sx-tag">{L('اليوم', 'Today')}</span>}
+      {when && (when.learn || when.review || when.unplanned) && (() => {
+        // the next thing the plan has for this lesson: learning it, otherwise its review
+        const r = when.learn || when.review;
+        const isToday = !!r && r.from === todayK;
+        return (
+          <span className={`sx-when ${isToday ? 'today' : ''} ${!r ? 'late' : ''}`}>
+            {r ? <>{!when.learn ? <small>{L('مراجعة', 'Review')}</small> : null}{span(r, todayK)}</> : L('ما يمدي قبل الاختبار', 'No room before the exam')}
+          </span>
+        );
+      })()}
     </button>
   );
 }
@@ -430,9 +448,12 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
         <div className="col" style={{ gap: 16 }}>
           <ExamPlanView ep={ep} />
           <Group title={L(`الدروس المطلوبة (${existing!.unitIds.length})`, `Required lessons (${existing!.unitIds.length})`)}>
-            {s.units.filter((u) => existing!.unitIds.includes(u.id)).sort((a, b) => a.order - b.order).map((u) => (
-              <LessonRow key={u.id} u={u} color={course?.color || 'var(--accent)'} pace={ep.pace.pace} sizeLabel={course?.sizeLabel || ''} />
-            ))}
+            {(() => {
+              const when = unitSchedule(ep, todayKey());
+              return s.units.filter((u) => existing!.unitIds.includes(u.id)).sort((a, b) => a.order - b.order).map((u) => (
+                <LessonRow key={u.id} u={u} color={course?.color || 'var(--accent)'} pace={ep.pace.pace} sizeLabel={course?.sizeLabel || ''} when={when.get(u.id)} />
+              ));
+            })()}
           </Group>
         </div>
       ) : (

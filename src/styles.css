@@ -4118,3 +4118,13 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .ps-parts + * { margin-top: 0; }
 .ps-parts li { min-width: 0; }
 .ps-parts li b, .ps-parts li .num { flex: none; }
+
+/* each lesson's day in the plan, and today's progress */
+.sx-when { flex: none; display: grid; justify-items: end; gap: 0; font-size: 12px; font-weight: 700; color: var(--muted); text-align: end; max-width: 46%; }
+.sx-when small { font-size: 10.5px; font-weight: 600; opacity: .8; }
+.sx-when.today { padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); display: block; }
+.sx-when.late { color: var(--amber); }
+.sh-prog { display: grid; gap: 8px; margin: 6px 0 12px; }
+.sh-prog .t { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
+.sh-prog .t b { color: var(--text); font-weight: 700; }
+.sh-prog .t .ok b { color: var(--green); }
