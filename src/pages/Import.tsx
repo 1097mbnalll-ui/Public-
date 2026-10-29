@@ -13,6 +13,14 @@ import { unpackLinkPack } from '../lib/transfer';
 import { catInfo, fmtMoney } from '../lib/engine/money';
 import { DAY_NAMES } from '../lib/engine/schedule';
 
+/** two course names share a real word or number — «إنجليزي 106» ~ «ENGL 106» ~ «الإنجليزي» */
+function sharesWord(a: string, b: string) {
+  const words = (x: string) => new Set(x.toLowerCase().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/^ال|\sال/g, ' ').split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3));
+  const A = words(a);
+  for (const w of words(b)) if (A.has(w)) return true;
+  return false;
+}
+
 /** #/import?src=courses/xxx.json or ?pack=… — preview a ready-made course and/or tasks and add them */
 export function Import() {
   const s = useApp();
@@ -27,6 +35,8 @@ export function Import() {
   const [reviewDays, setReviewDays] = useState(2);
   const [examTime, setExamTime] = useState<string | undefined>();
   const [replaceSched, setReplaceSched] = useState(true);
+  // which of your courses this one replaces ('' = add it as a new course; undefined = not chosen yet)
+  const [replaceId, setReplaceId] = useState<string | undefined>();
 
   useEffect(() => {
     // the pack can live inside the link itself (private: no file on the server) or in a file on the site
@@ -59,10 +69,13 @@ export function Import() {
   const home = course ? 'study' : tasks.length ? 'tasks' : expenses.length ? 'money' : 'schedule';
   const homeLabel = course ? L('الدراسة', 'Study') : tasks.length ? L('المهام', 'Tasks') : expenses.length ? L('مصاريفي', 'Spending') : L('جدولي', 'Timetable');
   const total = pack.units.reduce((a, u) => a + u.size, 0);
-  const existing = course && s.courses.find((c) => c.name.trim() === course.name.trim());
+  // the course this one most likely updates: the same name, or one sharing a word or number («106», «إنجليزي»)
+  const mine = s.courses.filter((c) => !c.archived);
+  const guess = course ? mine.find((c) => c.name.trim() === course.name.trim()) || mine.find((c) => sharesWord(c.name, course.name)) : undefined;
+  const target = replaceId === undefined ? guess : mine.find((c) => c.id === replaceId);
   const pastDate = !!examDate && examDate < todayKey();
   const add = (replace = false) => {
-    if (replace && existing) deleteCourse(existing.id);
+    if (replace && target) deleteCourse(target.id);
     const exam = course && examDate && !pastDate ? { title: examTitle.trim() || L('اختبار', "Exam"), date: examDate, time: examTime, reviewDays } : undefined;
     const id = importCoursePack({ ...pack, exam }, replaceSched);
     const examId = id && getState().exams.find((e) => e.courseId === id)?.id;
@@ -109,14 +122,20 @@ export function Import() {
           </section>
         )}
 
-        {existing && <div className="notice amber">{L("عندك مادة بنفس الاسم. «استبدل الموجودة» يحذفها مع دروسها واختبارها وجلساتها ويضع هذه مكانها.", "You already have a course with this name. “Replace existing” deletes it with its lessons, exam and sessions and puts this one in its place.")}</div>}
+        {course && mine.length > 0 && (
+          <div className="field">
+            <label htmlFor="imp-replace">{L('تبدّل مادة عندك؟', 'Replace one of your courses?')}</label>
+            <select id="imp-replace" className="select" value={target?.id ?? ''} onChange={(e) => setReplaceId(e.target.value)}>
+              <option value="">{L('لا — أضفها مادة جديدة', 'No — add it as a new course')}</option>
+              {mine.map((c) => <option key={c.id} value={c.id}>{L(`بدّل «${c.name}»`, `Replace “${c.name}”`)}</option>)}
+            </select>
+          </div>
+        )}
+        {target && <div className="notice amber">{L(`«استبدل» يحذف «${target.name}» مع دروسها واختبارها وجلساتها ويحط هذي مكانها. باقي موادك ما تتأثر.`, `“Replace” deletes “${target.name}” with its lessons, exam and sessions and puts this one in its place. Your other courses stay.`)}</div>}
 
         <div className="row wrap" style={{ gap: 8 }}>
-          {existing ? (
-            <>
-              <button className="btn primary" onClick={() => add(true)}>{L("استبدل الموجودة", "Replace existing")}</button>
-              <button className="btn" onClick={() => add()}>{L("أضف كنسخة جديدة", "Add as a new copy")}</button>
-            </>
+          {target ? (
+            <button className="btn primary" onClick={() => add(true)}>{L(`استبدل «${target.name}»`, `Replace “${target.name}”`)}</button>
           ) : (
             <button className="btn primary" onClick={() => add()}><Icon name="plus" size={16} />{kinds > 1 ? L(" أضف الكل", " Add all") : course ? L(" أضف المادة", " Add course") : tasks.length ? L(" أضف المهام", " Add tasks") : expenses.length ? L(" أضف المصاريف", " Add expenses") : L(" اعتمد الجدول", " Use this timetable")}</button>
           )}
