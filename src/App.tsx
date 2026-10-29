@@ -28,6 +28,7 @@ const SyncJoin = lazy(() => import('./pages/SyncJoin').then((m) => ({ default: m
 import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
 import { CoachTracker } from './ui/Coach';
+import { PipHost, PipView, usePip } from './ui/PipTimer';
 import { RemindersPage } from './ui/Remind';
 import { todayKey } from './lib/dates';
 import { lastOf, PAIRS, remember } from './ui/pairs';
@@ -75,6 +76,7 @@ export function App() {
   registerCustom(s.gym.custom);
   useQuotaLog();
   useShortcuts();
+  const pip = usePip();
 
   const lng = s.settings.lang;
   const theme = s.settings.theme;
@@ -168,8 +170,12 @@ export function App() {
       break;
   }
 
+  // the app shrunk into Android's floating window: just the clock
+  if (pip.inPip && s.timer) return <div className="pip-native"><PipView /></div>;
+
   return (
     <div className="app">
+      <PipHost />
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark"><Icon name="logo" size={18} stroke={2.2} style={{ color: '#fff' }} /></span>{L("مدار", "Madar")}</div>

@@ -8,6 +8,7 @@ import { toast } from './ui/toast';
 import { L } from './lib/i18n';
 import { loadOwnFont } from './lib/localFont';
 import { isNative, startNative } from './lib/native';
+import { startPip } from './lib/pip';
 
 // your own font (picked in settings) is ready before the first paint when it can be
 const openedAt = performance.now();
@@ -32,6 +33,7 @@ Promise.all([init(), loadOwnFont().catch(() => {})]).then(() => {
   onSmsAdded((n) => toast(n === 1 ? L('📩 أُضيف مصروف من رسائل البنك', '📩 An expense was added from your bank messages') : L(`📩 أُضيفت ${n} مصاريف من رسائل البنك`, `📩 ${n} expenses added from your bank messages`), { undoable: true, ms: 6000 }));
   startSync();
   void startNative();
+  void startPip();
 });
 
 // the Android app has its files inside it — no service worker needed there

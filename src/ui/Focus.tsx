@@ -8,6 +8,7 @@ import { partAt, planSession, pomodoro } from '../lib/engine/focus';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
+import { PipButton } from './PipTimer';
 import { L, szn } from '../lib/i18n';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -152,6 +153,7 @@ export function FocusScreen() {
       <div className="focus-top">
         <button className="btn sm ghost" onClick={() => A.setFocus(false)}>
           <Icon name="down" size={15} />{L(" تصغير", " Minimise")}</button>
+        <PipButton />
         <span className="faint small">{finished ? L('خلصت الجلسة', 'Session done') : isBreak ? (p.long ? L('استراحة طويلة', 'Long break') : L('استراحة قصيرة', "Short break")) : plan ? L(`تركيز · الجولة ${round} من ${plan.rounds}`, `Focus · round ${round} of ${plan.rounds}`) : L(`تركيز · الجولة ${p.done + 1}`, `Focus · round ${p.done + 1}`)}</span>
       </div>
 

@@ -13,6 +13,7 @@ import { go } from './router';
 import { QuickAdd } from './QuickAdd';
 import { isNative } from '../lib/native';
 import { RemindSheet } from './Remind';
+import { PipButton } from './PipTimer';
 import { StudySessionSheet } from './StudySession';
 import { TaskEditor } from './TaskEditor';
 import { CourseEditor, ExamEditor, LessonSheet, StudyLog } from './StudySheets';
@@ -151,6 +152,7 @@ export function TimerBar() {
       ) : (
         <button className="icon-btn sm" onClick={A.resumeTimer} aria-label={L("استئناف", "Resume")}><Icon name="play" size={14} /></button>
       )}
+      <PipButton className="icon-btn sm" label={false} />
       <button className="icon-btn sm" onClick={finishTimerUI} aria-label={L("إنهاء وحفظ", "Finish & save")} style={{ color: 'var(--accent)' }}><Icon name="stop" size={15} /></button>
       <button className="icon-btn sm" onClick={() => { if (confirm(L('إلغاء المؤقت بدون حفظ الوقت؟', "Cancel the timer without saving the time?"))) A.cancelTimer(); }} aria-label={L("إلغاء", "Cancel")}><Icon name="x" size={15} /></button>
     </div>
