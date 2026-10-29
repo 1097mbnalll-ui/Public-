@@ -199,6 +199,8 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     wins: unionById(fm.wins || [], ft.wins || []),
     postings: unionById(fm.postings || [], ft.postings || []),
     reviews: unionById(fm.reviews || [], ft.reviews || []),
+    cvItems: unionById(fm.cvItems || [], ft.cvItems || []),
+    ...(fm.cv || ft.cv ? { cv: (fm.cv?.updatedAt ?? fm.cv?.createdAt ?? 0) >= (ft.cv?.updatedAt ?? ft.cv?.createdAt ?? 0) ? fm.cv || ft.cv : ft.cv } : {}),
     ...(fm.vision || ft.vision ? { vision: (fm.vision?.updatedAt ?? fm.vision?.createdAt ?? 0) >= (ft.vision?.updatedAt ?? ft.vision?.createdAt ?? 0) ? fm.vision || ft.vision : ft.vision } : {}),
   };
   out.templates = unionById(mine.templates, theirs.templates.filter((t) => !names.has(t.name.trim()) || mine.templates.some((m) => m.id === t.id)));

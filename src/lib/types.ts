@@ -611,7 +611,54 @@ export interface FutureReview {
   updatedAt?: number;
 }
 
+/** «سيرتي»: the CV you want on a target day, item by item */
+export type CvSection = 'lang' | 'tools' | 'cert' | 'exp' | 'proj' | 'activity' | 'profile' | 'academic';
+
+export interface CvStep {
+  id: string;
+  title: string;
+  /** minutes it takes, roughly */
+  min: number;
+  doneAt?: number;
+}
+
+export interface CvItem {
+  id: string;
+  sec: CvSection;
+  title: string;
+  /** what «done» means, in one line: «IELTS 6.5 أو أعلى» */
+  target?: string;
+  why?: string;
+  steps: CvStep[];
+  /** a link or a note others can check: a certificate number, a repo, a letter */
+  evidence?: string;
+  doneAt?: number;
+  /** catalog key it came from (so it isn't suggested twice) */
+  key?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface CvPlan {
+  /** catalog field and branch: 'eng' / 'mech' … */
+  field: string;
+  branch?: string;
+  /** student: graduation; otherwise a date you set */
+  kind: 'student' | 'other';
+  target: string;
+  /** weekdays you give it (0 = Sunday) and minutes each time */
+  days: number[];
+  minutes: number;
+  /** days you said «مو اليوم» */
+  skipped?: string[];
+  remindId?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export interface FutureState {
+  cv?: CvPlan;
+  cvItems?: CvItem[];
   vision?: FutureVision;
   stages: FutureStage[];
   skills: FutureSkill[];

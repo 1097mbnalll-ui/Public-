@@ -136,6 +136,12 @@ export function migrate(raw: any): AppState {
     (s.future as any)[k] = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
   }
   if (s.future.vision && typeof s.future.vision !== 'object') delete s.future.vision;
+  if (s.future.cv && (typeof s.future.cv !== 'object' || typeof (s.future.cv as any).target !== 'string')) delete s.future.cv;
+  if (s.future.cv) {
+    const cv: any = s.future.cv;
+    s.future.cv = { ...cv, kind: cv.kind === 'other' ? 'other' : 'student', days: Array.isArray(cv.days) ? cv.days : [0, 2, 4], minutes: Number(cv.minutes) > 0 ? Number(cv.minutes) : 30 };
+  }
+  s.future.cvItems = (Array.isArray(s.future.cvItems) ? s.future.cvItems : []).filter((x: any) => x && typeof x === 'object' && typeof x.id === 'string' && typeof x.title === 'string').map((x: any) => ({ sec: 'tools', ...x, steps: Array.isArray(x.steps) ? x.steps.filter((y: any) => y && typeof y.id === 'string') : [] }));
   s.future.skills = s.future.skills.map((k: any) => ({ cat: 'pro', level: 0, target: 3, priority: 2, prereqs: [], step: 'none', resources: [], log: [], ...k }));
   s.future.projects = s.future.projects.map((p: any) => ({ skillIds: [], steps: [], links: [], status: 'idea', ...p }));
   s.future.wins = s.future.wins.map((w: any) => ({ skillIds: [], kind: 'other', ...w }));

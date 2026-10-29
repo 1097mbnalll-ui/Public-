@@ -1,9 +1,9 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, FutureProject, FutureReview, FutureSkill, FutureStage, FutureVision, FutureWin, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
+import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, CvItem, CvPlan, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
-import { addDays, addMonths, todayKey } from './dates';
+import { addDays, addMonths, atTime, todayKey } from './dates';
 import { taskTime } from './engine/learning';
 import { markLessonIn } from './engine/study';
 import { isProcDone, kindInfo } from './engine/procedures';
@@ -13,6 +13,7 @@ import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, sl
 import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
+import { starterItems } from './engine/cv';
 
 const now = () => Date.now();
 
@@ -1138,145 +1139,11 @@ export function deleteBody(id: string) {
 
 // ---------------- Future (مستقبلي) ----------------
 
-/** set or change the big goal; on first setup, the stages to begin with */
-export function setVision(v: Omit<FutureVision, 'createdAt'>, stages?: Omit<FutureStage, 'id' | 'createdAt'>[]) {
+/** after moving the old «مستقبلي» (skills, projects, wins…) into the CV, clear it */
+export function clearOldFuture() {
   mutate((s) => {
-    const was = s.future.vision;
-    s.future.vision = { ...v, createdAt: was?.createdAt || now(), updatedAt: now() };
-    if (stages && !s.future.stages.length) s.future.stages = stages.map((x) => ({ ...x, id: uid(), createdAt: now() }));
-  });
-}
-
-export function saveStage(st: Omit<FutureStage, 'id' | 'createdAt'> & { id?: string }): string {
-  const id = st.id || uid();
-  mutate((s) => {
-    const x = s.future.stages.find((y) => y.id === id);
-    if (x) Object.assign(x, st, { updatedAt: now() });
-    else s.future.stages.push({ ...st, id, createdAt: now() });
-  });
-  return id;
-}
-
-export function deleteStage(id: string) {
-  mutate((s) => {
-    s.future.stages = s.future.stages.filter((x) => x.id !== id);
-    // what was in it stays, just without a stage
-    for (const k of s.future.skills) if (k.stageId === id) k.stageId = undefined;
-    for (const p of s.future.projects) if (p.stageId === id) p.stageId = undefined;
-  }, L('حذف المرحلة', 'Delete stage'));
-}
-
-export function saveSkill(k: Partial<FutureSkill> & { name: string; id?: string }): string {
-  const id = k.id || uid();
-  mutate((s) => {
-    const x = s.future.skills.find((y) => y.id === id);
-    if (x) Object.assign(x, k, { updatedAt: now() });
-    else s.future.skills.push({ cat: 'pro', level: 0, target: 3, priority: 2, prereqs: [], step: 'none', resources: [], log: [], ...k, id, createdAt: now() });
-  });
-  return id;
-}
-
-export function deleteSkill(id: string) {
-  mutate((s) => {
-    s.future.skills = s.future.skills.filter((k) => k.id !== id);
-    for (const k of s.future.skills) k.prereqs = k.prereqs.filter((p) => p !== id);
-    for (const p of s.future.projects) p.skillIds = p.skillIds.filter((x) => x !== id);
-    for (const w of s.future.wins) w.skillIds = w.skillIds.filter((x) => x !== id);
-  }, L('حذف المهارة', 'Delete skill'));
-}
-
-export function logSkill(id: string, min: number, day = todayKey()) {
-  mutate((s) => {
-    const k = s.future.skills.find((y) => y.id === id);
-    if (!k || !min) return;
-    k.log.push({ day, min });
-    if (k.step === 'none') k.step = 'learning';
-    k.updatedAt = now();
-  });
-}
-
-/** a paid resource → one expense in مصاريفي (once), marked as growth */
-export function resourceToExpense(skillId: string, resId: string): string | null {
-  const k = getState().future.skills.find((y) => y.id === skillId);
-  const r = k?.resources.find((y) => y.id === resId);
-  if (!k || !r || !r.cost || r.expenseId) return null;
-  const eid = addExpense({ title: r.title, amount: r.cost, cat: 'study', day: todayKey(), growth: true });
-  mutate((s) => {
-    const rr = s.future.skills.find((y) => y.id === skillId)?.resources.find((y) => y.id === resId);
-    if (rr) rr.expenseId = eid;
-  });
-  return eid;
-}
-
-export function saveProject(p: Partial<FutureProject> & { title: string; id?: string }): string {
-  const id = p.id || uid();
-  mutate((s) => {
-    const x = s.future.projects.find((y) => y.id === id);
-    if (x) {
-      Object.assign(x, p, { updatedAt: now() });
-      if (p.status === 'done' && !x.doneAt) x.doneAt = now();
-    } else s.future.projects.push({ skillIds: [], steps: [], links: [], status: 'active', ...p, id, createdAt: now() });
-  });
-  return id;
-}
-
-export function deleteProject(id: string) {
-  mutate((s) => {
-    s.future.projects = s.future.projects.filter((p) => p.id !== id);
-  }, L('حذف المشروع', 'Delete project'));
-}
-
-/** a project step into مهامي — the task then decides whether it's done */
-export function stepToTask(projectId: string, stepId: string, due?: string): string | null {
-  const s = getState();
-  const p = s.future.projects.find((x) => x.id === projectId);
-  const st = p?.steps.find((x) => x.id === stepId);
-  if (!p || !st || st.taskId) return st?.taskId || null;
-  const tid = addTask({ title: st.title, notes: L(`من مشروع «${p.title}» في مستقبلي`, `From the project “${p.title}”`), label: 'مستقبلي', due });
-  mutate((x) => {
-    const y = x.future.projects.find((q) => q.id === projectId)?.steps.find((q) => q.id === stepId);
-    if (y) y.taskId = tid;
-    const pp = x.future.projects.find((q) => q.id === projectId);
-    if (pp) pp.updatedAt = now();
-  });
-  return tid;
-}
-
-export function saveWin(w: Partial<FutureWin> & { title: string; id?: string }): string {
-  const id = w.id || uid();
-  mutate((s) => {
-    const x = s.future.wins.find((y) => y.id === id);
-    if (x) Object.assign(x, w, { updatedAt: now() });
-    else s.future.wins.push({ kind: 'other', day: todayKey(), skillIds: [], ...w, id, createdAt: now() });
-  });
-  return id;
-}
-
-export function deleteWin(id: string) {
-  mutate((s) => {
-    s.future.wins = s.future.wins.filter((w) => w.id !== id);
-  }, L('حذف الإنجاز', 'Delete win'));
-}
-
-export function savePosting(p: { id?: string; title: string; text: string }): string {
-  const id = p.id || uid();
-  mutate((s) => {
-    const x = s.future.postings.find((y) => y.id === id);
-    if (x) Object.assign(x, p, { updatedAt: now() });
-    else s.future.postings.push({ ...p, id, day: todayKey(), createdAt: now() });
-  });
-  return id;
-}
-
-export function deletePosting(id: string) {
-  mutate((s) => {
-    s.future.postings = s.future.postings.filter((x) => x.id !== id);
-  }, L('حذف الإعلان', 'Delete ad'));
-}
-
-export function saveReview(r: Omit<FutureReview, 'id' | 'createdAt'>) {
-  mutate((s) => {
-    s.future.reviews.push({ ...r, id: uid(), createdAt: now() });
+    Object.assign(s.future, { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] });
+    delete s.future.vision;
   });
 }
 
@@ -1319,4 +1186,90 @@ export function snoozeRemind(id: string, minutes: number, now = Date.now()) {
     }
     r.updatedAt = now;
   }, L('تأجيل التذكير', 'Snooze reminder'));
+}
+
+// ---------- «سيرتي» ----------
+
+/** first setup, or a change of field / target / days; a first setup also lays out the starting CV */
+export function saveCvPlan(plan: Omit<CvPlan, 'createdAt'>, opts: { starter?: boolean; remindAt?: string } = {}) {
+  const t = now();
+  mutate((s) => {
+    const old = s.future.cv;
+    const cv: CvPlan = { ...old, ...plan, createdAt: old?.createdAt ?? t, updatedAt: t };
+    // a reminder on your days at your time — the same one, moved, when you change them
+    if (opts.remindAt) {
+      const first = nextAfter({ at: atTime(todayKey(t), opts.remindAt), repeat: 'weekly', days: cv.days }, t - 60_000) ?? atTime(todayKey(t), opts.remindAt);
+      const r = cv.remindId && s.reminds.find((x) => x.id === cv.remindId);
+      const body = { title: L('خطوة سيرتك اليوم', 'Your CV step today'), note: L('افتح «مستقبلي» وسوّ الخطوة الجاية', 'Open Future and do the next step'), at: first, repeat: 'weekly' as const, days: cv.days, ref: 'future', updatedAt: t };
+      if (r) Object.assign(r, body, { done: false });
+      else {
+        const id = uid();
+        s.reminds.push({ id, ...body, createdAt: t });
+        cv.remindId = id;
+      }
+    } else if (opts.remindAt === '' && cv.remindId) {
+      s.reminds = s.reminds.filter((x) => x.id !== cv.remindId);
+      delete cv.remindId;
+    }
+    s.future.cv = cv;
+    if (opts.starter && !(s.future.cvItems || []).length) s.future.cvItems = starterItems(cv, uid, t);
+  }, L('حفظ سيرتي', 'Save my CV'));
+}
+
+export function addCvItems(items: CvItem[]) {
+  mutate((s) => {
+    s.future.cvItems = [...(s.future.cvItems || []), ...items];
+  }, L('إضافة للسيرة', 'Add to CV'));
+}
+
+export function saveCvItem(item: CvItem) {
+  mutate((s) => {
+    const list = s.future.cvItems || (s.future.cvItems = []);
+    const i = list.findIndex((x) => x.id === item.id);
+    const next = { ...item, updatedAt: now() };
+    if (i >= 0) list[i] = next;
+    else list.push(next);
+  }, L('حفظ البند', 'Save item'));
+}
+
+export function deleteCvItem(id: string) {
+  mutate((s) => {
+    s.future.cvItems = (s.future.cvItems || []).filter((x) => x.id !== id);
+  }, L('حذف البند', 'Delete item'));
+}
+
+/** tick a step (or untick it); the item counts as done when all its steps are */
+export function toggleCvStep(itemId: string, stepId: string) {
+  mutate((s) => {
+    const x = (s.future.cvItems || []).find((y) => y.id === itemId);
+    const st = x?.steps.find((y) => y.id === stepId);
+    if (!x || !st) return;
+    if (st.doneAt) {
+      delete st.doneAt;
+      delete x.doneAt;
+    } else {
+      st.doneAt = now();
+      bumpDay(s, { minutes: st.min });
+    }
+    x.updatedAt = now();
+  }, L('خطوة في سيرتي', 'CV step'));
+}
+
+/** «اشتغل عليه الحين»: puts an item first so its steps come next */
+export function focusCvItem(id: string) {
+  mutate((s) => {
+    const list = s.future.cvItems || [];
+    const i = list.findIndex((x) => x.id === id);
+    if (i > 0) list.unshift(...list.splice(i, 1));
+  });
+}
+
+/** «مو اليوم»: no CV step today (it comes back on your next day) */
+export function skipCvToday(day = todayKey()) {
+  mutate((s) => {
+    const cv = s.future.cv;
+    if (!cv) return;
+    cv.skipped = [...(cv.skipped || []).filter((d) => d >= addDays(day, -30)), day];
+    cv.updatedAt = now();
+  }, L('تأجيل خطوة اليوم', 'Skip today’s step'));
 }

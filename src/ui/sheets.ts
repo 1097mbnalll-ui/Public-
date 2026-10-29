@@ -35,14 +35,8 @@ export type SheetSpec =
   | { type: 'gym-body' }
   | { type: 'gym-info' }
   | { type: 'fu-setup' }
-  | { type: 'fu-starters' }
-  | { type: 'fu-skill'; id?: string; stageId?: string }
-  | { type: 'fu-log'; id: string }
-  | { type: 'fu-project'; id?: string; skillId?: string; stageId?: string }
-  | { type: 'fu-win'; id?: string; skillId?: string; projectId?: string }
-  | { type: 'fu-stage'; id?: string }
-  | { type: 'fu-review'; kind: 'week' | 'month' }
-  | { type: 'fu-posting'; id?: string }
+  | { type: 'fu-item'; id: string }
+  | { type: 'fu-add' }
   | { type: 'study-session'; examId?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };
 
