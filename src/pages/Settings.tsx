@@ -163,6 +163,7 @@ export function Settings() {
       </Section>
 
       <Section title={L("المدرب الذكي", "Smart coach")} desc={L("يتابع تأخيرك ويكلمك كل يوم: يحفّزك وأنت ماشي صح، ويشد عليك كل ما زاد تأخيرك.", "Watches your delays and talks to you daily: encourages you when you're on track, and gets tougher the more you fall behind.")}>
+        <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => go('coach')}><Icon name="coach" size={16} />{L(' افتح المدرب', ' Open the coach')}<Icon name="chevron" size={14} /></button>
         <CoachSettings />
       </Section>
 

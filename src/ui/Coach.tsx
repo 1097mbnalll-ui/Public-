@@ -3,7 +3,6 @@ import { Icon } from './Icon';
 import { go } from './router';
 import { useApp } from '../lib/store';
 import { useNow } from './kit';
-import { todayKey } from '../lib/dates';
 import * as A from '../lib/actions';
 import { planDay, type DayPlan } from '../lib/engine/planner';
 import { coachFacts, coachSystem, factsKey, factsText, offlineMessage, type CoachFacts } from '../lib/engine/coach';
@@ -90,10 +89,10 @@ export function CoachCard({ plan, now, inPage }: { plan: DayPlan; now: number; i
 }
 
 /**
- * The coach lives behind one floating button (top corner, every page). Its dot shows how
- * the day is going; it also records the day's lateness so the coach can see trends.
+ * Records the day's lateness in the background so the coach can see trends (the coach itself
+ * opens from Settings → المدرب الذكي).
  */
-export function CoachFab() {
+export function CoachTracker() {
   const s = useApp();
   const now = useNow();
   // planning the whole day is the heaviest work on every change: let typing and taps render first
@@ -102,11 +101,5 @@ export function CoachFab() {
   useEffect(() => {
     A.setCoachScore(facts.today, facts.score);
   }, [facts.today, facts.score]);
-  const fresh = s.settings.coach.enabled && s.coach.last?.day !== todayKey(now);
-  return (
-    <button className="coach-fab" onClick={() => go('coach')} aria-label={L('المدرب', 'Coach')} title={L('المدرب', 'Coach')}>
-      <Icon name="coach" size={22} stroke={2} />
-      {s.settings.coach.enabled && <i className={fresh ? 'pulse-dot' : ''} style={{ background: LEVEL_COLOR[facts.level] }} />}
-    </button>
-  );
+  return null;
 }

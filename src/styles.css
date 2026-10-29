@@ -2663,62 +2663,6 @@ h3 {
   align-self: stretch;
 }
 
-/* ================= coach: floating button ================= */
-
-.coach-fab {
-  position: fixed;
-  z-index: 45;
-  top: calc(env(safe-area-inset-top) + 14px);
-  inset-inline-end: 16px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--on-accent);
-  background: var(--grad-pop);
-  box-shadow: var(--glow), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
-  transition: transform 0.2s var(--ease);
-}
-
-.coach-fab:hover {
-  transform: scale(1.06);
-}
-
-.coach-fab:active {
-  transform: scale(0.94);
-}
-
-.coach-fab i {
-  position: absolute;
-  top: 2px;
-  inset-inline-end: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  border: 2.5px solid var(--g1);
-}
-
-.coach-fab i.pulse-dot {
-  animation: pulse 1.6s infinite;
-}
-
-/* leave room for it next to the page's top buttons on phones */
-@media (max-width: 899px) {
-  .top .actions {
-    margin-inline-end: 58px;
-  }
-}
-
-@media (min-width: 900px) {
-  .coach-fab {
-    top: 24px;
-    inset-inline-end: 28px;
-    width: 54px;
-    height: 54px;
-  }
-}
-
 .install-card b {
   font-weight: 800;
 }

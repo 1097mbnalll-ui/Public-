@@ -27,7 +27,7 @@ const Money = lazy(() => import('./pages/Money').then((m) => ({ default: m.Money
 const SyncJoin = lazy(() => import('./pages/SyncJoin').then((m) => ({ default: m.SyncJoin })));
 import { InstallCard } from './ui/InstallCard';
 import { PageTop } from './ui/PageTop';
-import { CoachFab } from './ui/Coach';
+import { CoachTracker } from './ui/Coach';
 import { RemindersPage } from './ui/Remind';
 import { todayKey } from './lib/dates';
 import { lastOf, PAIRS, remember } from './ui/pairs';
@@ -211,7 +211,7 @@ export function App() {
       <TimerBar />
       {s.timer?.focus && <FocusScreen />}
       <SheetHost />
-      {page !== 'coach' && page !== 'import' && page !== 'receive' && page !== 'sync' && !(page === 'gym' && id === 'live') && <CoachFab />}
+      <CoachTracker />
       <Toasts />
     </div>
   );
