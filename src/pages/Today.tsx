@@ -24,6 +24,7 @@ import { StudyToday } from './Study';
 import { GymTodayCard } from './Gym';
 import { FutureTodayCard } from './Future';
 import { RemindTodayStrip } from '../ui/Remind';
+import { NotesToday } from '../ui/Notes';
 import { fmtNum, moneyToday } from '../lib/engine/money';
 import type { AppState } from '../lib/types';
 
@@ -474,29 +475,6 @@ function Upcoming({ study }: { study: StudyPlan }) {
 }
 
 /** brain-dump from focus sessions: turn into a task or let it go */
-function Thoughts() {
-  const s = useApp();
-  if (!s.thoughts.length) return null;
-  return (
-    <section>
-      <div className="group-title"><span>{L("أفكار من جلسات التركيز (", "Thoughts from focus sessions (")}{s.thoughts.length})</span></div>
-      <div className="rows">
-        {[...s.thoughts].reverse().map((t) => (
-          <div key={t.id} className="r">
-            <span className="ic"><Icon name="note" size={15} /></span>
-            <span className="main-t">
-              <div className="lbl">{t.text}</div>
-              <div className="sub">{t.during ? L(`أثناء «${t.during}» · `, `During “${t.during}” · `) : ''}{timeAgo(t.at)}</div>
-            </span>
-            <button className="btn sm" onClick={() => { const id = A.addTask({ title: t.text }); A.removeThought(t.id); toast(L('صارت مهمة', "Turned into a task"), { buttons: [{ label: L('تفاصيل', "Details"), fn: () => openSheet({ type: 'task', id }) }] }); }}>{L("حوّلها لمهمة", "Make it a task")}</button>
-            <button className="icon-btn sm" onClick={() => { A.removeThought(t.id); toast(L('حُذفت', "Deleted"), { undoable: true }); }} aria-label={L("حذف", "Delete")}><Icon name="x" size={14} /></button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function Alerts({ list }: { list: Insight[] }) {
   const [all, setAll] = useState(false);
   if (!list.length) return null;
@@ -700,7 +678,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         {timelineTile}
         {alerts}
         <MissedReminders now={now} />
-        <Thoughts />
+        <NotesToday />
         <Upcoming study={study} />
         <ProceduresLink />
       </More>
@@ -722,7 +700,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <>
         <Tomorrow now={now} plan={plan} />
         <MissedReminders now={now} />
-        <Thoughts />
+        <NotesToday />
         {alerts}
         <More>
           {laterList}
@@ -749,7 +727,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     side = (
       <>
         <MissedReminders now={now} />
-        {phase === 'day' && <Thoughts />}
+        <NotesToday />
         {alerts}
         <More>
           {laterList}
@@ -757,7 +735,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
           <Upcoming study={study} />
           <MoneyTile now={now} />
           <WeekTile study={study} />
-          {phase === 'morning' && <Thoughts />}
           <ProceduresLink />
         </More>
       </>
@@ -784,6 +761,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         <div className="stack">
         <InstallCard />
         <RemindTodayStrip />
+        <NotesToday />
         <GymTodayCard />
         <FutureTodayCard />
         <MoneyTile now={now} />

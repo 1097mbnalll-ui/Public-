@@ -39,6 +39,7 @@ export type SheetSpec =
   | { type: 'fu-item'; id: string }
   | { type: 'fu-add' }
   | { type: 'study-session'; examId?: string }
+  | { type: 'note'; id?: string; text?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };
 
 let current: SheetSpec | null = null;

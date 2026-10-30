@@ -4146,3 +4146,19 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .m-goal-log .m small { color: var(--muted); }
 .m-goal-after { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
 .m-goal-after b { color: var(--text); }
+
+/* أفكاري */
+.nt-capture { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 16px; background: var(--surface); border: 1px dashed var(--accent-line); }
+[dir='rtl'] .nt-capture { padding: 6px 12px 6px 6px; }
+.nt-capture > svg { color: var(--accent); flex: none; }
+.nt-capture .input { flex: 1; min-width: 0; border: 0; background: transparent; box-shadow: none; padding: 0; height: 36px; }
+.nt-list { display: grid; gap: 6px; margin-top: 8px; }
+.nt-row { display: flex; align-items: center; gap: 6px; background: var(--surface); border-radius: 14px; padding-inline-end: 6px; }
+.nt-row.pinned { box-shadow: inset 3px 0 0 var(--amber); }
+[dir='rtl'] .nt-row.pinned { box-shadow: inset -3px 0 0 var(--amber); }
+.nt-row .m { flex: 1; min-width: 0; display: grid; gap: 2px; padding: 10px 12px; background: none; border: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.nt-row .t { white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.55; }
+.nt-row small { font-size: 12px; color: var(--muted); }
+.nt-page { display: grid; gap: 10px; }
+.nt-search { height: 38px; }
+.nt-text { min-height: 140px; }

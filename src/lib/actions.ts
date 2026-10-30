@@ -565,10 +565,25 @@ export function setFocus(open: boolean) {
   });
 }
 
-export function addThought(text: string, during?: string) {
+export function addThought(text: string, during?: string): string {
+  const id = uid();
   mutate((s) => {
-    s.thoughts.push({ id: uid(), text, at: now(), during });
-  });
+    s.thoughts.push({ id, text: text.trim().slice(0, 2000), at: now(), ...(during ? { during } : {}) });
+  }, L('حفظ فكرة', 'Save a thought'));
+  return id;
+}
+
+export function updateThought(id: string, patch: { text?: string; pinned?: boolean }) {
+  mutate((s) => {
+    const t = s.thoughts.find((x) => x.id === id);
+    if (!t) return;
+    if (patch.text !== undefined) t.text = patch.text.trim().slice(0, 2000);
+    if (patch.pinned !== undefined) {
+      if (patch.pinned) t.pinned = true;
+      else delete t.pinned;
+    }
+    t.updatedAt = now();
+  }, L('تعديل فكرة', 'Edit thought'));
 }
 
 export function removeThought(id: string) {

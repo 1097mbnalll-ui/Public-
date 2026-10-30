@@ -13,6 +13,7 @@ import { go } from './router';
 import { QuickAdd } from './QuickAdd';
 import { isNative } from '../lib/native';
 import { RemindSheet } from './Remind';
+import { NoteSheet } from './Notes';
 import { PipButton } from './PipTimer';
 import { StudySessionSheet } from './StudySession';
 import { TaskEditor } from './TaskEditor';
@@ -105,6 +106,8 @@ export function SheetHost() {
       return <FutureAddSheet />;
     case 'study-session':
       return <StudySessionSheet examId={sh.examId} />;
+    case 'note':
+      return <NoteSheet key={sh.id || 'new'} id={sh.id} text={sh.text} />;
     case 'remind':
       return <RemindSheet key={sh.id || sh.title || 'new'} id={sh.id} title={sh.title} refTo={sh.ref} at={sh.at} />;
   }

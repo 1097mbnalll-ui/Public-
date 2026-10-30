@@ -30,6 +30,7 @@ import { PageTop } from './ui/PageTop';
 import { CoachTracker } from './ui/Coach';
 import { PipHost, PipView, usePip } from './ui/PipTimer';
 import { RemindersPage } from './ui/Remind';
+import { NotesPage } from './ui/Notes';
 import { todayKey } from './lib/dates';
 import { lastOf, PAIRS, remember } from './ui/pairs';
 import { L } from './lib/i18n';
@@ -65,7 +66,7 @@ function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'settings') return { page: 'me' };
   if (page === 'install') return { page: 'install' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders' || page === 'notes') return { page, id };
   return { page: 'today' };
 }
 
@@ -164,6 +165,9 @@ export function App() {
       break;
     case 'reminders':
       body = <RemindersPage />;
+      break;
+    case 'notes':
+      body = <NotesPage />;
       break;
     case 'install':
       body = <div><PageTop title={L('ثبّت «مدار»', 'Install Madar')} /><InstallCard always /></div>;

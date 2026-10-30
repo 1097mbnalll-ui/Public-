@@ -309,6 +309,9 @@ export interface Thought {
   at: number;
   /** what you were working on when it came up */
   during?: string;
+  /** kept on top until unpinned */
+  pinned?: boolean;
+  updatedAt?: number;
 }
 
 export interface DayRecord {
