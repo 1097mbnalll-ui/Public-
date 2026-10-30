@@ -170,6 +170,16 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
   out.subs = unionById(mine.subs || [], theirs.subs || []);
   out.schedule = unionById(mine.schedule || [], theirs.schedule || []);
   out.reminds = unionById(mine.reminds || [], theirs.reminds || []);
+  const tm = mine.train || ({} as AppState['train']);
+  const tt = theirs.train || ({} as AppState['train']);
+  out.train = {
+    ...tt,
+    ...tm,
+    levels: { ...tt.levels, ...tm.levels },
+    attempts: unionById(tm.attempts || [], tt.attempts || []),
+    custom: unionById(tm.custom || [], tt.custom || []),
+    ...(tm.setup || tt.setup ? { setup: (tm.setup?.updatedAt ?? tm.setup?.createdAt ?? 0) >= (tt.setup?.updatedAt ?? tt.setup?.createdAt ?? 0) ? tm.setup || tt.setup : tt.setup } : {}),
+  };
   out.money = {
     ...theirs.money,
     ...mine.money,

@@ -43,4 +43,7 @@
     <!-- reminders ring on the minute: Android 13+ grants this to reminder/calendar apps at install,
          so nothing has to be switched on by hand (older phones use SCHEDULE_EXACT_ALARM from the plugin) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- «صقل»: voice answers are recorded and kept on the phone -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>

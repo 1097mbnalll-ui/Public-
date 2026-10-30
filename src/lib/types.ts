@@ -659,6 +659,61 @@ export interface CvPlan {
   updatedAt?: number;
 }
 
+/** «صقل»: the seven skills it trains */
+export type SkillId = 'write' | 'think' | 'data' | 'talk' | 'english' | 'self' | 'field';
+/** 0 = no, 1 = partly, 2 = yes — one per criterion */
+export type Mark = 0 | 1 | 2;
+
+/** a real task: a situation, what to produce, how it's judged, and an expert's answer to compare with */
+export interface DrillTask {
+  id: string;
+  skill: SkillId;
+  level: number;
+  title: string;
+  situation: string;
+  ask: string;
+  minutes: number;
+  /** written in the app · recorded aloud · done outside (Excel, a call…) then judged */
+  kind: 'text' | 'voice' | 'offline';
+  criteria: { id: string; text: string }[];
+  exemplar: string;
+  why: string[];
+  source: 'builtin' | 'ai';
+  /** a monthly measurement task of fixed difficulty */
+  benchmark?: boolean;
+  /** the task itself is in English (the English skill) */
+  en?: boolean;
+}
+
+export interface DrillAttempt {
+  id: string;
+  taskId: string;
+  skill: SkillId;
+  level: number;
+  at: number;
+  /** seconds spent */
+  secs: number;
+  answer?: string;
+  /** a recording kept on this device (its id in the voice store) */
+  voiceId?: string;
+  self: Record<string, Mark>;
+  peers: { id: string; name: string; scores: Record<string, Mark>; note?: string; at: number }[];
+  benchmark?: boolean;
+  /** a short redo of one criterion from an earlier attempt */
+  retry?: { of: string; criterion: string };
+  updatedAt?: number;
+}
+
+export interface TrainState {
+  setup?: { field?: string; branch?: string; time?: string; days: number[]; remindId?: string; createdAt: number; updatedAt?: number };
+  levels: Partial<Record<SkillId, number>>;
+  attempts: DrillAttempt[];
+  /** tasks made with an AI for your field */
+  custom: DrillTask[];
+  /** the day you swapped today's task, and for which skill */
+  swap?: { day: string; skill: SkillId };
+}
+
 export interface FutureState {
   cv?: CvPlan;
   cvItems?: CvItem[];
@@ -711,6 +766,7 @@ export interface AppState {
   gym: GymState;
   future: FutureState;
   reminds: Remind[];
+  train: TrainState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

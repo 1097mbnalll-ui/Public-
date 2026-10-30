@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, CvItem, CvPlan, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
+import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, CvItem, CvPlan, DrillAttempt, DrillTask, Mark, SkillId, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, atTime, todayKey } from './dates';
@@ -14,6 +14,7 @@ import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
 import { starterItems } from './engine/cv';
+import { nextLevel } from './engine/train';
 
 const now = () => Date.now();
 
@@ -1304,4 +1305,82 @@ export function skipCvToday(day = todayKey()) {
     cv.skipped = [...(cv.skipped || []).filter((d) => d >= addDays(day, -30)), day];
     cv.updatedAt = now();
   }, L('تأجيل خطوة اليوم', 'Skip today’s step'));
+}
+
+// ---------- «صقل» ----------
+
+export function setupTrain(p: { field?: string; branch?: string; time?: string; days: number[] }) {
+  const t = now();
+  mutate((s) => {
+    const old = s.train.setup;
+    const setup = { ...old, ...p, createdAt: old?.createdAt ?? t, updatedAt: t };
+    if (!p.field) delete setup.field;
+    if (!p.branch) delete setup.branch;
+    // a daily reminder at your time, on your days
+    if (p.time) {
+      const first = nextAfter({ at: atTime(todayKey(t), p.time), repeat: 'weekly', days: p.days }, t - 60_000) ?? atTime(todayKey(t), p.time);
+      const body = { title: L('صقل: مهمة اليوم (١٥ د)', 'Sharpen: today’s task (15 min)'), at: first, repeat: 'weekly' as const, days: p.days, ref: 'future', updatedAt: t };
+      const r = old?.remindId && s.reminds.find((x) => x.id === old.remindId);
+      if (r) Object.assign(r, body, { done: false });
+      else {
+        const id = uid();
+        s.reminds.push({ id, ...body, createdAt: t });
+        setup.remindId = id;
+      }
+    } else if (old?.remindId) {
+      s.reminds = s.reminds.filter((x) => x.id !== old.remindId);
+      delete setup.remindId;
+    }
+    s.train.setup = setup;
+  }, L('إعداد صقل', 'Set up training'));
+}
+
+/** a finished attempt with your own marks; the skill's level adjusts right after */
+export function saveAttempt(a: Omit<DrillAttempt, 'id' | 'peers'> & { id?: string }): string {
+  const id = a.id || uid();
+  mutate((s) => {
+    const i = s.train.attempts.findIndex((x) => x.id === id);
+    const next: DrillAttempt = { peers: i >= 0 ? s.train.attempts[i].peers : [], ...a, id, updatedAt: now() };
+    if (i >= 0) s.train.attempts[i] = next;
+    else s.train.attempts.push(next);
+    if (!a.retry && !a.benchmark) s.train.levels[a.skill] = nextLevel(s, a.skill);
+    bumpDay(s, { minutes: Math.round(a.secs / 60) });
+  }, L('حفظ المحاولة', 'Save attempt'));
+  return id;
+}
+
+/** someone else's marks, from a review link or scored on this phone */
+export function addPeerReview(attemptId: string, review: { name: string; scores: Record<string, Mark>; note?: string }) {
+  mutate((s) => {
+    const a = s.train.attempts.find((x) => x.id === attemptId);
+    if (!a) return;
+    a.peers.push({ id: uid(), name: review.name.trim().slice(0, 60) || L('مقيّم', 'Reviewer'), scores: review.scores, ...(review.note?.trim() ? { note: review.note.trim().slice(0, 600) } : {}), at: now() });
+    a.updatedAt = now();
+    if (!a.retry && !a.benchmark) s.train.levels[a.skill] = nextLevel(s, a.skill);
+  }, L('تقييم من شخص', 'A review'));
+}
+
+export function deleteAttempt(id: string) {
+  mutate((s) => {
+    s.train.attempts = s.train.attempts.filter((x) => x.id !== id && x.retry?.of !== id);
+  }, L('حذف المحاولة', 'Delete attempt'));
+}
+
+/** «مهمة ثانية»: today's task from another skill (once a day) */
+export function swapTrainToday(skill: SkillId) {
+  mutate((s) => {
+    s.train.swap = { day: todayKey(), skill };
+  });
+}
+
+export function addFieldTasks(tasks: DrillTask[]) {
+  mutate((s) => {
+    s.train.custom = [...s.train.custom, ...tasks];
+  }, L('مهام التخصص', 'Field tasks'));
+}
+
+export function deleteFieldTask(id: string) {
+  mutate((s) => {
+    s.train.custom = s.train.custom.filter((x) => x.id !== id);
+  }, L('حذف مهمة', 'Delete task'));
 }

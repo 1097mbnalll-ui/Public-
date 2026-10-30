@@ -96,6 +96,7 @@ export function initialState(): AppState {
     gym: { rot: 0, sessions: [], body: [], info: {} },
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] },
     reminds: [],
+    train: { levels: {}, attempts: [], custom: [] },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -112,11 +113,19 @@ export function migrate(raw: any): AppState {
     money: { swaps: {}, ...(raw.money || {}) },
     gym: { rot: 0, sessions: [], body: [], info: {}, ...(raw.gym || {}) },
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [], ...(raw.future || {}) },
+    train: { levels: {}, attempts: [], custom: [], ...(raw.train && typeof raw.train === 'object' ? raw.train : {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule', 'reminds'] as const) {
     // a damaged entry (null, a number…) would crash every page that lists it
     (s as any)[k] = Array.isArray(s[k]) ? (s[k] as unknown[]).filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
+  }
+  {
+    const t: any = s.train;
+    t.levels = t.levels && typeof t.levels === 'object' ? t.levels : {};
+    t.attempts = (Array.isArray(t.attempts) ? t.attempts : []).filter((a: any) => a && typeof a.id === 'string' && typeof a.taskId === 'string').map((a: any) => ({ self: {}, secs: 0, ...a, peers: Array.isArray(a.peers) ? a.peers : [] }));
+    t.custom = (Array.isArray(t.custom) ? t.custom : []).filter((x: any) => x && typeof x.id === 'string' && Array.isArray(x.criteria));
+    if (t.setup && (typeof t.setup !== 'object' || !Array.isArray(t.setup.days))) delete t.setup;
   }
   s.reminds = s.reminds.filter((r) => typeof r.at === 'number' && Number.isFinite(r.at)).map((r) => ({ ...r, title: String(r.title ?? ''), repeat: ['none', 'daily', 'weekly', 'monthly', 'yearly'].includes(r.repeat) ? r.repeat : 'none' }));
   for (const k of ['available', 'studyCap'] as const) {
