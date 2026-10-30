@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Seg, Sheet, Switch, useNow } from './kit';
 import { Icon } from './Icon';
 import { useApp } from '../lib/store';
@@ -72,8 +72,29 @@ function lessonsOf(ep: ExamPlan) {
 export function StudySessionSheet({ examId }: { examId?: string }) {
   const s = useApp();
   const [fresh, setFresh] = useState(false);
+  const [gen, setGen] = useState(0);
   if (s.timer && !fresh) return <CurrentSession onNew={() => setFresh(true)} />;
-  return <PlanSheet examId={examId} />;
+  return <PlanSheet key={gen} examId={examId} onReset={() => { saveDraft(null); setGen(gen + 1); }} />;
+}
+
+// the session you set up stays as you left it (today only), until you reset it
+interface Draft { day: string; picked: string[]; work: number; brk: number; longOn: boolean; longEvery: number; longBrk: number; mode: When; startNow: boolean; startTime: string; endTime: string; amount: Amount; custom: number }
+const DRAFT_KEY = 'masar.sessionPlan';
+function loadDraft(): Draft | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') as Draft | null;
+    return d && d.day === todayKey() ? d : null;
+  } catch {
+    return null;
+  }
+}
+function saveDraft(d: Draft | null) {
+  try {
+    if (d) localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    else localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* private mode: it just won't be remembered */
+  }
 }
 
 /** the running session: rounds done (crossed out), the one you're in, and when the rest happen */
@@ -141,14 +162,15 @@ function CurrentSession({ onNew }: { onNew: () => void }) {
   );
 }
 
-function PlanSheet({ examId }: { examId?: string }) {
+function PlanSheet({ examId, onReset }: { examId?: string; onReset: () => void }) {
+  const [draft] = useState(loadDraft);
   const s = useApp();
   const tick = useNow(15_000);
   const now = Math.floor(tick / MIN) * MIN;
   const plan = useMemo(() => planStudy(s, tick), [s]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = plan.exams.filter((ep) => ep.status !== 'past' && ep.status !== 'unknown');
   const today = rows.filter((ep) => ep.todayMinutes > 0);
-  const [picked, setPicked] = useState<string[]>(() => (examId ? [examId] : today.length ? today.map((ep) => ep.exam.id) : rows.slice(0, 1).map((ep) => ep.exam.id)));
+  const [picked, setPicked] = useState<string[]>(() => (examId && !draft?.picked.includes(examId) ? [examId] : draft?.picked.some((id) => rows.some((ep) => ep.exam.id === id)) ? draft.picked.filter((id) => rows.some((ep) => ep.exam.id === id)) : today.length ? today.map((ep) => ep.exam.id) : rows.slice(0, 1).map((ep) => ep.exam.id)));
   // in the order you put them — that's the order you study them in
   const chosen = picked.map((id) => rows.find((ep) => ep.exam.id === id)).filter((ep): ep is ExamPlan => !!ep);
   // a subject with nothing left today still gets a fair default (its next lesson's worth, or 30 min)
@@ -156,19 +178,25 @@ function PlanSheet({ examId }: { examId?: string }) {
   const todayTotal = base.reduce((a, r) => a + r.base, 0);
 
   const st = s.settings;
-  const [work, setWork] = useState(st.pomodoroWork || 25);
-  const [brk, setBrk] = useState(st.pomodoroBreak ?? 5);
-  const [longOn, setLongOn] = useState((st.pomodoroLongEvery || 0) > 0);
-  const [longEvery, setLongEvery] = useState(st.pomodoroLongEvery || 4);
-  const [longBrk, setLongBrk] = useState(st.pomodoroLong || 15);
+  const [work, setWork] = useState(draft?.work ?? (st.pomodoroWork || 25));
+  const [brk, setBrk] = useState(draft?.brk ?? st.pomodoroBreak ?? 5);
+  const [longOn, setLongOn] = useState(draft?.longOn ?? (st.pomodoroLongEvery || 0) > 0);
+  const [longEvery, setLongEvery] = useState(draft?.longEvery ?? (st.pomodoroLongEvery || 4));
+  const [longBrk, setLongBrk] = useState(draft?.longBrk ?? (st.pomodoroLong || 15));
   const r: Rhythm = { work, brk, longEvery: longOn ? longEvery : 0, longBrk };
 
-  const [mode, setMode] = useState<When>('start');
-  const [startNow, setStartNow] = useState(true);
-  const [startTime, setStartTime] = useState(() => clockOf(Math.ceil((tick + 15 * MIN) / (15 * MIN)) * 15 * MIN));
-  const [endTime, setEndTime] = useState(() => clockOf(Math.ceil((tick + 3 * 3600_000) / (15 * MIN)) * 15 * MIN));
-  const [amount, setAmount] = useState<Amount>('today');
-  const [custom, setCustom] = useState(60);
+  const [mode, setMode] = useState<When>(draft?.mode ?? 'start');
+  const [startNow, setStartNow] = useState(draft?.startNow ?? true);
+  const [startTime, setStartTime] = useState(() => draft?.startTime ?? clockOf(Math.ceil((tick + 15 * MIN) / (15 * MIN)) * 15 * MIN));
+  const [endTime, setEndTime] = useState(() => draft?.endTime ?? clockOf(Math.ceil((tick + 3 * 3600_000) / (15 * MIN)) * 15 * MIN));
+  const [amount, setAmount] = useState<Amount>(draft?.amount ?? 'today');
+  const [custom, setCustom] = useState(draft?.custom ?? 60);
+  const touched = useRef(!!draft);
+  useEffect(() => {
+    // remember it once you've changed something (opening and closing alone saves nothing)
+    if (!touched.current) { touched.current = true; return; }
+    saveDraft({ day: todayKey(), picked, work, brk, longOn, longEvery, longBrk, mode, startNow, startTime, endTime, amount, custom });
+  }, [picked, work, brk, longOn, longEvery, longBrk, mode, startNow, startTime, endTime, amount, custom]);
 
   // when you start, how much you study, and so when you finish
   const startFixed = startNow ? now : nextAt(startTime, now);
@@ -250,6 +278,7 @@ function PlanSheet({ examId }: { examId?: string }) {
       )
     }>
       <div className="ps">
+        {draft && <div className="ps-saved"><span>{L('هذي جلستك اللي ضبطتها', 'The session you set up')}</span><button className="btn sm ghost" onClick={onReset}><Icon name="undo" size={14} /> {L('إعادة الجلسة', 'Reset')}</button></div>}
         {rows.length > 0 && (
           <div className="field">
             <label>{L('وش بتذاكر؟', 'Studying what?')} <small className="faint">{L('اختر وحدة أو أكثر', 'one or more')}</small></label>

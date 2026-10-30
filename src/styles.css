@@ -4306,3 +4306,5 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .ps-line li.done .t { color: var(--green); }
 .ps-line li.now .k { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent-line); font-weight: 700; }
 .ps-line li.now .t { color: var(--accent); font-weight: 800; }
+.ps-saved { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding: 6px 6px 6px 12px; border-radius: 14px; background: var(--accent-soft); font-size: 13px; color: var(--accent); font-weight: 600; }
+[dir='rtl'] .ps-saved { padding: 6px 12px 6px 6px; }
