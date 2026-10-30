@@ -4,13 +4,13 @@ import { Icon } from './Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { atTime, fmtMinutes, fmtTime, todayKey } from '../lib/dates';
-import { blockParts, fitTotal, planSession, type Rhythm, type SessionPart } from '../lib/engine/focus';
+import { blockParts, clockAfter, fitTotal, planSession, pomodoro, rhythmOf, type Rhythm, type SessionPart } from '../lib/engine/focus';
 import { prayerGaps, prayerName, type PrayerId } from '../lib/engine/prayer';
 import { planStudy, type ExamPlan } from '../lib/engine/study';
 import { L } from '../lib/i18n';
 import { closeSheet } from './sheets';
 import { toast } from './toast';
-import { ResumeSession, startTimerUI } from './Shell';
+import { finishTimerUI, startTimerUI } from './Shell';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const clockOf = (ms: number) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -68,7 +68,80 @@ function lessonsOf(ep: ExamPlan) {
  * back from the time you want to be done, or whatever fits between two times. Shows the start, every
  * round and break with its subject, and the finish, to the minute.
  */
+/** «خطّط جلستك»: while a session runs it opens on that session; otherwise, the planner */
 export function StudySessionSheet({ examId }: { examId?: string }) {
+  const s = useApp();
+  const [fresh, setFresh] = useState(false);
+  if (s.timer && !fresh) return <CurrentSession onNew={() => setFresh(true)} />;
+  return <PlanSheet examId={examId} />;
+}
+
+/** the running session: rounds done (crossed out), the one you're in, and when the rest happen */
+function CurrentSession({ onNew }: { onNew: () => void }) {
+  const s = useApp();
+  const now = useNow(1000);
+  const t = s.timer!;
+  const r = rhythmOf(t, s.settings);
+  const elapsed = A.timerElapsed(t, now);
+  // without a plan: the rounds so far and the next two
+  const total = t.plan?.total ?? Math.ceil((elapsed / MIN + r.work * 2) / r.work) * r.work;
+  const plan = planSession(0, total, r);
+  const parts = t.plan?.parts ?? [];
+  const covers = blockParts(plan, parts);
+  const gaps = prayerGaps(s.settings, now, now + 2 * 86_400_000);
+  const at = (ms: number) => clockAfter(now, ms - elapsed, gaps);
+  const ends = at(plan.end);
+  const worked = Math.min(t.plan?.total ?? Infinity, Math.round(pomodoro(elapsed, r.work, r.brk, r.longEvery, r.longBrk).workMs / MIN));
+  const doneRounds = plan.blocks.filter((b) => b.kind === 'work' && b.to <= elapsed).length;
+  type Row = { key: string; time: number; cls: string; text: string; sub?: string };
+  const past: Row[] = [];
+  const ahead: Row[] = [];
+  plan.blocks.forEach((b, i) => {
+    const label = b.kind === 'work' ? L(`الجولة ${b.round} · تركيز ${b.min} د`, `Round ${b.round} · focus ${b.min} min`) : b.kind === 'long' ? L(`راحة طويلة ${b.min} د`, `Long break ${b.min} min`) : L(`راحة ${b.min} د`, `Break ${b.min} min`);
+    const sub = b.kind === 'work' && parts.length > 1 ? covers[i].map((c) => (covers[i].length > 1 ? `${c.label} ${c.min} د` : c.label)).join(' · ') : undefined;
+    if (b.to <= elapsed) past.push({ key: `b${i}`, time: 0, cls: `${b.kind} done`, text: label, sub });
+    else if (b.from <= elapsed) ahead.push({ key: `b${i}`, time: now, cls: `${b.kind} now`, text: `${label} · ${L(`باقي ${Math.ceil((b.to - elapsed) / MIN)} د`, `${Math.ceil((b.to - elapsed) / MIN)} min left`)}`, sub });
+    else ahead.push({ key: `b${i}`, time: at(b.from), cls: b.kind, text: label, sub });
+  });
+  for (const g of gaps) if (g.from < ends && t.running) ahead.push({ key: `p${g.from}`, time: g.from, cls: 'prayer', text: L(`صلاة ${prayerName(g.id)} · ترجع ${fmtTime(g.to)}`, `${prayerName(g.id)} prayer · back ${fmtTime(g.to)}`) });
+  ahead.sort((x, y) => x.time - y.time);
+  return (
+    <Sheet title={L('جلستك الحالية', 'Your current session')} onClose={closeSheet} footer={
+      <>
+        <button className="btn primary grow" onClick={() => { if (!t.running) A.resumeTimer(); A.setFocus(true); closeSheet(); }}><Icon name="play" size={15} /> {t.running ? L('افتح المؤقت', 'Open the timer') : L('كمّل الجلسة', 'Continue')}</button>
+        {t.running && <button className="btn" onClick={A.pauseTimer} aria-label={L('وقّف مؤقتًا', 'Pause')}><Icon name="pause" size={15} /></button>}
+        <button className="btn" onClick={() => { closeSheet(); finishTimerUI(); }}>{L('إنهاء وحفظ', 'Finish & save')}</button>
+      </>
+    }>
+      <div className="ps">
+        <div className="ps-sum">
+          <div className="ps-se">
+            <div><small>{t.running ? L('شغالة', 'Running') : L('موقفة', 'Paused')}</small><b className="num">{fmtMinutes(worked)}</b><small>{L('ذاكرت', 'studied')}</small></div>
+            <span className="ps-arrow" aria-hidden>{L('←', '→')}</span>
+            <div><small>{L('تخلص', 'Finish')}</small><b className="num">{t.plan ? fmtTime(ends) : '—'}</b>{!t.running && t.plan && <small>{L('إذا كمّلت الحين', 'if you continue now')}</small>}</div>
+          </div>
+          <div className="ps-facts">
+            <span>{t.label}</span>
+            <span>{t.plan ? L(`${doneRounds} من ${plan.rounds} جولات`, `${doneRounds} of ${plan.rounds} rounds`) : L(`${doneRounds} جولات خلصت`, `${doneRounds} rounds done`)}</span>
+            {t.plan && <span>{L(`باقي ${fmtMinutes(Math.max(0, t.plan.total - worked))} مذاكرة`, `${fmtMinutes(Math.max(0, t.plan.total - worked))} of study left`)}</span>}
+          </div>
+          <ol className="ps-line cur" aria-label={L('جدول الجلسة', 'Session timeline')}>
+            {[...past, ...ahead].map((x) => (
+              <li key={x.key} className={x.cls}>
+                <span className="t num">{x.cls.includes('done') ? <Icon name="check" size={14} /> : x.cls.includes('now') ? L('الحين', 'Now') : fmtTime(x.time)}</span>
+                <span className="k">{x.text}{x.sub && <small>{x.sub}</small>}</span>
+              </li>
+            ))}
+            {t.plan && <li className="end"><span className="t num">{fmtTime(ends)}</span><span className="k">{L('خلصت 🎉', 'Done 🎉')}</span></li>}
+          </ol>
+        </div>
+        <button className="btn ghost sm" onClick={() => { if (confirm(L('تبي تخطط جلسة جديدة؟ الحالية تبقى شغالة لين تبدأ الجديدة.', 'Plan a new session? The current one keeps running until you start the new one.'))) onNew(); }}>{L('خطّط جلسة جديدة', 'Plan a new session')}</button>
+      </div>
+    </Sheet>
+  );
+}
+
+function PlanSheet({ examId }: { examId?: string }) {
   const s = useApp();
   const tick = useNow(15_000);
   const now = Math.floor(tick / MIN) * MIN;
@@ -177,7 +250,6 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
       )
     }>
       <div className="ps">
-        <ResumeSession />
         {rows.length > 0 && (
           <div className="field">
             <label>{L('وش بتذاكر؟', 'Studying what?')} <small className="faint">{L('اختر وحدة أو أكثر', 'one or more')}</small></label>

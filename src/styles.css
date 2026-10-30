@@ -4300,3 +4300,9 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .td-les li { padding: 6px 10px; border-radius: 10px; background: var(--surface); font-size: 13.5px; }
 .hero-t .td-les .sx-les-btn { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); color: inherit; }
 .hero-t .td-les li { background: rgba(255,255,255,.16); }
+/* the running session: rounds done are crossed out, the current one stands out */
+.ps-line.cur { max-height: 340px; }
+.ps-line li.done .k { background: var(--line); color: var(--muted); text-decoration: line-through; text-decoration-thickness: 2px; font-weight: 400; }
+.ps-line li.done .t { color: var(--green); }
+.ps-line li.now .k { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent-line); font-weight: 700; }
+.ps-line li.now .t { color: var(--accent); font-weight: 800; }
