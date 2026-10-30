@@ -25,7 +25,7 @@ import { AiImportSheet } from './AiImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
-import { FutureAddSheet, FutureItemSheet, FutureSetupSheet } from '../pages/Future';
+import { FutureAddSheet, FutureItemSheet, FutureSetupSheet, FutureSwapSheet } from '../pages/Future';
 import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
 import { ExpenseSheet, GoalMoveSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
@@ -104,6 +104,8 @@ export function SheetHost() {
       return <FutureItemSheet key={sh.id} id={sh.id} />;
     case 'fu-add':
       return <FutureAddSheet />;
+    case 'fu-swap':
+      return <FutureSwapSheet />;
     case 'study-session':
       return <StudySessionSheet examId={sh.examId} />;
     case 'note':

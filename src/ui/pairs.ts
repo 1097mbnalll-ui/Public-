@@ -10,7 +10,7 @@ export interface PairItem {
 }
 
 export const PAIRS: { key: string; items: [PairItem, PairItem] }[] = [
-  { key: 'tf', items: [{ id: 'tasks', icon: 'tasks', label: () => L('المهام', 'Tasks') }, { id: 'future', icon: 'target', label: () => L('مستقبلي', 'Future') }] },
+  { key: 'tf', items: [{ id: 'tasks', icon: 'tasks', label: () => L('المهام', 'Tasks') }, { id: 'future', icon: 'target', label: () => L('صقل', 'Sharpen') }] },
   { key: 'ws', items: [{ id: 'work', icon: 'work', label: () => L('العمل', 'Work') }, { id: 'study', icon: 'study', label: () => L('الدراسة', 'Study') }] },
   { key: 'mg', items: [{ id: 'money', icon: 'wallet', label: () => L('مصاريفي', 'Spending') }, { id: 'gym', icon: 'gym', label: () => L('النادي', 'Gym') }] },
 ];

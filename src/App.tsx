@@ -14,7 +14,7 @@ import { Work } from './pages/Work';
 import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
 import { Gym } from './pages/Gym';
-import { Future } from './pages/Future';
+import { Future, ReviewBackPage, ReviewPage } from './pages/Future';
 import { registerCustom } from './lib/engine/gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
@@ -40,7 +40,7 @@ import { L } from './lib/i18n';
 const NAV = [
   { id: 'today', get label() { return L('اليوم', "Today"); }, icon: 'today' },
   { id: 'tasks', get label() { return L('المهام', "Tasks"); }, icon: 'tasks' },
-  { id: 'future', get label() { return L('مستقبلي', 'Future'); }, icon: 'target' },
+  { id: 'future', get label() { return L('صقل', 'Sharpen'); }, icon: 'target' },
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
   { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
@@ -66,7 +66,7 @@ function resolve(page: string, id?: string): { page: string; id?: string } {
   if (page === 'settings') return { page: 'me' };
   if (page === 'install') return { page: 'install' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders' || page === 'notes') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders' || page === 'notes' || page === 'review' || page === 'review-back') return { page, id };
   return { page: 'today' };
 }
 
@@ -98,7 +98,7 @@ export function App() {
   // welcome once — but never on top of an import link; it shows on the next page instead
   const welcomed = useRef(false);
   useEffect(() => {
-    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install') return;
+    if (welcomed.current || s.meta.onboarded || route.page === 'import' || route.page === 'receive' || route.page === 'sync' || route.page === 'install' || route.page === 'review' || route.page === 'review-back') return;
     welcomed.current = true;
     setTimeout(() => openSheet({ type: 'onboarding' }), 50);
   }, [route.page, s.meta.onboarded]);
@@ -156,6 +156,12 @@ export function App() {
       break;
     case 'future':
       body = <Future />;
+      break;
+    case 'review':
+      body = <ReviewPage />;
+      break;
+    case 'review-back':
+      body = <ReviewBackPage />;
       break;
     case 'sync':
       body = <SyncJoin />;

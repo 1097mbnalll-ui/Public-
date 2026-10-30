@@ -38,6 +38,7 @@ export type SheetSpec =
   | { type: 'fu-setup' }
   | { type: 'fu-item'; id: string }
   | { type: 'fu-add' }
+  | { type: 'fu-swap' }
   | { type: 'study-session'; examId?: string }
   | { type: 'note'; id?: string; text?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };

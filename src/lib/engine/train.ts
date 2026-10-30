@@ -56,7 +56,7 @@ export const taskById = (s: AppState, id: string) => allTasks(s).find((t) => t.i
 
 // ---------- scores ----------
 
-const pctOf = (task: DrillTask, marks: Record<string, Mark>) => {
+export const pctOf = (task: DrillTask, marks: Record<string, Mark>) => {
   const n = task.criteria.length;
   if (!n) return 0;
   const sum = task.criteria.reduce((a, c) => a + (marks[c.id] ?? 0), 0);

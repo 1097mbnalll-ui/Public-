@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, CvItem, CvPlan, DrillAttempt, DrillTask, Mark, SkillId, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
+import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, DrillAttempt, DrillTask, Mark, SkillId, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, atTime, todayKey } from './dates';
@@ -13,7 +13,6 @@ import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, sl
 import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
-import { starterItems } from './engine/cv';
 import { nextLevel } from './engine/train';
 
 const now = () => Date.now();
@@ -1219,92 +1218,6 @@ export function snoozeRemind(id: string, minutes: number, now = Date.now()) {
     }
     r.updatedAt = now;
   }, L('تأجيل التذكير', 'Snooze reminder'));
-}
-
-// ---------- «سيرتي» ----------
-
-/** first setup, or a change of field / target / days; a first setup also lays out the starting CV */
-export function saveCvPlan(plan: Omit<CvPlan, 'createdAt'>, opts: { starter?: boolean; remindAt?: string } = {}) {
-  const t = now();
-  mutate((s) => {
-    const old = s.future.cv;
-    const cv: CvPlan = { ...old, ...plan, createdAt: old?.createdAt ?? t, updatedAt: t };
-    // a reminder on your days at your time — the same one, moved, when you change them
-    if (opts.remindAt) {
-      const first = nextAfter({ at: atTime(todayKey(t), opts.remindAt), repeat: 'weekly', days: cv.days }, t - 60_000) ?? atTime(todayKey(t), opts.remindAt);
-      const r = cv.remindId && s.reminds.find((x) => x.id === cv.remindId);
-      const body = { title: L('خطوة سيرتك اليوم', 'Your CV step today'), note: L('افتح «مستقبلي» وسوّ الخطوة الجاية', 'Open Future and do the next step'), at: first, repeat: 'weekly' as const, days: cv.days, ref: 'future', updatedAt: t };
-      if (r) Object.assign(r, body, { done: false });
-      else {
-        const id = uid();
-        s.reminds.push({ id, ...body, createdAt: t });
-        cv.remindId = id;
-      }
-    } else if (opts.remindAt === '' && cv.remindId) {
-      s.reminds = s.reminds.filter((x) => x.id !== cv.remindId);
-      delete cv.remindId;
-    }
-    s.future.cv = cv;
-    if (opts.starter && !(s.future.cvItems || []).length) s.future.cvItems = starterItems(cv, uid, t);
-  }, L('حفظ سيرتي', 'Save my CV'));
-}
-
-export function addCvItems(items: CvItem[]) {
-  mutate((s) => {
-    s.future.cvItems = [...(s.future.cvItems || []), ...items];
-  }, L('إضافة للسيرة', 'Add to CV'));
-}
-
-export function saveCvItem(item: CvItem) {
-  mutate((s) => {
-    const list = s.future.cvItems || (s.future.cvItems = []);
-    const i = list.findIndex((x) => x.id === item.id);
-    const next = { ...item, updatedAt: now() };
-    if (i >= 0) list[i] = next;
-    else list.push(next);
-  }, L('حفظ البند', 'Save item'));
-}
-
-export function deleteCvItem(id: string) {
-  mutate((s) => {
-    s.future.cvItems = (s.future.cvItems || []).filter((x) => x.id !== id);
-  }, L('حذف البند', 'Delete item'));
-}
-
-/** tick a step (or untick it); the item counts as done when all its steps are */
-export function toggleCvStep(itemId: string, stepId: string) {
-  mutate((s) => {
-    const x = (s.future.cvItems || []).find((y) => y.id === itemId);
-    const st = x?.steps.find((y) => y.id === stepId);
-    if (!x || !st) return;
-    if (st.doneAt) {
-      delete st.doneAt;
-      delete x.doneAt;
-    } else {
-      st.doneAt = now();
-      bumpDay(s, { minutes: st.min });
-    }
-    x.updatedAt = now();
-  }, L('خطوة في سيرتي', 'CV step'));
-}
-
-/** «اشتغل عليه الحين»: puts an item first so its steps come next */
-export function focusCvItem(id: string) {
-  mutate((s) => {
-    const list = s.future.cvItems || [];
-    const i = list.findIndex((x) => x.id === id);
-    if (i > 0) list.unshift(...list.splice(i, 1));
-  });
-}
-
-/** «مو اليوم»: no CV step today (it comes back on your next day) */
-export function skipCvToday(day = todayKey()) {
-  mutate((s) => {
-    const cv = s.future.cv;
-    if (!cv) return;
-    cv.skipped = [...(cv.skipped || []).filter((d) => d >= addDays(day, -30)), day];
-    cv.updatedAt = now();
-  }, L('تأجيل خطوة اليوم', 'Skip today’s step'));
 }
 
 // ---------- «صقل» ----------
