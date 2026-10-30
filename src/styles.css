@@ -4205,3 +4205,5 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .sx-les-btn svg { transition: transform 0.2s var(--ease); }
 .td-pill, .sx-les-btn, .td-sum, .sx-les li button, .nt-row .m, .cv-item, .rm-main { transition: background-color 0.15s, transform 0.12s var(--ease), border-color 0.15s; }
 .td-pill:active, .sx-les-btn:active, .td-sum:active, .sx-les li button:active, .nt-row .m:active, .rm-main:active { transform: scale(0.97); }
+.sh-plan { padding: 10px 14px; border-style: solid; font-weight: 600; font-size: 14px; }
+.sh-plan > span { display: block; }

@@ -505,8 +505,8 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
               {rows.map((ep) => <SubjectRow key={ep.exam.id} ep={ep} />)}
             </div>
             <button className="sh-plan" onClick={() => openSheet({ type: 'study-session' })}>
-              <Icon name="clock" size={17} />
-              <span><b>{L('خطّط جلستك', 'Plan your session')}</b><small>{L('كل المواد أو بعضها · متى تبدأ ومتى تخلص بالضبط مع الراحات', 'All subjects or some · exactly when you start and finish, breaks included')}</small></span>
+              <Icon name="clock" size={16} />
+              <span>{L('خطّط جلستك: متى تبدأ ومتى تخلص', 'Plan your session: start and finish')}</span>
               <Icon name="chevron" size={14} className="chev-end" />
             </button>
             {ahead && (
@@ -542,14 +542,13 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
         </button>
       ))}
 
-      {upcoming.length > 0 && (
+      {upcoming.some((ep) => ep.status === 'past' || ep.daysLeft === 0) && (
         <section>
           <div className="group-title">
-            <span className="sh-h2">{L('مواعيد الاختبارات', 'Exam dates')}</span>
-            <button onClick={() => openSheet({ type: 'exam' })}>{L('+ اختبار', '+ Exam')}</button>
+            <span className="sh-h2">{L('اختبار اليوم', 'Exam today')}</span>
           </div>
           <div className="sh-exams">
-            {upcoming.map((ep) => {
+            {upcoming.filter((ep) => ep.status === 'past' || ep.daysLeft === 0).map((ep) => {
               const d = new Date(`${ep.exam.date}T12:00:00`);
               const soon = ep.daysLeft <= 1;
               return (
@@ -571,7 +570,12 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
         </section>
       )}
 
-      <DaysAhead plan={plan} />
+      <Collapse title={L('خطة الأيام الجاية وآخر أسبوع', 'The days ahead and last week')}>
+        <div className="stack">
+          <DaysAhead plan={plan} />
+          <WeekStrip />
+        </div>
+      </Collapse>
     </>
   );
 }
@@ -849,6 +853,7 @@ function StudyOverview() {
                 <span>{L('موادي', 'My courses')}</span>
                 <span className="row" style={{ gap: 12 }}>
                   <button onClick={() => openSheet({ type: 'ai-import' })}>{L('استيراد', 'Import')}</button>
+                  <button onClick={() => openSheet({ type: 'exam' })}>{L('+ اختبار', '+ Exam')}</button>
                   <button onClick={() => openSheet({ type: 'course' })}>{L('+ مادة', '+ Course')}</button>
                 </span>
               </div>
@@ -867,7 +872,6 @@ function StudyOverview() {
                 {ungraded && <button className="sh-later" style={{ justifySelf: 'start', padding: '6px 14px' }} onClick={() => { A.finishExam(ungraded.id); toast(L('تمام — طلع من القائمة', 'Done — off the list'), { undoable: true }); }}>{L('ما أعرف درجتي بعد — خلّصته ✓', "Don't know my grade yet — mark it done ✓")}</button>}
               </div>
             </section>
-            <WeekStrip />
           </div>
         </div>
       )}
