@@ -228,6 +228,7 @@ function PlanRow({ it, start, study, late }: { it: PlanItem; start?: number; stu
 function DaySummary({ plan, phase }: { plan: DayPlan; phase: DayPhase }) {
   const s = useApp();
   const [edit, setEdit] = useState(false);
+  const [open, setOpen] = useState(false);
   const override = s.dayOverrides[plan.today];
   const done = plan.doneMinutes;
   const left = plan.load;
@@ -265,8 +266,19 @@ function DaySummary({ plan, phase }: { plan: DayPlan; phase: DayPhase }) {
     dayLine = parts.join(' · ');
   }
 
+  // folded to one line; the numbers, the bar and the controls open on tap
+  if (!open)
+    return (
+      <button className={`td-sum ${plan.overloaded ? 'over' : ''}`} onClick={() => setOpen(true)} aria-expanded={false}>
+        <span className="v num">{left ? fmtMinutes(left) : '✓'}</span>
+        <span className="m">{left ? (plan.overloaded ? L(`باقي عليك · يزيد ${fmtMinutes(plan.overBy)} عن وقتك`, `left · ${fmtMinutes(plan.overBy)} over your time`) : L(`باقي عليك · تخلص ${fmtTime(finish)} تقريبًا`, `left · done around ${fmtTime(finish)}`)) : L('ما بقي شيء اليوم', 'Nothing left today')}</span>
+        <Icon name="down" size={14} />
+      </button>
+    );
+
   return (
     <div className="tile summary-t">
+      <button className="td-sum-close" onClick={() => setOpen(false)} aria-label={L('طي', 'Fold')}><Icon name="up" size={14} /></button>
       {dayLine && <div className="day-line">{L('اليوم: ', 'Today: ')}{dayLine}</div>}
       <div className="row between" style={{ alignItems: 'flex-end', gap: 12 }}>
         <div>
@@ -572,6 +584,7 @@ export function Today({ view }: { view: 'day' | 'week' }) {
   const s = useApp();
   const now = useNow();
   const [showMissed, setShowMissed] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
   const study = useMemo(() => planStudy(s, now), [s, now]);
   const plan = useMemo(() => planDay(s, now, study), [s, now, study]);
   const phase = dayPhase(s, now);
@@ -649,7 +662,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <div className="rows">{plan.later.slice(0, 12).map((it) => <PlanRow key={it.kind + it.id} it={it} study={study} />)}</div>
     </Collapse>
   );
-  const alerts = insights.length > 0 && <Alerts list={insights} />;
 
   let main: ReactNode;
   let side: ReactNode;
@@ -676,7 +688,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         {hero}
         {lateList}
         {timelineTile}
-        {alerts}
         <Upcoming study={study} />
         <ProceduresLink />
       </More>
@@ -697,7 +708,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     side = (
       <>
         <Tomorrow now={now} plan={plan} />
-        {alerts}
         <More>
           {laterList}
           <Upcoming study={study} />
@@ -722,7 +732,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     );
     side = (
       <>
-        {alerts}
         <More>
           {laterList}
           <DoneToday now={now} />
@@ -748,11 +757,13 @@ export function Today({ view }: { view: 'day' | 'week' }) {
       <div className="td-bar">
         <Seg value={view} onChange={(v) => go(v === 'week' ? 'week' : 'today')} options={[{ v: 'day', l: L('اليوم', "Today") }, { v: 'week', l: L('الأيام السبعة', "Next 7 days") }]} />
         <span className="td-pills">
+          {insights.length > 0 && <button className={`td-pill warn ${showAlerts ? 'on' : ''}`} aria-expanded={showAlerts} onClick={() => setShowAlerts(!showAlerts)}><Icon name="alert" size={14} /> {L('قرارات', 'Decide')} <b className="num">{insights.length}</b></button>}
           {s.missed.length > 0 && <button className={`td-pill warn ${showMissed ? 'on' : ''}`} aria-expanded={showMissed} onClick={() => setShowMissed(!showMissed)}><Icon name="bell" size={14} /> {L('فاتتك', 'Missed')} <b className="num">{s.missed.length}</b></button>}
           <button className="td-pill" onClick={() => go('notes')} aria-label={L('أفكاري', 'My notes')}><Icon name="note" size={14} /> {L('أفكاري', 'Notes')}{s.thoughts.length ? <b className="num">{s.thoughts.length}</b> : null}</button>
         </span>
       </div>
-      {showMissed && s.missed.length > 0 && <div style={{ marginBottom: 16 }}><MissedReminders now={now} /></div>}
+      {showAlerts && insights.length > 0 && <div className="td-drop"><Alerts list={insights} /></div>}
+      {showMissed && s.missed.length > 0 && <div className="td-drop"><MissedReminders now={now} /></div>}
 
       {view === 'week' ? (
         <WeekView />

@@ -4187,3 +4187,21 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .td-pill.warn svg, .td-pill.warn b { color: var(--amber); }
 .td-pill.warn b { background: var(--amber-soft); }
 .td-pill.on { border-color: var(--accent-line); }
+
+/* folded day summary: one line that opens */
+.td-sum { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 18px; border: 1px solid var(--line-2); background: var(--surface); color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.td-sum .v { font-weight: 800; font-size: 17px; }
+.td-sum .m { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); }
+.td-sum.over { border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.td-sum.over .m { color: var(--red); }
+.td-sum > svg { color: var(--muted); flex: none; }
+.summary-t { position: relative; }
+.td-sum-close { position: absolute; top: 10px; inset-inline-end: 10px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--surface); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.td-drop { margin-bottom: 16px; }
+
+/* smooth: things that open slide in, rows answer the finger */
+@keyframes fold-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.sx-les ul, .td-drop, .summary-t, .nt-list, .ps-line { animation: fold-in 0.24s var(--ease) both; }
+.sx-les-btn svg { transition: transform 0.2s var(--ease); }
+.td-pill, .sx-les-btn, .td-sum, .sx-les li button, .nt-row .m, .cv-item, .rm-main { transition: background-color 0.15s, transform 0.12s var(--ease), border-color 0.15s; }
+.td-pill:active, .sx-les-btn:active, .td-sum:active, .sx-les li button:active, .nt-row .m:active, .rm-main:active { transform: scale(0.97); }
