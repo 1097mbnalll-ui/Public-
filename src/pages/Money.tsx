@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Empty, Seg, useNow } from '../ui/kit';
+import { Collapse, Empty, Seg, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { PageTop } from '../ui/PageTop';
 import { openSheet } from '../ui/sheets';
@@ -13,10 +13,54 @@ import {
   catInfo, catLimits, cutHabit, noSpend, suggestBudget, upcomingBills, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
   rangeOf, subIdle, subMonthly, suggestions, upcomingSubs, weekStrip, type Period,
 } from '../lib/engine/money';
-import type { Expense } from '../lib/types';
+import type { AppState, Expense } from '../lib/types';
 import { L } from '../lib/i18n';
 
 const short = (d: string) => (L('ح ن ث ر خ ج س', 'Su Mo Tu We Th Fr Sa').split(' '))[parseKey(d).getDay()];
+/** the savings goal: how far (%), how much in and left, add / withdraw, and every move */
+function GoalCard({ goal, monthly }: { goal: NonNullable<AppState['money']['goal']>; monthly: number }) {
+  const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
+  const left = Math.max(0, goal.target - goal.saved);
+  const log = [...(goal.log || [])].sort((a, b) => b.at - a.at);
+  return (
+    <div className="card m-goal">
+      <div className="m-goal-top">
+        <div>
+          <div className="k">🎯 {L('هدفك', 'Your goal')}</div>
+          <h3>{goal.name}</h3>
+          <span className="faint small">{fmtMoney(goal.target)}</span>
+        </div>
+        <div className="m-goal-ring" style={{ ['--p' as string]: pct / 100 }} role="img" aria-label={L(`وصلت ${pct}%`, `${pct}% there`)}><b className="num">{pct}<small>%</small></b></div>
+      </div>
+      <div className="ln"><i style={{ width: `${pct}%` }} /></div>
+      <div className="ft">
+        <span>{L('جمّعت', 'Saved')} <b>{fmtMoney(goal.saved)}</b></span>
+        <span>{left <= 0 ? L('وصلت! 🎉', 'Reached! 🎉') : <>{L('باقي', 'Left')} <b>{fmtMoney(left)}</b> · {100 - pct}%</>}</span>
+      </div>
+      {left > 0 && monthly > 0 && (
+        <div className="tip">💡 {L(`لو طبّقت البدائل تحت (${fmtMoney(monthly)} بالشهر) توصل له بعد ≈ ${Math.max(1, Math.ceil(left / monthly))} شهور.`, `With the swaps below (${fmtMoney(monthly)} a month) you'd get there in ≈ ${Math.max(1, Math.ceil(left / monthly))} months.`)}</div>
+      )}
+      <div className="m-goal-a">
+        <button className="btn sm primary" onClick={() => openSheet({ type: 'goal-move', dir: 'in' })}><Icon name="plus" size={14} /> {L('إيداع', 'Add')}</button>
+        <button className="btn sm" disabled={!goal.saved} onClick={() => openSheet({ type: 'goal-move', dir: 'out' })}>{L('➖ سحب', '➖ Withdraw')}</button>
+      </div>
+      {log.length > 0 && (
+        <Collapse title={L('الحركات', 'History')} count={log.length}>
+          <ul className="m-goal-log">
+            {log.slice(0, 50).map((e) => (
+              <li key={e.id}>
+                <span className={`a num ${e.amount < 0 ? 'out' : 'in'}`}>{e.amount > 0 ? '+' : '−'}{fmtNum(Math.abs(e.amount))}</span>
+                <span className="m"><span>{fmtDate(todayKey(e.at), false)}</span>{e.note && <small>{e.note}</small>}</span>
+                <button className="icon-btn sm" aria-label={L('احذف الحركة', 'Delete entry')} onClick={() => { A.deleteGoalEntry(e.id); toast(L('انحذفت الحركة', 'Entry deleted'), { undoable: true }); }}><Icon name="x" size={13} /></button>
+              </li>
+            ))}
+          </ul>
+        </Collapse>
+      )}
+    </div>
+  );
+}
+
 const buysAr = (n: number) => (n === 1 ? 'مشترى واحد' : n === 2 ? 'مشتريين' : n <= 10 ? `${n} مشتريات` : `${n} مشترى`);
 
 /** مصاريفي: today (budget card, last 7 days, quick chips, list) · where to save · report */
@@ -204,22 +248,7 @@ function SaveView({ now }: { now: number }) {
       </div>
 
       {goal ? (
-        <div className="card m-goal">
-          <div className="k">🎯 {L('هدفك', 'Your goal')}</div>
-          <h3>{goal.name} — {fmtMoney(goal.target)}</h3>
-          <div className="ln"><i style={{ width: `${Math.min(100, (goal.saved / goal.target) * 100)}%` }} /></div>
-          <div className="ft">
-            <span>{L('وفّرت', 'Saved')} <b>{fmtNum(goal.saved)}</b></span>
-            <span>{goal.saved >= goal.target ? L('وصلت! 🎉', 'Reached! 🎉') : L(`باقي ${fmtNum(goal.target - goal.saved)}`, `${fmtNum(goal.target - goal.saved)} to go`)}</span>
-          </div>
-          {goal.saved < goal.target && pot.monthly > 0 && (
-            <div className="tip">💡 {L(`لو طبّقت البدائل تحت (${fmtMoney(pot.monthly)} بالشهر) توصل له بعد ≈ ${Math.max(1, Math.ceil((goal.target - goal.saved) / pot.monthly))} شهور.`, `With the swaps below (${fmtMoney(pot.monthly)} a month) you'd get there in ≈ ${Math.max(1, Math.ceil((goal.target - goal.saved) / pot.monthly))} months.`)}</div>
-          )}
-          <button className="btn sm" style={{ marginTop: 10 }} onClick={() => {
-            const v = Number(prompt(L('كم حطيت في الحصّالة؟', 'How much did you put aside?'))?.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))) || 0);
-            if (v > 0) { A.addToGoal(v); toast(L(`أُضيف ${fmtMoney(v)} للهدف 👏`, `Added ${fmtMoney(v)} to the goal 👏`), { undoable: true }); }
-          }}><Icon name="plus" size={14} /> {L('حطيت فيها', 'Put money in')}</button>
-        </div>
+        <GoalCard goal={goal} monthly={pot.monthly} />
       ) : (
         <button className="card m-goal-empty" onClick={() => openSheet({ type: 'money-settings' })}>🎯 {L('حط هدف توفير — لابتوب، سفرة… وأحسب لك متى توصله', "Set a savings goal — a laptop, a trip… and I'll work out when you'll get there")}</button>
       )}

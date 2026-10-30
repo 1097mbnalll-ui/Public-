@@ -843,10 +843,27 @@ export function setGoal(goal: MoneyState['goal']) {
   });
 }
 
-export function addToGoal(amount: number) {
+/** put money in (+) or take it out (−); a withdrawal can't take more than what's saved */
+export function moveGoal(amount: number, note?: string) {
   mutate((s) => {
-    if (s.money.goal) s.money.goal.saved = Math.max(0, s.money.goal.saved + amount);
-  });
+    const g = s.money.goal;
+    if (!g || !amount) return;
+    const a = Math.round((amount < 0 ? Math.max(amount, -g.saved) : amount) * 100) / 100;
+    if (!a) return;
+    g.saved = Math.round((g.saved + a) * 100) / 100;
+    g.log = [...(g.log || []), { id: uid(), amount: a, at: now(), ...(note?.trim() ? { note: note.trim() } : {}) }].slice(-200);
+  }, amount > 0 ? L('إيداع في الهدف', 'Add to goal') : L('سحب من الهدف', 'Take from goal'));
+}
+
+/** remove one entry from the log and undo its effect on the total */
+export function deleteGoalEntry(id: string) {
+  mutate((s) => {
+    const g = s.money.goal;
+    const e = g?.log?.find((x) => x.id === id);
+    if (!g || !e) return;
+    g.saved = Math.max(0, Math.round((g.saved - e.amount) * 100) / 100);
+    g.log = g.log!.filter((x) => x.id !== id);
+  }, L('حذف حركة', 'Delete entry'));
 }
 
 /** start / stop trying a savings swap */

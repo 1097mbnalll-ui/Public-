@@ -404,3 +404,47 @@ export function SubSheet({ id }: { id?: string }) {
     </Sheet>
   );
 }
+
+/** «الحصّالة»: put money in or take it out of the savings goal */
+export function GoalMoveSheet({ dir: initial }: { dir: 'in' | 'out' }) {
+  const s = useApp();
+  const g = s.money.goal;
+  const [dir, setDir] = useState<'in' | 'out'>(initial);
+  const [text, setText] = useState('');
+  const [note, setNote] = useState('');
+  if (!g) return null;
+  const amount = parseMoney(text) || 0;
+  const over = dir === 'out' && amount > g.saved;
+  const after = Math.max(0, g.saved + (dir === 'in' ? amount : -Math.min(amount, g.saved)));
+  const pct = (v: number) => Math.min(100, Math.round((v / g.target) * 100));
+  const save = () => {
+    if (!amount || (dir === 'out' && !g.saved)) return;
+    A.moveGoal(dir === 'in' ? amount : -amount, note);
+    closeSheet();
+    toast(dir === 'in' ? L(`أُضيف ${fmtMoney(amount)} — صرت ${pct(after)}% 👏`, `Added ${fmtMoney(amount)} — now ${pct(after)}% 👏`) : L(`سحبت ${fmtMoney(Math.min(amount, g.saved))} — صرت ${pct(after)}%`, `Took ${fmtMoney(Math.min(amount, g.saved))} — now ${pct(after)}%`), { undoable: true });
+  };
+  return (
+    <Sheet title={g.name} onClose={closeSheet} footer={<button className="btn primary grow" disabled={!amount || (dir === 'out' && !g.saved)} onClick={save}>{dir === 'in' ? L('أضف للحصّالة', 'Add') : L('اسحب', 'Withdraw')}</button>}>
+      <div className="fields">
+        <Seg value={dir} onChange={setDir} options={[{ v: 'in', l: L('➕ إيداع', '➕ Add') }, { v: 'out', l: L('➖ سحب', '➖ Withdraw') }]} />
+        <div className="m-amount">
+          <input className="m-amount-in" inputMode="decimal" autoFocus placeholder="0" value={text} onChange={(e) => setText(e.target.value.replace(/[^\d٠-٩.,٫،]/g, ''))} aria-label={L('المبلغ', 'Amount')} />
+          <span>{L('ر.س', 'SAR')}</span>
+        </div>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {[50, 100, 200, 500].map((v) => <button key={v} className="chip btnish" onClick={() => setText(String(v))}>{v}</button>)}
+          {dir === 'out' && g.saved > 0 && <button className="chip btnish" onClick={() => setText(String(g.saved))}>{L('الكل', 'All')}</button>}
+          {dir === 'in' && g.saved < g.target && <button className="chip btnish" onClick={() => setText(String(Math.round((g.target - g.saved) * 100) / 100))}>{L('الباقي كله', 'All that’s left')}</button>}
+        </div>
+        {over && <small className="rm-err">{L(`فيها ${fmtMoney(g.saved)} بس — بنسحبها كلها.`, `Only ${fmtMoney(g.saved)} in it — that’s all that will come out.`)}</small>}
+        {amount > 0 && (
+          <div className="m-goal-after">
+            <span>{L('بعدها', 'After')}: <b>{fmtMoney(after)}</b></span>
+            <span><b className="num">{pct(after)}%</b> {L(`من ${fmtMoney(g.target)}`, `of ${fmtMoney(g.target)}`)}</span>
+          </div>
+        )}
+        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} placeholder={dir === 'in' ? L('ملاحظة (اختياري): من الراتب، هدية…', 'Note (optional): salary, a gift…') : L('ملاحظة (اختياري): ليش سحبت؟', 'Note (optional): why?')} />
+      </div>
+    </Sheet>
+  );
+}

@@ -26,7 +26,7 @@ import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
 import { FutureAddSheet, FutureItemSheet, FutureSetupSheet } from '../pages/Future';
 import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
-import { ExpenseSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
+import { ExpenseSheet, GoalMoveSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
 export function SheetHost() {
@@ -69,6 +69,8 @@ export function SheetHost() {
       return <SmsSheet />;
     case 'money-settings':
       return <MoneySettingsSheet />;
+    case 'goal-move':
+      return <GoalMoveSheet key={sh.dir} dir={sh.dir} />;
     case 'block':
       return <BlockSheet key={sh.id || 'new'} id={sh.id} />;
     case 'sync':

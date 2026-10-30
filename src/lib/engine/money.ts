@@ -281,22 +281,14 @@ export function suggestions(state: AppState, now = Date.now()): Swap[] {
       monthly: food.sum * 0.3,
     });
   }
-  const rides = stats(by('transport').filter((e) => /أوبر|اوبر|uber|كريم|careem|تاكسي|taxi/i.test(e.title)));
-  if (rides.sum >= 80) {
+  // by the category you picked, never by what the purchase is called
+  const rides = stats(by('transport'));
+  if (rides.sum >= 150) {
     out.push({
-      id: 'rides', cat: 'transport', emoji: '🚕',
-      text: L(`مشاوير أوبر/كريم ${rides.n} مرات = ${fmtMoney(rides.sum)}`, `${rides.n} ride-hailing trips = ${fmtMoney(rides.sum)}`),
-      options: [{ label: L('مترو / باص', 'Metro / bus') }, { label: L('مشاركة مشوار', 'Share a ride') }],
-      monthly: rides.sum * 0.4,
-    });
-  }
-  const gym = stats(by('health').filter((e) => /نادي|جيم|gym/i.test(e.title)));
-  if (gym.sum > 0) {
-    out.push({
-      id: 'gym', cat: 'health', emoji: '🏋️',
-      text: L(`النادي ${fmtMoney(gym.sum)} بالشهر`, `The gym is ${fmtMoney(gym.sum)} a month`),
-      options: [{ label: L('مشي + تمارين بيت', 'Walking + home workouts'), free: true }],
-      monthly: gym.sum,
+      id: 'rides', cat: 'transport', emoji: C('transport'),
+      text: L(`المواصلات كلّفتك ${fmtMoney(rides.sum)} هالشهر (${rides.n} مرات)`, `Transport cost you ${fmtMoney(rides.sum)} this month (${rides.n} times)`),
+      options: [{ label: L('مترو / باص', 'Metro / bus') }, { label: L('جمّع مشاويرك بطلعة وحدة', 'Batch your errands') }, { label: L('مشاركة مشوار', 'Share a ride') }],
+      monthly: rides.sum * 0.25,
     });
   }
   const books = stats(by('study'));
@@ -315,6 +307,18 @@ export function suggestions(state: AppState, now = Date.now()): Swap[] {
       text: L(`الترفيه ${fmtMoney(fun.sum)} هالشهر`, `Fun cost ${fmtMoney(fun.sum)} this month`),
       options: [{ label: L('فعاليات مجانية', 'Free events'), free: true }, { label: L('حديقة / مشي', 'Park / a walk'), free: true }],
       monthly: fun.sum * 0.5,
+    });
+  }
+  // your own categories (بقالة، بنزين…): the big ones get a cap suggestion
+  for (const c of new Set(list.map((e) => e.cat))) {
+    if ((CAT_ORDER as string[]).includes(c)) continue;
+    const st = stats(by(c));
+    if (st.sum < 150) continue;
+    out.push({
+      id: 'cat:' + c, cat: c, emoji: C(c),
+      text: L(`${catInfo(c).label} كلّفك ${fmtMoney(st.sum)} هالشهر (${st.n} مرات)`, `${catInfo(c).label} cost you ${fmtMoney(st.sum)} this month (${st.n} times)`),
+      options: [{ label: L('حط له حد شهري', 'Give it a monthly cap') }, { label: L('قائمة قبل ما تشتري', 'A list before you buy') }],
+      monthly: st.sum * 0.2,
     });
   }
   const regret = stats(list.filter((e) => e.worth === 'no' && e.cat === 'shopping'));
@@ -347,14 +351,14 @@ export function fmtRenew(day: string, now = Date.now()): string {
   return L(`بعد ${d} أيام`, `in ${d} days`);
 }
 
-/** this month's «ما يستحق» spending, grouped by what was bought */
+/** this month's «ما يستحق» spending, grouped by the category you picked */
 export function regrets(state: AppState, now = Date.now()) {
   const today = todayKey(now);
   const list = state.expenses.filter((e) => e.worth === 'no' && e.day >= cycle(state, today).from && e.day <= today);
-  const map = new Map<string, { title: string; n: number; sum: number }>();
+  const map = new Map<string, { title: string; cat: ExpenseCat; n: number; sum: number }>();
   for (const e of list) {
-    const k = keyOf(e.title || catInfo(e.cat).label);
-    const cur = map.get(k) || { title: e.title || catInfo(e.cat).label, n: 0, sum: 0 };
+    const k = e.cat;
+    const cur = map.get(k) || { title: `${catInfo(e.cat).emoji} ${catInfo(e.cat).label}`, cat: e.cat, n: 0, sum: 0 };
     cur.n++;
     cur.sum += e.amount;
     map.set(k, cur);
@@ -497,18 +501,17 @@ function insights(state: AppState, cats: { cat: ExpenseCat; total: number; prev:
   const up = moved.filter((c) => (c.change || 0) > 0).sort((a, b) => (b.total - b.prev) - (a.total - a.prev))[0];
   if (down) out.push({ emoji: catInfo(down.cat).emoji, text: L(`${catInfo(down.cat).label} نزل ${Math.round(-(down.change || 0) * 100)}% عن اللي قبله 👏`, `${catInfo(down.cat).label} is down ${Math.round(-(down.change || 0) * 100)}% 👏`) });
   if (up) out.push({ emoji: '⚠️', text: L(`${catInfo(up.cat).label} زاد ${Math.round((up.change || 0) * 100)}% — ${fmtMoney(up.total - up.prev)} أكثر`, `${catInfo(up.cat).label} is up ${Math.round((up.change || 0) * 100)}% — ${fmtMoney(up.total - up.prev)} more`) });
-  // most visited place
-  const map = new Map<string, { title: string; n: number; sum: number }>();
+  // the category you spent on most often (by the category you picked, not the purchase name)
+  const map = new Map<ExpenseCat, { n: number; sum: number }>();
   for (const e of recent) {
-    if (!e.title || e.source === 'sub') continue;
-    const k = keyOf(e.title);
-    const cur = map.get(k) || { title: e.title, n: 0, sum: 0 };
+    if (e.source === 'sub') continue;
+    const cur = map.get(e.cat) || { n: 0, sum: 0 };
     cur.n++;
     cur.sum += e.amount;
-    map.set(k, cur);
+    map.set(e.cat, cur);
   }
-  const top = [...map.values()].sort((a, b) => b.n - a.n)[0];
-  if (top && top.n >= 3) out.push({ emoji: '🏪', text: L(`أكثر شي تكرر: ${top.title} — ${top.n} مرات · ${fmtMoney(top.sum)}`, `Most repeated: ${top.title} — ${top.n} times · ${fmtMoney(top.sum)}`) });
+  const top = [...map.entries()].sort((a, b) => b[1].n - a[1].n)[0];
+  if (top && top[1].n >= 3) out.push({ emoji: catInfo(top[0]).emoji, text: L(`أكثر تصنيف صرفت فيه: ${catInfo(top[0]).label} — ${top[1].n} مرات · ${fmtMoney(top[1].sum)}`, `Most frequent category: ${catInfo(top[0]).label} — ${top[1].n} times · ${fmtMoney(top[1].sum)}`) });
   return out;
 }
 

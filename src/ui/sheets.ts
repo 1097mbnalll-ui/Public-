@@ -21,6 +21,7 @@ export type SheetSpec =
   | { type: 'expense'; id?: string; text?: string }
   | { type: 'sms' }
   | { type: 'money-settings' }
+  | { type: 'goal-move'; dir: 'in' | 'out' }
   | { type: 'sub'; id?: string }
   | { type: 'sync' }
   | { type: 'block'; id?: string }

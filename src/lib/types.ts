@@ -384,7 +384,7 @@ export interface Subscription {
 export interface MoneyState {
   /** monthly budget */
   budget?: number;
-  goal?: { name: string; target: number; saved: number };
+  goal?: { name: string; target: number; saved: number; /** every deposit (+) and withdrawal (−) */ log?: { id: string; amount: number; at: number; note?: string }[] };
   /** savings swaps the user is trying (swap id → day started) */
   swaps: Record<string, string>;
   /** fingerprints of bank messages already imported */

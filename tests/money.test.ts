@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/lib/defaults';
 import { atTime } from '../src/lib/dates';
-import { catLimits, cycle, guessCat, limitNote, moneyToday, noSpend, suggestBudget, parseBankSms, parseExpense, report, suggestions, weekStrip } from '../src/lib/engine/money';
+import { catLimits, cycle, guessCat, limitNote, moneyToday, noSpend, suggestBudget, parseBankSms, parseExpense, regrets, report, suggestions, weekStrip } from '../src/lib/engine/money';
 import type { AppState, Expense } from '../src/lib/types';
 
 // Saturday 2026-10-24, 12:00 local
@@ -181,5 +181,42 @@ describe('halalas', () => {
   it('bank messages keep the halalas', () => {
     expect(pbs2('شراء عبر نقاط البيع\nبمبلغ: 23.75 SAR\nلدى: STARBUCKS', Date.now())[0]?.amount).toBe(23.75);
     expect(pbs2('Purchase SAR 1,250.50 at JARIR', Date.now())[0]?.amount).toBe(1250.5);
+  });
+});
+
+describe('reports and savings follow the category you picked, not the name', () => {
+  const mk = (title: string, cat: string, amount: number, day = '2026-10-20', worth?: 'no') => ({ id: Math.random().toString(36).slice(2), title, cat, amount, day, createdAt: 1, ...(worth ? { worth } : {}) }) as any;
+  it('a purchase named «قهوة» but put under «أكل» counts as food; «ما يستحق» groups by category', () => {
+    const s = initialState();
+    s.expenses = [mk('قهوة', 'food', 40, '2026-10-20', 'no'), mk('برجر', 'food', 30, '2026-10-21', 'no'), mk('سماعة', 'shopping', 90, '2026-10-22', 'no')];
+    const r = regrets(s, new Date('2026-10-28T12:00:00').getTime());
+    expect(r.items.map((x) => x.cat)).toEqual(['shopping', 'food']);
+    expect(r.items[1]).toMatchObject({ n: 2, sum: 70 });
+  });
+  it('transport is the whole category; your own categories get a suggestion too', () => {
+    const s = initialState();
+    s.money.cats = [{ id: 'c_grocery', label: 'بقالة', emoji: '🛒', createdAt: 1 } as any];
+    s.expenses = [mk('أي شي', 'transport', 80, '2026-10-20'), mk('بنزين', 'transport', 90, '2026-10-21'), mk('السوق', 'c_grocery', 200, '2026-10-22')];
+    const ids = suggestions(s, new Date('2026-10-28T12:00:00').getTime()).map((x) => x.id);
+    expect(ids).toContain('rides');
+    expect(ids).toContain('cat:c_grocery');
+  });
+});
+
+describe('savings goal: add, withdraw, percent', () => {
+  it('withdrawing more than saved takes only what is there; deleting an entry undoes it', async () => {
+    const { replaceState, getState } = await import('../src/lib/store');
+    const A = await import('../src/lib/actions');
+    await replaceState({ ...initialState(), money: { swaps: {}, goal: { name: 'السفر', target: 5000, saved: 0 } } });
+    A.moveGoal(1200);
+    A.moveGoal(300.5, 'هدية');
+    A.moveGoal(-2000);
+    let g = getState().money.goal!;
+    expect(g.saved).toBe(0);
+    expect(g.log!.map((x) => x.amount)).toEqual([1200, 300.5, -1500.5]);
+    A.deleteGoalEntry(g.log![2].id);
+    g = getState().money.goal!;
+    expect(g.saved).toBe(1500.5);
+    expect(Math.round((g.saved / g.target) * 100)).toBe(30);
   });
 });

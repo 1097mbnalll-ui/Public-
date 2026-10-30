@@ -4128,3 +4128,21 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .sh-prog .t { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
 .sh-prog .t b { color: var(--text); font-weight: 700; }
 .sh-prog .t .ok b { color: var(--green); }
+
+/* savings goal: percent ring, add / withdraw, history */
+.m-goal-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.m-goal-top h3 { margin: 2px 0 0; }
+.m-goal-ring { --p: 0; flex: none; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--green) calc(var(--p) * 360deg), var(--track) 0); }
+.m-goal-ring b { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: baseline; justify-content: center; padding-top: 18px; box-sizing: border-box; background: var(--bg); font-size: 20px; font-weight: 800; direction: ltr; }
+.m-goal-ring b small { font-size: 11px; font-weight: 700; }
+.m-goal-a { display: flex; gap: 8px; margin-top: 12px; }
+.m-goal-a .btn { flex: 1; }
+.m-goal-log { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.m-goal-log li { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.m-goal-log .a { min-width: 72px; font-weight: 800; direction: ltr; text-align: end; }
+.m-goal-log .a.in { color: var(--green); }
+.m-goal-log .a.out { color: var(--red); }
+.m-goal-log .m { flex: 1; display: grid; font-size: 13px; }
+.m-goal-log .m small { color: var(--muted); }
+.m-goal-after { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+.m-goal-after b { color: var(--text); }
