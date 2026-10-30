@@ -860,7 +860,7 @@ export function suggestToday(s: AppState, now = Date.now()): { groups: GroupId[]
     ? L(`${tiredNames.slice(0, 2).join(' و')} ${tiredNames.length > 1 ? 'يرتاحون' : 'يرتاح'} — الأجهز اليوم ${groupsName(best)}.`, `${tiredNames.slice(0, 2).join(' and ')} resting — readiest today: ${groupsName(best)}.`)
     : waited < 90
       ? L(`${groupsName(best)} ما تمرّنتها من ${waited} أيام.`, `${groupsName(best)}: not trained for ${waited} days.`)
-      : L(`ابدأ بـ ${groupsName(best)}.`, `Start with ${groupsName(best)}.`);
+      : ''; // the button already says which muscles
   return { groups: best, why };
 }
 

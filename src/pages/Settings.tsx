@@ -24,13 +24,19 @@ import { isNative } from '../lib/native';
 import { NotifyStatus } from '../ui/Remind';
 import { clearOwnFont, setOwnFont, useOwnFont } from '../lib/localFont';
 
+/** each settings group folds behind its title, so the page reads as a short list */
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <div className="section">
-      <div className="section-head"><h2>{title}</h2></div>
-      {desc && <p className="muted small" style={{ marginTop: -4 }}>{desc}</p>}
-      <div className="card fields">{children}</div>
-    </div>
+    <details className="section set-sec">
+      <summary>
+        <h2>{title}</h2>
+        <Icon name="chevron" size={16} className="chev" />
+      </summary>
+      <div className="set-body">
+        {desc && <p className="muted small">{desc}</p>}
+        <div className="card fields">{children}</div>
+      </div>
+    </details>
   );
 }
 

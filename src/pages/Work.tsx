@@ -107,7 +107,6 @@ function WorkList() {
   const s = useApp();
   const [view, setView] = useState<View>('open');
   const [q, setQ] = useState('');
-  const [searching, setSearching] = useState(false);
   const list = useMemo(
     () =>
       s.procedures.filter(
@@ -134,7 +133,6 @@ function WorkList() {
         sub={open.length ? L(`${open.length} إجراءات مفتوحة${waiting.length ? ` · ${waiting.length} بانتظار رد` : ''}`, `${open.length} open procedures${waiting.length ? ` · ${waiting.length} awaiting reply` : ''}`) : L('تابع كل إجراء خطوة بخطوة حتى لا تضيع خطوة', "Follow each procedure step by step so nothing gets lost")}
         actions={
           <>
-            <button className="icon-btn" onClick={() => { setSearching(!searching); if (searching) setQ(''); }} aria-label={L('بحث', 'Search')}><Icon name="search" size={18} /></button>
             <button className="btn sm primary" onClick={() => openSheet({ type: 'quick', mode: 'proc' })}><Icon name="plus" size={15} />{L(" إجراء", " Procedure")}</button>
           </>
         }
@@ -151,7 +149,7 @@ function WorkList() {
             { v: 'done', l: L('المنتهية', "Finished") },
           ]}
         />
-        {(searching || q) && view !== 'people' && view !== 'templates' && <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث: شركة، شخص، رقم فاتورة، ملاحظة…", "Search: company, person, invoice no., note…")} />}
+        {(q || s.procedures.length > 6) && view !== 'people' && view !== 'templates' && <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث: شركة، شخص، رقم فاتورة، ملاحظة…", "Search: company, person, invoice no., note…")} />}
       </div>
 
       {view === 'open' && (

@@ -85,6 +85,23 @@ function TrainTab({ now }: { now: number }) {
   };
   return (
     <>
+      {live ? (
+        <button className="gy-live-bar" onClick={() => go('gym/live')}>
+          <span className="pulse" />
+          <b>{L(`كمّل تمرينك: ${live.name}`, `Resume: ${live.name}`)}</b>
+          <span className="num">{Math.round((now - live.start) / 60000)} {L('د', 'min')}</span>
+        </button>
+      ) : (
+        <section className="gy-sug">
+          {sug.why && <p>{sug.why}</p>}
+          <button className="btn primary gy-go" onClick={() => { A.startWorkout(Date.now(), sug.groups); go('gym/live'); }}>
+            <span>{L(`ابدأ ${groupsName(sug.groups)}`, `Start ${groupsName(sug.groups)}`)}</span>
+            <small className="num">{L(`${plan.items.length} تمارين · ${plan.minutes} د`, `${plan.items.length} exercises · ${plan.minutes} min`)}</small>
+          </button>
+          <button className="gy-link" onClick={() => go('gym/today')}>{L('اختر عضلات ثانية', 'Pick other muscles')}</button>
+        </section>
+      )}
+
       <section className="gy-rec-card" aria-label={L('عضلاتك اليوم', 'Your muscles today')}>
         <h2 className="sh-h">{L('عضلاتك اليوم', 'Your muscles today')}</h2>
         <BodyMap states={states} marked={mark} onPart={(x) => setMark(mark === x ? null : x)} />
@@ -95,23 +112,6 @@ function TrainTab({ now }: { now: number }) {
           {m && mark ? <><b>{partName(mark)}</b> · {L(...STATE_TEXT[m.state])} · {ago(m.last)}</> : L('اضغط أي عضلة تشوف حالها.', 'Tap a muscle to see how it is.')}
         </p>
       </section>
-
-      {live ? (
-        <button className="gy-live-bar" onClick={() => go('gym/live')}>
-          <span className="pulse" />
-          <b>{L(`كمّل تمرينك: ${live.name}`, `Resume: ${live.name}`)}</b>
-          <span className="num">{Math.round((now - live.start) / 60000)} {L('د', 'min')}</span>
-        </button>
-      ) : (
-        <section className="gy-sug">
-          <p>{sug.why}</p>
-          <button className="btn primary gy-go" onClick={() => { A.startWorkout(Date.now(), sug.groups); go('gym/live'); }}>
-            <span>{L(`ابدأ ${groupsName(sug.groups)}`, `Start ${groupsName(sug.groups)}`)}</span>
-            <small className="num">{L(`${plan.items.length} تمارين · ${plan.minutes} د`, `${plan.items.length} exercises · ${plan.minutes} min`)}</small>
-          </button>
-          <button className="gy-link" onClick={() => go('gym/today')}>{L('اختر عضلات ثانية', 'Pick other muscles')}</button>
-        </section>
-      )}
 
       <section className="gy-stats">
         {p ? (

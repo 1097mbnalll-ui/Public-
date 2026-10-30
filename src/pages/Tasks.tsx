@@ -124,10 +124,10 @@ export function Tasks() {
             { v: 'templates', l: L('القوالب', 'Templates') },
           ]}
         />
-        {view !== 'goals' && view !== 'templates' && (
+        {view !== 'goals' && view !== 'templates' && (s.tasks.length > 6 || q || area !== 'all' || lab) && (
           <div className="row wrap" style={{ gap: 8 }}>
             <div className="row grow" style={{ minWidth: 200, position: 'relative' }}>
-              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث في المهام…", "Search tasks…")} />
+              <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L("ابحث في المهام…", "Search tasks…")} />
             </div>
             <div className="row wrap" style={{ gap: 6 }}>
               {(['all', 'study', 'work', 'life'] as const).map((a) => (
