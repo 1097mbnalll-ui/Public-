@@ -4162,3 +4162,28 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .nt-page { display: grid; gap: 10px; }
 .nt-search { height: 38px; }
 .nt-text { min-height: 140px; }
+
+/* today's lessons, folded behind a button */
+.sx-qw { display: grid; }
+.sx-qw + .sx-qw { border-top: 1px solid var(--line); }
+.sx-qw .sx-q { border: 0; }
+.sx-les { padding: 0 12px 10px; }
+.sh-row .sx-les { padding: 0 14px 12px; }
+.sh-row { flex-direction: column; }
+.sx-les-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.sx-les-btn[aria-expanded='true'] { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.sx-les-btn svg.flip { transform: rotate(180deg); }
+.sx-les ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.sx-les li button { width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 0; background: var(--surface); color: inherit; font: inherit; font-size: 13.5px; text-align: start; cursor: pointer; }
+.sx-les li .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-les li small { flex: none; color: var(--muted); font-size: 12px; }
+
+/* Today: view switch + small buttons for notes / missed */
+.td-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.td-pills { display: flex; gap: 6px; }
+.td-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: inherit; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.td-pill svg { color: var(--accent); }
+.td-pill b { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; }
+.td-pill.warn svg, .td-pill.warn b { color: var(--amber); }
+.td-pill.warn b { background: var(--amber-soft); }
+.td-pill.on { border-color: var(--accent-line); }

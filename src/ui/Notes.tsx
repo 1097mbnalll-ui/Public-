@@ -44,36 +44,19 @@ export function NoteCapture() {
   );
 }
 
-function NoteRow({ t, compact }: { t: Thought; compact?: boolean }) {
+function NoteRow({ t }: { t: Thought }) {
   return (
     <div className={`nt-row ${t.pinned ? 'pinned' : ''}`}>
       <button className="m" onClick={() => openSheet({ type: 'note', id: t.id })}>
         <span className="t">{t.text}</span>
         <small>{t.pinned ? '📌 ' : ''}{t.during ? L(`أثناء «${t.during}» · `, `During “${t.during}” · `) : ''}{timeAgo(t.at)}</small>
       </button>
-      {!compact && (
+      {(
         <button className="icon-btn sm" aria-label={t.pinned ? L('فك التثبيت', 'Unpin') : L('ثبّت', 'Pin')} onClick={() => A.updateThought(t.id, { pinned: !t.pinned })}>
           <Icon name="pin" size={15} />
         </button>
       )}
     </div>
-  );
-}
-
-/** on «اليوم»: the capture line, and your pinned / latest notes */
-export function NotesToday() {
-  const s = useApp();
-  const list = sorted(s.thoughts);
-  const shown = list.filter((t) => t.pinned).concat(list.filter((t) => !t.pinned)).slice(0, 3);
-  return (
-    <section className="nt-today">
-      <div className="group-title">
-        <span>{L('أفكاري', 'My notes')}{list.length ? ` (${list.length})` : ''}</span>
-        {list.length > 0 && <button onClick={() => go('notes')}>{L('الكل', 'All')}</button>}
-      </div>
-      <NoteCapture />
-      {shown.length > 0 && <div className="nt-list">{shown.map((t) => <NoteRow key={t.id} t={t} compact />)}</div>}
-    </section>
   );
 }
 

@@ -24,7 +24,6 @@ import { StudyToday } from './Study';
 import { GymTodayCard } from './Gym';
 import { FutureTodayCard } from './Future';
 import { RemindTodayStrip } from '../ui/Remind';
-import { NotesToday } from '../ui/Notes';
 import { fmtNum, moneyToday } from '../lib/engine/money';
 import type { AppState } from '../lib/types';
 
@@ -572,6 +571,7 @@ function More({ title, children }: { title?: string; children: ReactNode }) {
 export function Today({ view }: { view: 'day' | 'week' }) {
   const s = useApp();
   const now = useNow();
+  const [showMissed, setShowMissed] = useState(false);
   const study = useMemo(() => planStudy(s, now), [s, now]);
   const plan = useMemo(() => planDay(s, now, study), [s, now, study]);
   const phase = dayPhase(s, now);
@@ -677,8 +677,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         {lateList}
         {timelineTile}
         {alerts}
-        <MissedReminders now={now} />
-        <NotesToday />
         <Upcoming study={study} />
         <ProceduresLink />
       </More>
@@ -699,8 +697,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     side = (
       <>
         <Tomorrow now={now} plan={plan} />
-        <MissedReminders now={now} />
-        <NotesToday />
         {alerts}
         <More>
           {laterList}
@@ -726,8 +722,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
     );
     side = (
       <>
-        <MissedReminders now={now} />
-        <NotesToday />
         {alerts}
         <More>
           {laterList}
@@ -751,9 +745,14 @@ export function Today({ view }: { view: 'day' | 'week' }) {
           </span>
         }
       />
-      <div style={{ marginBottom: 18 }}>
+      <div className="td-bar">
         <Seg value={view} onChange={(v) => go(v === 'week' ? 'week' : 'today')} options={[{ v: 'day', l: L('اليوم', "Today") }, { v: 'week', l: L('الأيام السبعة', "Next 7 days") }]} />
+        <span className="td-pills">
+          {s.missed.length > 0 && <button className={`td-pill warn ${showMissed ? 'on' : ''}`} aria-expanded={showMissed} onClick={() => setShowMissed(!showMissed)}><Icon name="bell" size={14} /> {L('فاتتك', 'Missed')} <b className="num">{s.missed.length}</b></button>}
+          <button className="td-pill" onClick={() => go('notes')} aria-label={L('أفكاري', 'My notes')}><Icon name="note" size={14} /> {L('أفكاري', 'Notes')}{s.thoughts.length ? <b className="num">{s.thoughts.length}</b> : null}</button>
+        </span>
       </div>
+      {showMissed && s.missed.length > 0 && <div style={{ marginBottom: 16 }}><MissedReminders now={now} /></div>}
 
       {view === 'week' ? (
         <WeekView />
@@ -761,7 +760,6 @@ export function Today({ view }: { view: 'day' | 'week' }) {
         <div className="stack">
         <InstallCard />
         <RemindTodayStrip />
-        <NotesToday />
         <GymTodayCard />
         <FutureTodayCard />
         <MoneyTile now={now} />

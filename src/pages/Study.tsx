@@ -117,21 +117,51 @@ function DayBar({ rows }: { rows: ExamPlan[] }) {
   );
 }
 
+/** what's in today's share — folded away behind one button, opened on tap */
+function TodayLessons({ ep }: { ep: ExamPlan }) {
+  const [open, setOpen] = useState(false);
+  if (!ep.portion.length || ep.todayMinutes <= 0) return null;
+  const what = (x: ExamPlan['portion'][number]) => (x.review ? L('مراجعة', 'Review') : x.whole ? (x.unit.progress > 0 ? L('الباقي', 'The rest') : L('كامل', 'Whole')) : szn(x.amount, ep.course.sizeLabel));
+  return (
+    <div className="sx-les">
+      <button className="sx-les-btn" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+        {ep.inReview ? L('مراجعة اليوم', 'Today’s review') : L('دروس اليوم', 'Today’s lessons')} · {ep.portion.length}
+        <Icon name="down" size={13} className={open ? 'flip' : ''} />
+      </button>
+      {open && (
+        <ul>
+          {ep.portion.map((x) => (
+            <li key={x.unit.id + (x.review ? 'r' : '')}>
+              <button onClick={() => openSheet({ type: 'unit', id: x.unit.id })}>
+                <span className="t">{x.unit.title}</span>
+                <small>{what(x)} · {fmtMinutes(x.minutes)}</small>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function QueueRow({ ep, lead }: { ep: ExamPlan; lead?: boolean }) {
   const ok = ep.todayMinutes <= 0;
   return (
-    <div className={`sx-q ${ok ? 'done' : ''}`}>
-      <span className="sx-dot" style={{ background: ep.course.color }} />
-      <button className="sx-q-main" onClick={() => go(`study/${ep.course.id}`)}>
-        <b>{ep.course.name}</b>
-        <span>{ok ? L('خلصت حصتها اليوم', 'Done for today') : `${ep.inReview ? L('مراجعة: ', 'Review: ') : ''}${lessonsLine(ep)}`}</span>
-      </button>
-      <span className="sx-q-min num">{ok ? <Icon name="check" size={16} /> : fmtMinutes(ep.todayMinutes)}</span>
-      {!ok && !lead && (
-        <button className="icon-btn sm" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}>
-          <Icon name="play" size={13} />
+    <div className={`sx-qw ${ok ? 'done' : ''}`}>
+      <div className={`sx-q ${ok ? 'done' : ''}`}>
+        <span className="sx-dot" style={{ background: ep.course.color }} />
+        <button className="sx-q-main" onClick={() => go(`study/${ep.course.id}`)}>
+          <b>{ep.course.name}</b>
+          {ok && <span>{L('خلصت حصتها اليوم', 'Done for today')}</span>}
         </button>
-      )}
+        <span className="sx-q-min num">{ok ? <Icon name="check" size={16} /> : fmtMinutes(ep.todayMinutes)}</span>
+        {!ok && !lead && (
+          <button className="icon-btn sm" aria-label={L(`ابدأ ${ep.course.name}`, `Start ${ep.course.name}`)} onClick={() => startStudy(ep)}>
+            <Icon name="play" size={13} />
+          </button>
+        )}
+      </div>
+      <TodayLessons ep={ep} />
     </div>
   );
 }
@@ -466,7 +496,7 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
             <div className="sh-prog" aria-label={L(`ذاكرت اليوم ${fmtMinutes(studied)}، ${pct}% من حصة اليوم`, `Studied ${fmtMinutes(studied)} today, ${pct}% of today's share`)}>
               <DayBar rows={rows} />
               <div className="t">
-                <span>{L('ذاكرت اليوم', 'Studied today')} <b className="num">{studied ? fmtMinutes(studied) : L('٠ د', '0 min')}</b></span>
+                <span>{L('ذاكرت اليوم', 'Studied today')} <b className="num">{fmtMinutes(studied)}</b></span>
                 <span className={pct >= 100 ? 'ok' : ''}>{L('أنجزت', 'Done')} <b className="num">{pct}%</b> {L(`من حصة اليوم`, `of today's share`)}</span>
               </div>
               {studied - done >= 10 && <small className="faint">{L(`الحصة تنحسب باللي غطيته من الدروس (${fmtMinutes(done)})، مو بالوقت — سجّل وش خلصت من كل جلسة عشان تنحسب صح.`, `The share counts the lessons you covered (${fmtMinutes(done)}), not the time — log what you finished each session so it counts.`)}</small>}
@@ -556,12 +586,13 @@ function SubjectRow({ ep }: { ep: ExamPlan }) {
         <span className="bar" style={{ background: ep.course.color }} />
         <span className="m">
           <b>{ep.course.name} <small className="cd">{whenText(ep)}</small></b>
-          <span>{ep.postponed ? L(`أجّلتها لبكرة (${fmtMinutes(ep.postponed)})`, `Moved to tomorrow (${fmtMinutes(ep.postponed)})`) : done ? L('خلّصت حصتها اليوم ✓', 'Done for today ✓') : `${ep.inReview ? L('مراجعة: ', 'Review: ') : ''}${lessonsLine(ep)}`}</span>
+          {(ep.postponed || done) && <span>{ep.postponed ? L(`أجّلتها لبكرة (${fmtMinutes(ep.postponed)})`, `Moved to tomorrow (${fmtMinutes(ep.postponed)})`) : L('خلّصت حصتها اليوم ✓', 'Done for today ✓')}</span>}
           {pct > 0 && !done && <i className="p"><i style={{ width: `${pct}%`, background: ep.course.color }} /></i>}
         </span>
         <span className="h">{ep.postponed ? '⏭' : done ? '✓' : <Hours m={ep.todayMinutes} />}</span>
         <Icon name="chevron" size={14} className="chev-end" />
       </button>
+      {!ep.postponed && <TodayLessons ep={ep} />}
     </div>
   );
 }
