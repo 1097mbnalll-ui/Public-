@@ -4282,3 +4282,21 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .set-sec .set-body > p {
   margin: -4px 4px 10px;
 }
+
+/* a session left running: one tap back into it */
+.resume-session { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 16px; border-radius: 20px; border: 1.5px solid var(--accent-line); background: var(--surface-2); color: inherit; font: inherit; text-align: start; cursor: pointer; box-shadow: var(--glow); animation: fold-in .25s var(--ease); }
+[dir='rtl'] .resume-session { padding: 12px 16px 12px 12px; }
+.resume-session .m { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.resume-session small { font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.resume-session b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resume-session .clock { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent); direction: ltr; }
+.resume-session .go { height: 40px; padding: 0 16px; border-radius: 14px; background: var(--grad); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+.ps .resume-session { margin-bottom: 12px; }
+.ps-line li.prayer .k { background: var(--amber-soft); color: var(--amber); font-weight: 700; }
+.pr-today { display: grid; gap: 6px; }
+.pr-today > div { display: grid; grid-template-columns: 70px 56px 1fr; align-items: baseline; gap: 8px; font-size: 14px; }
+.pr-today > div small { color: var(--muted); font-size: 12.5px; }
+.td-les { padding: 0; margin-top: 8px; }
+.td-les li { padding: 6px 10px; border-radius: 10px; background: var(--surface); font-size: 13.5px; }
+.hero-t .td-les .sx-les-btn { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); color: inherit; }
+.hero-t .td-les li { background: rgba(255,255,255,.16); }

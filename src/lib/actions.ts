@@ -500,8 +500,26 @@ export function logStudy(courseId: string, unitId: string | undefined, minutes: 
 
 // ---------------- Timer ----------------
 
-export function startTimer(t: { kind: 'task' | 'study' | 'procedure'; refId: string; label: string; courseId?: string; unitId?: string; plan?: Timer['plan'] }) {
+type TimerStart = { kind: 'task' | 'study' | 'procedure'; refId: string; label: string; courseId?: string; unitId?: string; plan?: Timer['plan'] };
+
+/** the running timer is this same thing (same task / lesson / planned session) */
+export function sameTimer(t: TimerStart, cur = getState().timer): boolean {
+  if (!cur || cur.kind !== t.kind || !!cur.plan !== !!t.plan) return false;
+  if (t.plan) return JSON.stringify(cur.plan?.parts?.map((x) => x.label) ?? []) === JSON.stringify(t.plan.parts?.map((x) => x.label) ?? []) && cur.plan!.total === t.plan.total;
+  return cur.refId === t.refId && (cur.unitId ?? '') === (t.unitId ?? '');
+}
+
+/** starts a timer — or, for the one already running, goes back into it where you left it */
+export function startTimer(t: TimerStart) {
   mutate((s) => {
+    if (s.timer && sameTimer(t, s.timer)) {
+      if (!s.timer.running) {
+        s.timer.startedAt = now();
+        s.timer.running = true;
+      }
+      s.timer.focus = true;
+      return;
+    }
     s.timer = { ...t, startedAt: now(), acc: 0, running: true, focus: true };
   });
 }
@@ -517,6 +535,15 @@ export function pauseTimer() {
   mutate((s) => {
     if (!s.timer || !s.timer.running) return;
     s.timer.acc += now() - s.timer.startedAt;
+    s.timer.running = false;
+  });
+}
+
+/** pause as of a moment that already passed (the adhan, noticed a little later) */
+export function pauseTimerAt(at: number) {
+  mutate((s) => {
+    if (!s.timer || !s.timer.running) return;
+    s.timer.acc += Math.max(0, Math.min(now(), at) - s.timer.startedAt);
     s.timer.running = false;
   });
 }

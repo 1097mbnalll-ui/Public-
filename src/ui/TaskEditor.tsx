@@ -15,6 +15,7 @@ import { ReminderField } from './ReminderField';
 import { completeTaskUI } from './ops';
 import { toast } from './toast';
 import { L } from '../lib/i18n';
+import { startTimerUI } from './Shell';
 
 export function TaskEditor({ id }: { id: string }) {
   const s = useApp();
@@ -45,7 +46,7 @@ export function TaskEditor({ id }: { id: string }) {
           <>
             <button className="btn primary" onClick={() => { completeTaskUI(id); closeSheet(); }}>
               <Icon name="check" size={17} />{L(" أنجزت", " Done")}</button>
-            <button className="btn" onClick={() => { A.startTimer({ kind: 'task', refId: id, label: t.title }); closeSheet(); }}>
+            <button className="btn" onClick={() => { startTimerUI({ kind: 'task', refId: id, label: t.title }); closeSheet(); }}>
               <Icon name="play" size={15} />{L(" ابدأ مؤقت", " Start timer")}</button>
             <span className="grow" />
             <button className="btn ghost" onClick={() => { A.dropTask(id); closeSheet(); toast(L('أُلغيت المهمة', "Task cancelled"), { undoable: true }); }}>{L("إلغاء", "Cancel")}</button>

@@ -5,10 +5,12 @@ import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { atTime, fmtMinutes, fmtTime, todayKey } from '../lib/dates';
 import { blockParts, fitTotal, planSession, type Rhythm, type SessionPart } from '../lib/engine/focus';
+import { prayerGaps, prayerName, type PrayerId } from '../lib/engine/prayer';
 import { planStudy, type ExamPlan } from '../lib/engine/study';
 import { L } from '../lib/i18n';
 import { closeSheet } from './sheets';
 import { toast } from './toast';
+import { ResumeSession, startTimerUI } from './Shell';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const clockOf = (ms: number) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -99,18 +101,25 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
   const startFixed = startNow ? now : nextAt(startTime, now);
   let total = amount === 'today' ? todayTotal : custom;
   let startAt = startFixed;
+  // prayers in the next day: the session steps around each, from the adhan until you're back
+  const gaps = prayerGaps(st, now - 3 * 3600_000, now + 2 * 86_400_000);
   if (mode === 'window') {
     const endAt = nextAt(endTime, startFixed);
     // what fits between the two times — but no more than you asked for (finishing early is fine)
-    total = Math.min(total, fitTotal(startFixed, endAt < startFixed ? endAt + 86_400_000 : endAt, r));
+    total = Math.min(total, fitTotal(startFixed, endAt < startFixed ? endAt + 86_400_000 : endAt, r, gaps));
   } else if (mode === 'end') {
-    const span = planSession(0, Math.max(1, total), r).end;
     const endAt = nextAt(endTime, now);
-    startAt = endAt - span;
+    startAt = endAt - planSession(0, Math.max(1, total), r).end;
+    // a prayer inside pushes the finish later: start earlier until it lands on time
+    for (let i = 0; i < 6; i++) {
+      const over = planSession(startAt, Math.max(1, total), r, gaps).end - endAt;
+      if (over <= 0) break;
+      startAt -= over;
+    }
   }
   total = Math.max(0, Math.round(total));
   const late = mode === 'end' && startAt < now - MIN;
-  const sp = planSession(startAt, Math.max(1, total), r);
+  const sp = planSession(startAt, Math.max(1, total), r, gaps);
   const mins = share(base, total);
   const parts: SessionPart[] = base.map((b, i) => ({ examId: b.ep.exam.id, courseId: b.ep.course.id, unitId: b.ep.portion[0]?.unit.id ?? b.ep.work[0]?.unit.id, label: b.ep.course.name, minutes: mins[i] })).filter((p) => p.minutes > 0);
   const covers = blockParts(sp, parts);
@@ -134,7 +143,7 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
     closeSheet();
     const first = parts[0];
     const unit = s.units.find((u) => u.id === first.unitId);
-    A.startTimer({ kind: 'study', refId: first.examId ?? 'session', courseId: first.courseId, unitId: first.unitId, label: parts.length === 1 && unit ? `${first.label} · ${unit.title}` : label, plan: { total, work, brk, longEvery: longOn ? longEvery : 0, longBrk, ...(parts.length > 1 ? { parts } : {}) } });
+    startTimerUI({ kind: 'study', refId: first.examId ?? 'session', courseId: first.courseId, unitId: first.unitId, label: parts.length === 1 && unit ? `${first.label} · ${unit.title}` : label, plan: { total, work, brk, longEvery: longOn ? longEvery : 0, longBrk, ...(parts.length > 1 ? { parts } : {}) } });
   };
   const remind = () => {
     keepRhythm();
@@ -168,6 +177,7 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
       )
     }>
       <div className="ps">
+        <ResumeSession />
         {rows.length > 0 && (
           <div className="field">
             <label>{L('وش بتذاكر؟', 'Studying what?')} <small className="faint">{L('اختر وحدة أو أكثر', 'one or more')}</small></label>
@@ -269,6 +279,7 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
             <div className="ps-facts">
               <span>{L(`${fmtMinutes(total)} مذاكرة`, `${fmtMinutes(total)} study`)}</span>
               <span>{sp.breakMin ? L(`${fmtMinutes(sp.breakMin)} راحة`, `${fmtMinutes(sp.breakMin)} breaks`) : L('بدون راحة', 'No breaks')}</span>
+              {sp.prayerMin > 0 && <span>{L(`${fmtMinutes(sp.prayerMin)} للصلاة`, `${fmtMinutes(sp.prayerMin)} for prayer`)}</span>}
               <span>{sp.rounds === 1 ? L('جولة وحدة', 'One round') : sp.rounds === 2 ? L('جولتين', 'Two rounds') : L(`${sp.rounds} ${sp.rounds <= 10 ? 'جولات' : 'جولة'}`, `${sp.rounds} rounds`)}</span>
               <span>{L(`الجلسة كلها ${fmtMinutes((sp.end - startAt) / MIN)}`, `${fmtMinutes((sp.end - startAt) / MIN)} in all`)}</span>
             </div>
@@ -279,7 +290,7 @@ export function StudySessionSheet({ examId }: { examId?: string }) {
                 <li key={i} className={b.kind}>
                   <span className="t num">{fmtTime(b.from)}</span>
                   <span className="k">
-                    {b.kind === 'work' ? L(`تركيز ${b.min} د`, `Focus ${b.min} min`) : b.kind === 'long' ? L(`راحة طويلة ${b.min} د`, `Long break ${b.min} min`) : L(`راحة ${b.min} د`, `Break ${b.min} min`)}
+                    {b.kind === 'prayer' ? L(`صلاة ${prayerName(b.prayer as PrayerId)} · ترجع ${fmtTime(b.to)}`, `${prayerName(b.prayer as PrayerId)} prayer · back ${fmtTime(b.to)}`) : b.kind === 'work' ? L(`تركيز ${b.min} د`, `Focus ${b.min} min`) : b.kind === 'long' ? L(`راحة طويلة ${b.min} د`, `Long break ${b.min} min`) : L(`راحة ${b.min} د`, `Break ${b.min} min`)}
                     {b.kind === 'work' && parts.length > 1 && <small>{covers[i].map((c) => (covers[i].length > 1 ? `${c.label} ${c.min} د` : c.label)).join(' · ')}</small>}
                   </span>
                 </li>

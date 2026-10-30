@@ -13,6 +13,7 @@ import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
 import { L, lang, sz, szn } from '../lib/i18n';
 import type { AppState, Course, Unit } from '../lib/types';
+import { ResumeSession, startTimerUI } from '../ui/Shell';
 
 // «الدراسة» answers three things, in this order:
 //  1. what do I study now, and how do I start? → the «اليوم» panel: one lesson, one button
@@ -71,7 +72,7 @@ function nextExam(plan: StudyPlan, courseId: string): ExamPlan | undefined {
 }
 
 function startStudy(ep: ExamPlan, unit?: Unit) {
-  A.startTimer({ kind: 'study', refId: ep.exam.id, courseId: ep.course.id, unitId: unit?.id ?? ep.portion[0]?.unit.id, label: unit ? `${ep.course.name} · ${unit.title}` : L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`) });
+  startTimerUI({ kind: 'study', refId: ep.exam.id, courseId: ep.course.id, unitId: unit?.id ?? ep.portion[0]?.unit.id, label: unit ? `${ep.course.name} · ${unit.title}` : L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`) });
 }
 
 /** the lessons for today, one short line: "الفصل 3 (الباقي)، الفصل 4: 7 صفحة" */
@@ -482,6 +483,7 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
 
   return (
     <>
+      <ResumeSession />
       <section className="sh-today" aria-label={L('وش أذاكر اليوم', 'What to study today')}>
         <div className="sh-hrow">
           <h2 className="sh-h">{L('وش أذاكر اليوم', 'What to study today')}</h2>

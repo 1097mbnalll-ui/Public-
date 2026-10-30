@@ -12,7 +12,7 @@ import { openSheet } from '../ui/sheets';
 import { toast } from '../ui/toast';
 import { go } from '../ui/router';
 import { autoReplanUI, completeTaskUI, deferTaskUI, runAction, toggleStepUI } from '../ui/ops';
-import { openRef } from '../ui/Shell';
+import { openRef, startTimerUI } from '../ui/Shell';
 import { PageTop } from '../ui/PageTop';
 import { WeekView } from './Week';
 import { L, startEdge } from '../lib/i18n';
@@ -104,8 +104,8 @@ function usePlanActions(study: StudyPlan) {
       if (it.kind === 'study') {
         const ex = s.exams.find((e) => e.id === it.id);
         const ep = study.exams.find((p) => p.exam.id === it.id);
-        A.startTimer({ kind: 'study', refId: it.id, courseId: ex?.courseId, unitId: ep?.todayUnits[0]?.unit.id, label: it.title });
-      } else A.startTimer({ kind: it.kind, refId: it.id, label: it.title });
+        startTimerUI({ kind: 'study', refId: it.id, courseId: ex?.courseId, unitId: ep?.todayUnits[0]?.unit.id, label: it.title });
+      } else startTimerUI({ kind: it.kind, refId: it.id, label: it.title });
     },
   };
 }
@@ -134,6 +134,21 @@ function metaLine(it: PlanItem, late?: string) {
   return parts.join(' · ');
 }
 
+/** today's lessons of a study item, hidden until you ask */
+function LessonsToggle({ lessons }: { lessons?: string[] }) {
+  const [open, setOpen] = useState(false);
+  if (!lessons?.length) return null;
+  return (
+    <div className="sx-les td-les" onClick={(e) => e.stopPropagation()}>
+      <button className="sx-les-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? L('أخفِ الدروس', 'Hide lessons') : L(`الدروس · ${lessons.length}`, `Lessons · ${lessons.length}`)}
+        <Icon name="down" size={13} className={open ? 'flip' : ''} />
+      </button>
+      {open && <ul>{lessons.map((x, i) => <li key={i}><span className="t">{x}</span></li>)}</ul>}
+    </div>
+  );
+}
+
 function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: string }) {
   const s = useApp();
   const act = usePlanActions(study);
@@ -159,6 +174,7 @@ function NextUp({ it, study, late }: { it: PlanItem; study: StudyPlan; late?: st
       <div className="m">{metaLine(it, late)}</div>
       {/* the reason is already in the meta line unless the line shows lesson details instead */}
       {it.sub && it.reasons.length > 0 && <div className="m2">{it.level ? it.reasons[0] : it.reasons.join(' · ')}</div>}
+      <LessonsToggle lessons={it.lessons} />
       <div className="row wrap" style={{ marginTop: 14, gap: 8 }}>
         {!running && (
           <button className="btn primary" onClick={() => act.start(it)}>
@@ -217,6 +233,7 @@ function PlanRow({ it, start, study, late }: { it: PlanItem; start?: number; stu
           {late ? `${it.guessed ? '~' : ''}${fmtMinutes(it.minutes)}` : metaLine(it)}
           {it.hard && !it.level && <span style={{ color: 'var(--red)' }}>{L(" · لا يتأجل", " · can't be postponed")}</span>}
         </div>
+        <LessonsToggle lessons={it.lessons} />
       </div>
       {start != null && <span className="faint tiny num hide-mobile">~{fmtTime(start)}</span>}
       <button className="icon-btn sm" onClick={(e) => { e.stopPropagation(); act.start(it); }} aria-label={L("ابدأ مؤقت", "Start timer")}><Icon name="play" size={13} /></button>

@@ -7,6 +7,7 @@ import { getState, subscribe } from './store';
 import { L } from './i18n';
 import { occurrences } from './engine/remind';
 import { focusAlerts } from './engine/focus';
+import { prayerGaps, prayerName } from './engine/prayer';
 
 /** the public site — links made in the app (pairing, sharing) must point here, not inside the app */
 export const SITE_URL = 'https://1097mbnalll-ui.github.io/Public-/';
@@ -102,8 +103,10 @@ function upcoming(state: AppState, now: number): Upcoming[] {
       add({ key: `exam:${e.id}`, title: L(`اختبار ${course?.name || ''} غدًا`, `${course?.name || ''} exam tomorrow`), body: L(`${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. نم جيدًا وجهّز أدواتك.`, `${e.title}${e.time ? ` — ${fmtClock(e.time)}` : ''}. Sleep well.`), at: atTime(addDays(e.date, -1), '20:00'), ref: 'study' });
     }
   for (const r of state.reminds || []) for (const at of occurrences(r, now, until)) add({ key: `rem:${r.id}:${at}`, title: r.title, body: r.note || L('تذكير', 'Reminder'), at, ref: r.ref || 'reminders' });
+  const adhan = state.timer?.running ? prayerGaps(state.settings, now, now + 86_400_000).find((g) => g.from > now) : undefined;
+  if (state.timer && adhan) add({ key: `adhan:${state.timer.startedAt}:${adhan.from}`, title: L(`أذان ${prayerName(adhan.id)} 🕌`, `${prayerName(adhan.id)} adhan 🕌`), body: L('جلستك بتوقف مكانها — بعد الصلاة افتح «مدار» وكمّل.', 'Your session pauses where it is — open Madar after the prayer and carry on.'), at: adhan.from, ref: 'study' });
   if (state.timer)
-    for (const f of focusAlerts(state.timer, state.settings, now))
+    for (const f of focusAlerts(state.timer, state.settings, now).filter((f) => !adhan || f.at < adhan.from))
       add({
         key: `focus:${state.timer.startedAt}:${f.at}`,
         title: f.kind === 'end' ? L('خلصت جلستك 🎉', 'Session done 🎉') : f.kind === 'work' ? L(`نرجع للتركيز — الجولة ${f.round}`, `Back to focus — round ${f.round}`) : L(`استراحة ${f.kind === 'long' ? 'طويلة ' : ''}${f.min} د`, `${f.kind === 'long' ? 'Long ' : ''}${f.min} min break`),

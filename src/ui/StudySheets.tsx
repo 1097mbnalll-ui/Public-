@@ -13,6 +13,7 @@ import { closeSheet, openSheet } from './sheets';
 import { go } from './router';
 import { toast } from './toast';
 import { L, sz, szn } from '../lib/i18n';
+import { startTimerUI } from './Shell';
 
 /** "الفصل 3 - 24" / "Chapter 2: 30" → title + size */
 export function parseUnitLines(text: string, defSize: number) {
@@ -292,7 +293,7 @@ export function LessonSheet({ id }: { id: string }) {
       onClose={() => { if (writing) saveNotes(); closeSheet(); }}
       footer={
         <>
-          <button className="btn primary grow" onClick={() => { if (writing) saveNotes(); closeSheet(); A.startTimer({ kind: 'study', refId: id, courseId: u.courseId, unitId: id, label: `${c?.name || ''} · ${u.title}` }); }}>
+          <button className="btn primary grow" onClick={() => { if (writing) saveNotes(); closeSheet(); startTimerUI({ kind: 'study', refId: id, courseId: u.courseId, unitId: id, label: `${c?.name || ''} · ${u.title}` }); }}>
             <Icon name="play" size={14} />{u.progress >= 1 ? L(' راجعه الآن', ' Review it now') : L(' ذاكر الآن', ' Study now')}</button>
           <button className="btn" onClick={() => { if (writing) saveNotes(); closeSheet(); openSheet({ type: 'study-log', courseId: u.courseId, unitId: id }); }}>{L("سجّل جلسة", "Log session")}</button>
         </>
@@ -435,7 +436,7 @@ export function ExamEditor({ id, courseId }: { id?: string; courseId?: string })
         ) : (
           <>
             <button className="btn primary" onClick={() => { closeSheet(); openSheet({ type: 'study-log', courseId: cid }); }}>{L("سجّل مذاكرة", "Log study")}</button>
-            <button className="btn" onClick={() => { A.startTimer({ kind: 'study', refId: existing!.id, courseId: cid, unitId: ep?.todayUnits[0]?.unit.id, label: L(`مذاكرة ${course?.name}`, `Study ${course?.name}`) }); closeSheet(); }}>
+            <button className="btn" onClick={() => { startTimerUI({ kind: 'study', refId: existing!.id, courseId: cid, unitId: ep?.todayUnits[0]?.unit.id, label: L(`مذاكرة ${course?.name}`, `Study ${course?.name}`) }); closeSheet(); }}>
               <Icon name="play" size={15} />{L(" ابدأ مؤقت", " Start timer")}</button>
             <span className="grow" />
             <button className="icon-btn" aria-label={L('ذكّرني', 'Remind me')} onClick={() => openSheet({ type: 'remind', title: L(`اختبار ${course?.name || ''}: ${existing!.title}`, `${course?.name || ''} exam: ${existing!.title}`), ref: 'study', at: Math.max(Date.now() + 3600_000, atTime(addDays(existing!.date, -2), '20:00')) })}><Icon name="bell" size={18} /></button>

@@ -10,6 +10,7 @@ import { toast } from './toast';
 import { openSheet } from './sheets';
 import { go } from './router';
 import { L } from '../lib/i18n';
+import { startTimerUI } from './Shell';
 
 export function completeTaskUI(id: string) {
   const t = getState().tasks.find((x) => x.id === id);
@@ -57,7 +58,7 @@ export function runAction(a: Action) {
       return openSheet({ type: 'task', id: a.arg! });
     case 'start-task': {
       const t = getState().tasks.find((x) => x.id === a.arg);
-      if (t) A.startTimer({ kind: 'task', refId: t.id, label: t.title });
+      if (t) startTimerUI({ kind: 'task', refId: t.id, label: t.title });
       return;
     }
     case 'done-task':

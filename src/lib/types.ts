@@ -257,6 +257,8 @@ export interface CoachState {
 
 export interface Settings {
   name: string;
+  /** prayer times: a study session plans around them and pauses at the adhan (location stays on this device) */
+  prayer?: { on: boolean; lat?: number; lng?: number; city?: string; /** minutes after the prayer until you're back */ back?: number };
   /** free minutes for planned work (tasks + study) per weekday, Sunday = 0 */
   available: number[];
   /** max study minutes per weekday */

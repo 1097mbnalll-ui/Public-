@@ -9,7 +9,8 @@ import { go } from '../ui/router';
 import { Icon } from '../ui/Icon';
 import { getState, replaceState, useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { dayNames, fmtDate, fmtMinutes, timeAgo } from '../lib/dates';
+import { dayNames, fmtDate, fmtMinutes, fmtTime, timeAgo, todayKey } from '../lib/dates';
+import { awayMin, CITIES, IQAMA, PRAYERS, prayerTimes } from '../lib/engine/prayer';
 import { notificationSupport, requestNotifications, showSystemNotification } from '../lib/reminders';
 import { getSnapshot, isPersisted, listSnapshots, requestPersistence } from '../lib/db';
 import { readBackup, type ImportPreview } from '../lib/backup';
@@ -123,6 +124,10 @@ export function Settings() {
         <AvailabilityEditor />
         <div className="divider" />
         <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => go('schedule')}><Icon name="week" size={16} />{L(" جدولي — محاضراتك أو دوامك", " My timetable — lectures or shifts")}<Icon name="chevron" size={14} /></button>
+      </Section>
+
+      <Section title={L("أوقات الصلاة", "Prayer times")} desc={L("جلسة المذاكرة تحسب حساب الصلاة: من الأذان للإقامة للصلاة لين ترجع. وعند الأذان توقف جلستك مكانها.", "Study sessions plan around prayer: adhan, iqama, the prayer, and getting back. At the adhan your session pauses where it is.")}>
+        <PrayerSettings />
       </Section>
 
       <Section title={L("التذكيرات والتنبيهات", "Reminders & notifications")}>
@@ -460,5 +465,60 @@ function OwnFont() {
       </div>
       <div className="faint tiny">{L('الملف ينحفظ في هذا الجهاز بس — ما ينتقل مع المزامنة أو النسخة الاحتياطية.', 'The file stays on this device only — not synced or backed up.')}</div>
     </div>
+  );
+}
+
+/** prayer times: on/off, where (your location or a city), and how long until you're back */
+function PrayerSettings() {
+  const s = useApp();
+  const st = s.settings;
+  const p = st.prayer || { on: false };
+  const set = (patch: Partial<NonNullable<typeof st.prayer>>) => A.updateSettings({ prayer: { ...p, ...patch } });
+  const [locating, setLocating] = useState(false);
+  const locate = () => {
+    if (!navigator.geolocation) return toast(L('جهازك ما يدعم تحديد الموقع — اختر مدينتك', "Location isn't available — pick your city"));
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setLocating(false); set({ on: true, lat: Math.round(pos.coords.latitude * 1000) / 1000, lng: Math.round(pos.coords.longitude * 1000) / 1000, city: '' }); toast(L('أخذت موقعك — يبقى على جهازك بس', 'Got your location — it stays on this device')); },
+      () => { setLocating(false); toast(L('ما قدرت آخذ الموقع — اختر مدينتك', "Couldn't get the location — pick your city")); },
+      { timeout: 15000, maximumAge: 86_400_000 },
+    );
+  };
+  const t = p.lat != null && p.lng != null ? prayerTimes(todayKey(), p.lat, p.lng) : null;
+  return (
+    <>
+      <Row label={L('احسب حساب الصلاة في الجلسات', 'Plan sessions around prayer')} end={<Switch on={!!p.on} onChange={(on) => set({ on })} label={L('أوقات الصلاة', 'Prayer times')} />} />
+      {p.on && (
+        <>
+          <div className="field">
+            <span>{L('وين أنت؟', 'Where are you?')}</span>
+            <div className="row wrap" style={{ gap: 8 }}>
+              <select className="select" style={{ flex: 1, minWidth: 140 }} value={p.city || (p.lat != null ? 'here' : '')} onChange={(e) => { const c = CITIES.find((x) => x.v === e.target.value); if (c) set({ city: c.v, lat: c.lat, lng: c.lng }); }}>
+                <option value="" disabled>{L('اختر مدينتك', 'Pick your city')}</option>
+                {p.lat != null && !p.city && <option value="here">{L('موقعي الحالي', 'My location')}</option>}
+                {CITIES.map((c) => <option key={c.v} value={c.v}>{L(...c.t)}</option>)}
+              </select>
+              <button className="btn sm" disabled={locating} onClick={locate}><Icon name="target" size={14} /> {locating ? L('لحظة…', 'One moment…') : L('موقعي', 'My location')}</button>
+            </div>
+          </div>
+          <div className="field">
+            <span>{L('بعد الصلاة، كم لين ترجع وتكمل؟', 'After the prayer, how long until you’re back?')}</span>
+            <Stepper value={p.back ?? 10} step={5} min={0} max={60} onChange={(v) => set({ back: v })} format={(v) => L(`${v} د`, `${v} min`)} />
+          </div>
+          {t && (
+            <div className="pr-today">
+              {PRAYERS.map((x) => (
+                <div key={x.id}>
+                  <b>{L(...x.t)}</b>
+                  <span className="num">{fmtTime(t[x.id])}</span>
+                  <small>{L(`الإقامة بعد ${IQAMA[x.id]} د · ترجع ${fmtTime(t[x.id] + awayMin(x.id, st) * 60000)}`, `iqama +${IQAMA[x.id]} · back ${fmtTime(t[x.id] + awayMin(x.id, st) * 60000)}`)}</small>
+                </div>
+              ))}
+              <small className="faint">{L('حساب أم القرى. إذا يختلف مسجدكم بدقايق، زوّد وقت الرجوع.', 'Umm al-Qura method. If your mosque differs by a few minutes, add to the time back.')}</small>
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 }

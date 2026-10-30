@@ -63,6 +63,8 @@ export interface PlanItem {
   id: string;
   title: string;
   sub?: string;
+  /** study: today's lessons, listed behind a button */
+  lessons?: string[];
   area: Area;
   minutes: number;
   guessed?: boolean;
@@ -134,13 +136,16 @@ export function planDay(state: AppState, now = Date.now(), study?: StudyPlan): D
   // study blocks from the exam planner
   for (const ep of studyPlan.exams) {
     if (ep.todayMinutes <= 0) continue;
-    const units = ep.portion.map((x) => portionText(x, ep.course.sizeLabel)).join(L('، ', ", "));
+    const lessons = ep.portion.map((x) => portionText(x, ep.course.sizeLabel));
+    // one line: the first lesson and how many more — the full list opens from a button
+    const units = lessons.length > 1 ? `${lessons[0]} ${L(`+${lessons.length - 1}`, `+${lessons.length - 1}`)}` : lessons[0] || '';
     const urgent = ep.status === 'behind' || ep.status === 'tight' || ep.daysLeft <= 3;
     cands.push({
       kind: 'study',
       id: ep.exam.id,
       title: L(`مذاكرة ${ep.course.name}`, `Study ${ep.course.name}`),
-      sub: units ? `${units}` : undefined,
+      sub: units || undefined,
+      ...(lessons.length > 1 ? { lessons } : {}),
       area: 'study',
       minutes: ep.todayMinutes,
       score: urgent ? 90 : 55,

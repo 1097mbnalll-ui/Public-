@@ -18,6 +18,7 @@ import { shareText, StepKindSelect } from '../ui/WorkSheets';
 import { PageTop } from '../ui/PageTop';
 import { TaskRow } from './Tasks';
 import { L } from '../lib/i18n';
+import { startTimerUI } from '../ui/Shell';
 
 export function Work() {
   const r = useRoute();
@@ -487,7 +488,7 @@ function ProcedureDetail({ id }: { id: string }) {
 
           <Group>
             <Row icon="share" label={L("مشاركة / نسخ الملخص", "Share / copy summary")} onClick={async () => { const r = await shareText(p.title, procSummary(p)); if (r === 'copied') toast(L('نُسخ الملخص', "Summary copied")); }} />
-            <Row icon="play" label={L("ابدأ مؤقت عمل", "Start work timer")} onClick={() => A.startTimer({ kind: 'procedure', refId: p.id, label: p.title })} />
+            <Row icon="play" label={L("ابدأ مؤقت عمل", "Start work timer")} onClick={() => startTimerUI({ kind: 'procedure', refId: p.id, label: p.title })} />
             <Row icon="layers" label={L("احفظه كقالب", "Save as template")} sub={L("لإعادة استخدام نفس الخطوات", "To reuse the same steps")} onClick={() => openSheet({ type: 'template', fromProc: p.id })} />
             <Row icon="copy" label={L("نسخة جديدة بنفس الخطوات", "New copy with the same steps")} onClick={() => { const nid = A.duplicateProcedure(p.id); go(`work/${nid}`); toast(L('أُنشئت نسخة جديدة', "New copy created")); }} />
             <Row icon="archive" label={p.archived ? L('إخراج من الأرشيف', "Restore from archive") : L('أرشفة', "Archive")} onClick={() => { A.archiveProcedure(p.id, !p.archived); if (!p.archived) { go('work'); toast(L('نُقل للأرشيف', "Moved to archive"), { undoable: true }); } }} />

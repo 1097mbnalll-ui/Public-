@@ -5,7 +5,8 @@ import { getState, mutate, rollover, useApp } from '../lib/store';
 import { planStudy } from '../lib/engine/study';
 import * as A from '../lib/actions';
 import { addDays, fmtMinutes, todayKey } from '../lib/dates';
-import { requestNotifications, tick } from '../lib/reminders';
+import { requestNotifications, showSystemNotification, tick } from '../lib/reminders';
+import { prayerGaps, prayerName } from '../lib/engine/prayer';
 import { requestPersistence } from '../lib/db';
 import { closeSheet, openSheet, useSheet } from './sheets';
 import { toast } from './toast';
@@ -124,6 +125,23 @@ function clock(ms: number) {
   return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
 }
 
+/** start a timer without losing one that's running: the same session continues where it was;
+ *  a different one asks first — OK saves the running one and starts the new, Cancel goes back to it */
+export function startTimerUI(t: Parameters<typeof A.startTimer>[0]) {
+  const cur = getState().timer;
+  if (cur && !A.sameTimer(t, cur)) {
+    const mins = Math.round(A.timerElapsed(cur) / 60000);
+    const ok = confirm(L(`عندك جلسة شغالة: «${cur.label}» (${fmtMinutes(Math.max(1, mins))}).\nموافق = تحفظها وتبدأ الجديدة · إلغاء = ترجع لها`, `A session is running: “${cur.label}” (${fmtMinutes(Math.max(1, mins))}).\nOK = save it and start the new one · Cancel = go back to it`));
+    if (!ok) {
+      if (!cur.running) A.resumeTimer();
+      A.setFocus(true);
+      return;
+    }
+    finishTimerUI();
+  }
+  A.startTimer(t);
+}
+
 /** end the running session: tasks get the minutes, study asks how much was covered */
 export function finishTimerUI() {
   const r = A.stopTimer();
@@ -133,6 +151,29 @@ export function finishTimerUI() {
     openSheet({ type: 'study-log', courseId: first.courseId, unitId: first.unitId, minutes: first.minutes, fromTimer: true, ...(rest.length ? { queue: rest } : {}) });
   } else if (r.timer.kind === 'study') openSheet({ type: 'study-log', courseId: r.timer.courseId, unitId: r.timer.unitId, minutes: r.minutes, fromTimer: true });
   else toast(L(`سُجلت ${fmtMinutes(r.minutes)} على «${r.timer.label}»`, `Logged ${fmtMinutes(r.minutes)} on “${r.timer.label}”`));
+}
+
+/** a session you left running (or paused): back into it, right where it was */
+export function ResumeSession() {
+  const s = useApp();
+  const [, setT] = useState(0);
+  const timer = s.timer;
+  useEffect(() => {
+    if (!timer?.running) return;
+    const id = setInterval(() => setT((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [timer?.running]);
+  if (!timer || timer.focus) return null;
+  return (
+    <button className="resume-session" onClick={() => { if (!timer.running) A.resumeTimer(); A.setFocus(true); }}>
+      <span className="m">
+        <small>{timer.running ? L('جلستك شغالة', 'Your session is running') : L('جلستك موقفة', 'Your session is paused')}</small>
+        <b>{timer.label}</b>
+      </span>
+      <span className="clock">{clock(A.timerElapsed(timer))}</span>
+      <span className="go">{L('كمّل', 'Continue')}</span>
+    </button>
+  );
 }
 
 /** compact bar while a session runs outside focus mode; tap it to go back into focus */
@@ -175,6 +216,17 @@ export function useHeartbeat() {
       if (todayKey(now) !== day) {
         day = todayKey(now);
         rollover(now);
+      }
+      // the adhan stops a running session where it was; after the prayer you carry on from there
+      const t = getState().timer;
+      if (t?.running) {
+        const g = prayerGaps(getState().settings, t.startedAt, now).find((x) => x.from > t.startedAt && x.from <= now);
+        if (g) {
+          A.pauseTimerAt(g.from);
+          const msg = L(`أذان ${prayerName(g.id)} — وقّفت جلستك مكانها. بعد الصلاة كمّلها من نفس النقطة.`, `${prayerName(g.id)} adhan — your session is paused where it was. Carry on after the prayer.`);
+          toast(`🕌 ${msg}`, { ms: 20000, buttons: [{ label: L('كمّل', 'Continue'), fn: () => { A.resumeTimer(); A.setFocus(true); } }] });
+          if (document.visibilityState === 'hidden' && getState().settings.notifications) void showSystemNotification(L('وقت الصلاة', 'Prayer time'), msg, 'prayer', '#/study');
+        }
       }
       const live = tick(getState(), now);
       for (const r of live)

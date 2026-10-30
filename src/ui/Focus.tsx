@@ -4,7 +4,8 @@ import { Icon } from './Icon';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
 import { fmtMinutes, fmtTime } from '../lib/dates';
-import { partAt, planSession, pomodoro } from '../lib/engine/focus';
+import { clockAfter, partAt, planSession, pomodoro } from '../lib/engine/focus';
+import { prayerGaps } from '../lib/engine/prayer';
 import { nextStep } from '../lib/engine/procedures';
 import { showSystemNotification } from '../lib/reminders';
 import { finishTimerUI } from './Shell';
@@ -73,7 +74,8 @@ export function FocusScreen() {
   // a planned session knows its length: how many rounds, and the clock time it ends (pauses push it)
   const plan = t.plan ? planSession(0, t.plan.total, rh) : null;
   const finished = !!t.plan && p.workMs >= t.plan.total * 60000;
-  const endsAt = plan ? Date.now() + Math.max(0, plan.end - elapsed) : 0;
+  // the finish on the clock, with the prayers on the way (the session stops for each)
+  const endsAt = plan ? clockAfter(Date.now(), Math.max(0, plan.end - elapsed), prayerGaps(s.settings, Date.now(), Date.now() + 2 * 86_400_000)) : 0;
   // several subjects in one session: the one you're on now, and what's left of it
   const parts = t.plan?.parts && t.plan.parts.length > 1 ? t.plan.parts : null;
   const cur = parts ? partAt(parts, p.workMs / 60000) : null;
