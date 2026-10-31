@@ -130,6 +130,22 @@ tick off while shopping.
 - No personal data in the repo (no weights, no names) — tests use invented numbers.
 - Keep the screens simple: one main thing per screen, the rest behind buttons.
 
+## Answers from the user
+
+- The family's most frequent dishes: chicken kabsa, meat kabsa, إيدام (stew), ملوخية — these come
+  first in the base with the most careful numbers. إيدام and ملوخية are usually eaten **with rice**,
+  so their family-meal portions are «X ملاعق رز + Y مغارف إيدام».
+- The Gym redesign and the «صحتي» placement: no objection to the proposal, so it stands (my call,
+  open to change): Gym optional, content kept; «صحتي» with «أكلي» / «جسمي» / «تمريني».
+
+## My calls (for the user to check)
+
+- Check-in day = the weekday you set the plan up; the week's plan regenerates then.
+- Default pace «normal» (0.75 %/week); default 3 meals + 1 snack.
+- Protein 2.0 g/kg (adjusted weight when BMI ≥ 30).
+- Training-day +150 kcal only when the Gym is on.
+- Unmarked meals count as eaten as planned.
+
 ## Left to the builder
 
 - The food base contents (80–120 items; household measures and grams; sources noted per item).
