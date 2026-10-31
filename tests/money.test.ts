@@ -223,7 +223,6 @@ describe('savings goal: add, withdraw, percent', () => {
 
 import { addBankTexts } from '../src/lib/sync';
 import { replaceState, getState } from '../src/lib/store';
-import { initialState } from '../src/lib/defaults';
 describe('bank texts from the phone', () => {
   it('each purchase is added once, even when the same text comes twice', () => {
     replaceState(initialState(), '', false);
