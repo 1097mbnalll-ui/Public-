@@ -4464,3 +4464,7 @@ html[data-size='lg'] { zoom: 1.12; }
 .hl-hand small { color: var(--muted); font-size: 12.5px; }
 .si-course { display: grid; gap: 6px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
 .si-course small { color: var(--muted); font-size: 12.5px; }
+
+.m-goal-eye { margin-inline-start: 4px; vertical-align: middle; color: var(--faint); }
+.m-goal-hide { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 0 4px; font-size: 13.5px; animation: fold-in .2s var(--ease); }
+.m-goal-hide label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

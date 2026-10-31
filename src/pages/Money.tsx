@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Collapse, Empty, Seg, useNow } from '../ui/kit';
+import { Collapse, Empty, Seg, Switch, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { PageTop } from '../ui/PageTop';
 import { openSheet } from '../ui/sheets';
@@ -22,22 +22,33 @@ function GoalCard({ goal, monthly }: { goal: NonNullable<AppState['money']['goal
   const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
   const left = Math.max(0, goal.target - goal.saved);
   const log = [...(goal.log || [])].sort((a, b) => b.at - a.at);
+  const [opts, setOpts] = useState(false);
+  const hn = !!goal.hide?.name;
+  const ha = !!goal.hide?.amount;
+  // hidden amounts read as dots; the percentage always shows
+  const money = (n: number) => (ha ? '••••' : fmtMoney(n));
   return (
     <div className="card m-goal">
       <div className="m-goal-top">
         <div>
-          <div className="k">🎯 {L('هدفك', 'Your goal')}</div>
-          <h3>{goal.name}</h3>
-          <span className="faint small">{fmtMoney(goal.target)}</span>
+          <div className="k">🎯 {L('هدفك', 'Your goal')}<button className="icon-btn sm m-goal-eye" aria-label={L('إخفاء الاسم أو المبالغ', 'Hide the name or amounts')} aria-expanded={opts} onClick={() => setOpts(!opts)}><Icon name="eye" size={15} /></button></div>
+          <h3>{hn ? L('هدفي', 'My goal') : goal.name}</h3>
+          {!ha && <span className="faint small">{fmtMoney(goal.target)}</span>}
         </div>
         <div className="m-goal-ring" style={{ ['--p' as string]: pct / 100 }} role="img" aria-label={L(`وصلت ${pct}%`, `${pct}% there`)}><b className="num">{pct}<small>%</small></b></div>
       </div>
+      {opts && (
+        <div className="m-goal-hide">
+          <label><Switch on={hn} onChange={(v) => A.hideGoal({ name: v })} label={L('أخفِ الاسم', 'Hide the name')} /> {L('أخفِ الاسم', 'Hide the name')}</label>
+          <label><Switch on={ha} onChange={(v) => A.hideGoal({ amount: v })} label={L('أخفِ المبالغ', 'Hide the amounts')} /> {L('أخفِ المبالغ', 'Hide the amounts')}</label>
+        </div>
+      )}
       <div className="ln"><i style={{ width: `${pct}%` }} /></div>
       <div className="ft">
-        <span>{L('جمّعت', 'Saved')} <b>{fmtMoney(goal.saved)}</b></span>
-        <span>{left <= 0 ? L('وصلت! 🎉', 'Reached! 🎉') : <>{L('باقي', 'Left')} <b>{fmtMoney(left)}</b> · {100 - pct}%</>}</span>
+        <span>{L('جمّعت', 'Saved')} <b>{ha ? `\u2066${pct}%\u2069` : fmtMoney(goal.saved)}</b></span>
+        <span>{left <= 0 ? L('وصلت! 🎉', 'Reached! 🎉') : <>{L('باقي', 'Left')} <b>{ha ? `\u2066${100 - pct}%\u2069` : `${money(left)} · \u2066${100 - pct}%\u2069`}</b></>}</span>
       </div>
-      {left > 0 && monthly > 0 && (
+      {left > 0 && monthly > 0 && !ha && (
         <div className="tip">💡 {L(`لو طبّقت البدائل تحت (${fmtMoney(monthly)} بالشهر) توصل له بعد ≈ ${Math.max(1, Math.ceil(left / monthly))} شهور.`, `With the swaps below (${fmtMoney(monthly)} a month) you'd get there in ≈ ${Math.max(1, Math.ceil(left / monthly))} months.`)}</div>
       )}
       <div className="m-goal-a">
@@ -49,7 +60,7 @@ function GoalCard({ goal, monthly }: { goal: NonNullable<AppState['money']['goal
           <ul className="m-goal-log">
             {log.slice(0, 50).map((e) => (
               <li key={e.id}>
-                <span className={`a num ${e.amount < 0 ? 'out' : 'in'}`}>{e.amount > 0 ? '+' : '−'}{fmtNum(Math.abs(e.amount))}</span>
+                <span className={`a num ${e.amount < 0 ? 'out' : 'in'}`}>{ha ? `\u2066${e.amount > 0 ? '+' : '−'}${Math.round((Math.abs(e.amount) / goal.target) * 100)}%\u2069` : <>{e.amount > 0 ? '+' : '−'}{fmtNum(Math.abs(e.amount))}</>}</span>
                 <span className="m"><span>{fmtDate(todayKey(e.at), false)}</span>{e.note && <small>{e.note}</small>}</span>
                 <button className="icon-btn sm" aria-label={L('احذف الحركة', 'Delete entry')} onClick={() => { A.deleteGoalEntry(e.id); toast(L('انحذفت الحركة', 'Entry deleted'), { undoable: true }); }}><Icon name="x" size={13} /></button>
               </li>

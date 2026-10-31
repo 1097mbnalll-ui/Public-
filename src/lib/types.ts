@@ -393,7 +393,15 @@ export interface Subscription {
 export interface MoneyState {
   /** monthly budget */
   budget?: number;
-  goal?: { name: string; target: number; saved: number; /** every deposit (+) and withdrawal (−) */ log?: { id: string; amount: number; at: number; note?: string }[] };
+  goal?: {
+    name: string;
+    target: number;
+    saved: number;
+    /** every deposit (+) and withdrawal (−) */
+    log?: { id: string; amount: number; at: number; note?: string }[];
+    /** shown on screen as just the percentage: the name and/or the amounts hidden */
+    hide?: { name?: boolean; amount?: boolean };
+  };
   /** savings swaps the user is trying (swap id → day started) */
   swaps: Record<string, string>;
   /** fingerprints of bank messages already imported */

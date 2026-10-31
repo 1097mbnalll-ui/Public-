@@ -906,6 +906,14 @@ export function setGoal(goal: MoneyState['goal']) {
   });
 }
 
+/** hide the goal's name and/or amounts on screen, leaving the percentage */
+export function hideGoal(patch: { name?: boolean; amount?: boolean }) {
+  mutate((s) => {
+    const g = s.money.goal;
+    if (g) g.hide = { ...g.hide, ...patch };
+  });
+}
+
 /** put money in (+) or take it out (−); a withdrawal can't take more than what's saved */
 export function moveGoal(amount: number, note?: string) {
   mutate((s) => {

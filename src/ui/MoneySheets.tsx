@@ -299,7 +299,7 @@ export function MoneySettingsSheet() {
         A.setBudget(budget);
         const clean = Object.fromEntries(Object.entries(limits).filter(([, v]) => v && v > 0));
         A.updateMoney({ payday: payday && payday >= 1 && payday <= 31 ? payday : undefined, limits: Object.keys(clean).length ? clean : undefined });
-        A.setGoal(goalName.trim() && target ? { name: goalName.trim(), target, saved: saved || 0 } : undefined);
+        A.setGoal(goalName.trim() && target ? { ...s.money.goal, name: goalName.trim(), target, saved: saved || 0 } : undefined);
         closeSheet();
       }}>{L('حفظ', 'Save')}</button>}
     >
