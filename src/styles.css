@@ -4454,3 +4454,6 @@ html[data-size='lg'] { zoom: 1.12; }
 /* nothing in a form may push the sheet wider than the screen (it matters most at the large size) */
 .fields > *, .field { min-width: 0; }
 .input, .select, .textarea { min-width: 0; max-width: 100%; }
+
+.hl-warn { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--amber-soft); color: var(--amber); font-size: 13.5px; line-height: 1.6; }
+.hl-warn .btn { justify-self: start; }

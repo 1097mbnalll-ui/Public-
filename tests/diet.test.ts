@@ -105,3 +105,13 @@ describe('weekly check-in', () => {
     expect(trend(s).at(-1)!.t).toBeLessThan(92);
   });
 });
+
+import { paceFor, paceToReach, earliestSafe } from '../src/lib/engine/diet';
+describe('a date of your own', () => {
+  it('the pace follows from the date, never above 1 % a week', () => {
+    expect(paceToReach(92, 80, 19)).toBeCloseTo(0.73, 1);
+    expect(paceFor({ pace: 0.75, by: '2026-12-01', goalKg: 80 }, 92, T0)).toBe(1);
+    expect(paceFor({ pace: 0.75, by: '2027-06-01', goalKg: 80 }, 92, T0)).toBeLessThan(0.75);
+    expect(earliestSafe(92, 80, '2026-11-01') > '2027-02-01').toBe(true);
+  });
+});

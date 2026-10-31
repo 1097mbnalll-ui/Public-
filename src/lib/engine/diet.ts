@@ -154,10 +154,32 @@ export function proteinTarget(s: AppState, kg: number): number {
   return round5(ref * 2);
 }
 
-export function startTargets(s: AppState, setup: Pick<DietSetup, 'pace'>, kg: number, now = Date.now()): { kcal: number; protein: number; maintain: number } | null {
+/** the safe range of a pace: % of body weight a week */
+export const MAX_PACE = 1;
+export const MIN_PACE = 0.2;
+
+/** the weekly pace (%) that reaches `goal` from `kg` in `weeks` (losing a share of the weight each week) */
+export function paceToReach(kg: number, goal: number, weeks: number): number {
+  if (goal >= kg) return 0;
+  if (weeks <= 0) return Infinity;
+  return Math.round((1 - (goal / kg) ** (1 / weeks)) * 10000) / 100;
+}
+
+/** the pace to follow now: the one you picked, or the one your date needs (kept within the safe range) */
+export function paceFor(setup: Pick<DietSetup, 'pace' | 'by' | 'goalKg'>, kg: number, now = Date.now()): number {
+  if (!setup.by) return setup.pace;
+  const weeks = daysBetween(todayKey(now), setup.by) / 7;
+  return Math.max(MIN_PACE, Math.min(MAX_PACE, paceToReach(kg, setup.goalKg, weeks)));
+}
+
+/** the earliest day the goal is safely reachable (1 % a week) */
+export const earliestSafe = (kg: number, goal: number, from = todayKey()) => addDays(from, weeksToGoal(kg, goal, MAX_PACE) * 7);
+
+export function startTargets(s: AppState, setup: Pick<DietSetup, 'pace'> & Partial<Pick<DietSetup, 'by' | 'goalKg'>>, kg: number, now = Date.now()): { kcal: number; protein: number; maintain: number } | null {
   const keep = maintain(s, kg, now);
   if (!keep) return null;
-  return { kcal: Math.max(floorKcal(s), round10(keep - deficitFor(setup.pace, kg, keep))), protein: proteinTarget(s, kg), maintain: keep };
+  const pace = setup.by && setup.goalKg ? paceFor({ pace: setup.pace, by: setup.by, goalKg: setup.goalKg }, kg, now) : setup.pace;
+  return { kcal: Math.max(floorKcal(s), round10(keep - deficitFor(pace, kg, keep))), protein: proteinTarget(s, kg), maintain: keep };
 }
 
 /** carbs and fat for a calorie target: fat 30 %, carbs the rest after protein */
@@ -455,13 +477,14 @@ export function checkIn(s: AppState, now = Date.now()): CheckIn | null {
     rate = Math.round((change / n) * 7 * 100) / 100;
     pct = Math.round((-rate / to) * 1000) / 10;
     expenditure = round10(intake - (change * KCAL_PER_KG) / n);
-    kcal = clamp(expenditure - deficitFor(setup.pace, to, expenditure));
+    kcal = clamp(expenditure - deficitFor(paceFor(setup, to, now), to, expenditure));
   } else {
     const t = startTargets(s, setup, kg, now);
     kcal = clamp(t?.kcal ?? base);
   }
   const adherence = planned ? kept / planned : undefined;
-  const status: CheckIn['status'] = !reliable ? 'provisional' : pct! < setup.pace * 0.5 ? (adherence != null && adherence < 0.7 ? 'offplan' : 'slow') : pct! > setup.pace * 1.5 + 0.25 ? 'fast' : 'ontrack';
+  const pace = paceFor(setup, to, now);
+  const status: CheckIn['status'] = !reliable ? 'provisional' : pct! < pace * 0.5 ? (adherence != null && adherence < 0.7 ? 'offplan' : 'slow') : pct! > pace * 1.5 + 0.25 ? 'fast' : 'ontrack';
   return { kcal, protein: proteinTarget(s, to), ...(expenditure != null ? { expenditure } : {}), ...(from != null ? { from: Math.round(from * 10) / 10 } : {}), to: Math.round(to * 10) / 10, ...(rate != null ? { rate } : {}), ...(pct != null ? { pct } : {}), ...(adherence != null ? { adherence } : {}), weighIns, status };
 }
 

@@ -10,7 +10,7 @@ import * as A from '../lib/actions';
 import { addDays, fmtDate, todayKey } from '../lib/dates';
 import {
   allFoods, alternatives, amountText, blankDay, budgets, checkIn, checkInDue, dayIntake, dayOf, dayTarget, foodOf, fromTemplate, gramsText, limitFor, macros, mealIntake,
-  proteinShort, shopping, slotName, slotsOf, startTargets, totals, trend, weeksToGoal,
+  proteinShort, shopping, slotName, slotsOf, startTargets, totals, trend, weeksToGoal, paceToReach, earliestSafe, MAX_PACE, MIN_PACE,
 } from '../lib/engine/diet';
 import { DISH } from '../lib/engine/foods';
 import type { AppState, DietMeal, DietSetup, FoodKind } from '../lib/types';
@@ -531,7 +531,7 @@ function WeekPage() {
           <section className="hl-card hl-new">
             <small>{due ? L('خطتك الجاية', 'Your next plan') : L('خطتك الحالية', 'Your current plan')}</small>
             <b className="num">{due && c.kcal !== s.diet.kcal ? `${n0(s.diet.kcal ?? 0)} ← ${n0(c.kcal)}` : n0(s.diet.kcal ?? 0)} {L('سعرة', 'kcal')}</b>
-            <p>{msg} {L(`البروتين ${c.protein} جم.`, `Protein ${c.protein} g.`)}</p>
+            <p>{msg} {L(`البروتين ${c.protein} جم.`, `Protein ${c.protein} g.`)}{setup.by ? L(` موعدك ${fmtDate(setup.by)} · باقي ${Math.max(0, Math.ceil((new Date(`${setup.by}T12:00:00`).getTime() - now) / (7 * 86_400_000)))} أسبوع.`, ` Your date: ${fmtDate(setup.by)}.`) : ''}</p>
           </section>
           {due ? (
             <button className="hl-cta" onClick={() => { A.applyCheckIn({ kcal: c.kcal, protein: c.protein, ...(c.expenditure ? { expenditure: c.expenditure } : {}), ...(c.from != null ? { from: c.from } : {}), ...(c.to != null ? { to: c.to } : {}), ...(c.adherence != null ? { adherence: c.adherence } : {}) }); toast(L('تعدّلت خطتك ✓', 'Plan adjusted ✓')); go('health'); }}>{L('تمام، جهّز الأسبوع', 'OK, set up the week')}</button>
@@ -640,17 +640,26 @@ export function DietSetupSheet() {
   const [height, setHeight] = useState(info.height ? String(info.height) : '');
   const [year, setYear] = useState(info.birthYear ? String(info.birthYear) : '');
   const [sex, setSex] = useState<'m' | 'f' | undefined>(info.sex);
-  const [pace, setPace] = useState<DietSetup['pace']>(old?.pace ?? 0.75);
+  const [pace, setPace] = useState<number>(old?.pace ?? 0.75);
+  const [mode, setMode] = useState<'pace' | 'date'>(old?.by ? 'date' : 'pace');
+  const [by, setBy] = useState(old?.by ?? addDays(todayKey(), 7 * 16));
   const [meals, setMeals] = useState(old?.meals ?? 3);
   const [snack, setSnack] = useState(old?.snack ?? true);
   const [avoid, setAvoid] = useState<string[]>(old?.avoid ?? []);
   const [family, setFamily] = useState<DietSetup['family']>(old?.family ?? 'most');
   const [activity, setActivity] = useState(old?.activity ?? 1.4);
   const kg = +weight;
-  const ok = kg > 30 && +goal > 30 && +goal < kg + 0.01 && +height > 120 && +height < 230 && +year > 1930 && +year < new Date().getFullYear() - 12 && !!sex;
-  const preview = ok ? startTargets({ ...s, gym: { ...s.gym, info: { ...info, sex, height: +height, birthYear: +year } }, diet: { ...s.diet, setup: { ...(old || ({} as DietSetup)), activity } } }, { pace }, kg) : null;
+  const base = kg > 30 && +goal > 30 && +goal < kg + 0.01 && +height > 120 && +height < 230 && +year > 1930 && +year < new Date().getFullYear() - 12 && !!sex;
+  // a date of your own: the pace it needs, and whether that's safe
+  const weeks = Math.max(0, (new Date(`${by}T12:00:00`).getTime() - new Date(`${todayKey()}T12:00:00`).getTime()) / (7 * 86_400_000));
+  const need = base ? paceToReach(kg, +goal, weeks) : 0;
+  const safeBy = base ? earliestSafe(kg, +goal) : '';
+  const tooFast = mode === 'date' && base && need > MAX_PACE;
+  const ok = base && !tooFast;
+  const usePace = mode === 'date' ? Math.max(MIN_PACE, Math.min(MAX_PACE, need)) : pace;
+  const preview = ok ? startTargets({ ...s, gym: { ...s.gym, info: { ...info, sex, height: +height, birthYear: +year } }, diet: { ...s.diet, setup: { ...(old || ({} as DietSetup)), activity } } }, { pace: usePace }, kg) : null;
   const save = () => {
-    A.setupDiet({ setup: { goalKg: +goal, pace, meals, snack, avoid, family, activity, ...(old?.split && old.meals === meals && old.snack === snack ? { split: old.split } : {}) }, info: { sex, height: +height, birthYear: +year }, weight: kgNow === kg ? undefined : kg });
+    A.setupDiet({ setup: { goalKg: +goal, pace: usePace, ...(mode === 'date' ? { by } : {}), meals, snack, avoid, family, activity, ...(old?.split && old.meals === meals && old.snack === snack ? { split: old.split } : {}) }, info: { sex, height: +height, birthYear: +year }, weight: kgNow === kg ? undefined : kg });
     closeSheet();
     go('health');
   };
@@ -667,6 +676,24 @@ export function DietSetupSheet() {
         </div>
         <div className="field"><span>{L('الجنس', 'Sex')}</span><Seg value={sex || ('' as 'm')} onChange={setSex} options={[{ v: 'm', l: L('ذكر', 'Male') }, { v: 'f', l: L('أنثى', 'Female') }]} /></div>
         <div className="field">
+          <span>{L('كيف تبي تنزل؟', 'How do you want to lose it?')}</span>
+          <Seg value={mode} onChange={setMode} options={[{ v: 'pace', l: L('بسرعة أختارها', 'At a pace') }, { v: 'date', l: L('بتاريخ أحدده', 'By a date') }]} />
+        </div>
+        {mode === 'date' ? (
+          <div className="field">
+            <span>{L('متى تبي توصل؟', 'By when?')}</span>
+            <input className="input" type="date" value={by} min={addDays(todayKey(), 7)} onChange={(e) => e.target.value && setBy(e.target.value)} />
+            {base && (tooFast ? (
+              <div className="hl-warn">
+                <span>{L(`هذا يحتاج ${Math.round(kg * need) / 100} كجم بالأسبوع (${need}% من وزنك) — أسرع من الآمن، وتخسر فيه عضل مو بس دهون.`, `That needs ${Math.round(kg * need) / 100} kg a week (${need}% of your weight) — faster than is safe; you'd lose muscle, not just fat.`)}</span>
+                <button className="btn sm" onClick={() => setBy(safeBy)}>{L(`خلّه أقرب موعد آمن: ${fmtDate(safeBy)}`, `Use the earliest safe date: ${fmtDate(safeBy)}`)}</button>
+              </div>
+            ) : (
+              <small className="hl-ok">{L(`تنزل ${Math.round(kg * usePace) / 100} كجم بالأسبوع تقريبًا (${usePace}% من وزنك) — كل أسبوع نعدّل عشان توصل بموعدك.`, `About ${Math.round(kg * usePace) / 100} kg a week (${usePace}% of your weight) — adjusted weekly to arrive on time.`)}</small>
+            ))}
+          </div>
+        ) : (
+        <div className="field">
           <span>{L('سرعة النزول', 'Pace')}</span>
           <div className="hl-pace">
             {([0.5, 0.75, 1] as const).map((p) => (
@@ -678,6 +705,7 @@ export function DietSetupSheet() {
           </div>
           {ok && <small className="hl-ok">{L(`توصل ${goal} كجم تقريبًا بعد ${weeksToGoal(kg, +goal, pace)} أسبوع`, `About ${weeksToGoal(kg, +goal, pace)} weeks to ${goal} kg`)}</small>}
         </div>
+        )}
         <div className="field">
           <span>{L('كم وجبة باليوم؟', 'Meals a day?')}</span>
           <div className="row" style={{ gap: 6, alignItems: 'center' }}>

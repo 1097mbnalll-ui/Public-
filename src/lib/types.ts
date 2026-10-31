@@ -754,7 +754,9 @@ export interface DietFood {
 export interface DietSetup {
   goalKg: number;
   /** % of body weight a week */
-  pace: 0.5 | 0.75 | 1;
+  pace: number;
+  /** reach the goal by this day instead: the pace follows from it (never above 1 % a week) */
+  by?: string;
   /** meals a day, your choice (1–6), and whether there's a snack */
   meals: number;
   snack: boolean;

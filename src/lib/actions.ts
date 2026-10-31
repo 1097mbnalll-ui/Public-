@@ -1349,7 +1349,7 @@ export function setupDiet(p: { setup: Omit<DietSetup, 'start' | 'createdAt' | 'u
     s.diet.setup = { ...p.setup, start: old?.start ?? todayKey(t), createdAt: old?.createdAt ?? t, updatedAt: t };
     const kg = dietTrendNow(s) ?? p.weight;
     const tg = kg ? dietStartTargets(s, s.diet.setup, kg, t) : null;
-    if (tg && (!old || old.pace !== p.setup.pace || s.diet.kcal == null)) {
+    if (tg && (!old || old.pace !== p.setup.pace || old.by !== p.setup.by || old.goalKg !== p.setup.goalKg || s.diet.kcal == null)) {
       s.diet.kcal = tg.kcal;
       s.diet.protein = tg.protein;
     }
