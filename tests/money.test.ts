@@ -220,3 +220,17 @@ describe('savings goal: add, withdraw, percent', () => {
     expect(Math.round((g.saved / g.target) * 100)).toBe(30);
   });
 });
+
+import { addBankTexts } from '../src/lib/sync';
+import { replaceState, getState } from '../src/lib/store';
+import { initialState } from '../src/lib/defaults';
+describe('bank texts from the phone', () => {
+  it('each purchase is added once, even when the same text comes twice', () => {
+    replaceState(initialState(), '', false);
+    const at = new Date('2026-10-22T13:05:00').getTime();
+    const text = 'Purchase SAR 24 at DUNKIN';
+    expect(addBankTexts([{ id: 'a', at, text }, { id: 'b', at, text }])).toBe(1);
+    expect(addBankTexts([{ id: 'c', at, text }])).toBe(0);
+    expect(getState().expenses.length).toBe(1);
+  });
+});

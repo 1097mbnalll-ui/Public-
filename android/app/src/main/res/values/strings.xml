@@ -4,4 +4,6 @@
     <string name="title_activity_main">مدار</string>
     <string name="package_name">io.github.madar.planner</string>
     <string name="custom_url_scheme">io.github.madar.planner</string>
+    <string name="shortcut_expense">مصروف جديد</string>
+    <string name="shortcut_expense_long">أضف مصروف جديد</string>
 </resources>

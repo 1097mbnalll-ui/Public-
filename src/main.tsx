@@ -9,6 +9,7 @@ import { L } from './lib/i18n';
 import { loadOwnFont } from './lib/localFont';
 import { isNative, startNative } from './lib/native';
 import { startPip } from './lib/pip';
+import { startAndroidExtras } from './ui/AndroidExtras';
 
 // your own font (picked in settings) is ready before the first paint when it can be
 const openedAt = performance.now();
@@ -34,6 +35,7 @@ Promise.all([init(), loadOwnFont().catch(() => {})]).then(() => {
   startSync();
   void startNative();
   void startPip();
+  startAndroidExtras();
 });
 
 // the Android app has its files inside it — no service worker needed there

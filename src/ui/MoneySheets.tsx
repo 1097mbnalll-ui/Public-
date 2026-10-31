@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Collapse, NumInput, Seg, Sheet } from './kit';
+import { useEffect, useMemo, useState } from 'react';
+import { Collapse, NumInput, Seg, Sheet, Switch } from './kit';
 import { Icon } from './Icon';
 import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
@@ -10,6 +10,8 @@ import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, li
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
 import { L } from '../lib/i18n';
+import { isNative } from '../lib/native';
+import { pullNow, smsDisable, smsEnable, smsStatus } from './AndroidExtras';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const nowTime = () => {
@@ -230,6 +232,7 @@ export function SmsSheet() {
       }
     >
       <div className="fields">
+        <SmsAutoRow />
         <label className="btn block">
           📂 {L('افتح ملف الرسائل', 'Open the messages file')}
           <input type="file" hidden onChange={(e) => readFile(e.target.files?.[0])} />
@@ -278,6 +281,26 @@ export function SmsSheet() {
 }
 
 /** monthly budget, payday, category limits + savings goal */
+/** Android: bank texts become expenses by themselves */
+function SmsAutoRow() {
+  const [st, setSt] = useState<{ on: boolean; granted: boolean } | null>(null);
+  useEffect(() => { void smsStatus().then(setSt); }, []);
+  if (!isNative() || !st) return null;
+  const toggle = async (v: boolean) => {
+    if (!v) { await smsDisable(); setSt({ ...st, on: false }); return; }
+    const r = await smsEnable().catch(() => ({ on: false, granted: false }));
+    setSt(r);
+    if (r.on) { toast(L('تمام — أي رسالة شراء من البنك تنضاف لحالها', 'Done — bank purchase texts are added by themselves')); void pullNow(); }
+    else toast(L('ما أعطيت الإذن — فعّله من إعدادات الجوال ← التطبيقات ← مدار ← الأذونات ← الرسائل', 'Permission not given — allow SMS in phone Settings › Apps › Madar › Permissions'), { ms: 8000 });
+  };
+  return (
+    <div className="m-smsauto">
+      <span className="m"><b>{L('أضف المصاريف من رسائل البنك تلقائيًا', 'Add expenses from bank texts automatically')}</b><small>{L('يقرأ رسائل الشراء من البنك بس، وكل شي يبقى على جوالك', 'Reads bank purchase texts only; everything stays on your phone')}</small></span>
+      <Switch on={st.on} onChange={(v) => void toggle(v)} label={L('من رسائل البنك تلقائيًا', 'From bank texts automatically')} />
+    </div>
+  );
+}
+
 export function MoneySettingsSheet() {
   const s = useApp();
   const [budget, setBudget] = useState<number | undefined>(s.money.budget);
@@ -304,6 +327,7 @@ export function MoneySettingsSheet() {
       }}>{L('حفظ', 'Save')}</button>}
     >
       <div className="fields">
+        <SmsAutoRow />
         <div className="fields two">
           <div className="field">
             <label>{L('ميزانية الشهر', 'Monthly budget')}</label>

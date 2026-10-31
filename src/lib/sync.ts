@@ -233,10 +233,14 @@ const stamp = (ms: number) => {
 /** bank messages waiting in the script → expenses (each message is handed to one device only) */
 async function takeSms(c: SyncConf) {
   const t = await call(c, 'take');
-  const list: { id: string; at: number; text: string }[] = t?.sms || [];
+  return addBankTexts(t?.sms || []);
+}
+
+/** bank texts (from the sync script or the phone itself) → expenses, each message once */
+export function addBankTexts(list: { id: string; at: number; text: string }[]): number {
   if (!list.length) return 0;
   const seen = new Set(getState().money.smsSeen || []);
-  const found = list.flatMap((m) => parseBankSms(/^\s*\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/.test(m.text) ? m.text : `${stamp(m.at)}\n${m.text}`)).filter((f) => !seen.has(f.key));
+  const found = list.flatMap((m) => parseBankSms(/^\s*\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/.test(m.text) ? m.text : `${stamp(m.at)}\n${m.text}`)).filter((f) => !seen.has(f.key) && (seen.add(f.key), true));
   if (!found.length) return 0;
   mutate((s) => {
     for (const { key: _k, ...f } of found) s.expenses.push({ ...f, id: uid(), source: 'sms', createdAt: Date.now() });
@@ -249,6 +253,7 @@ let onSms: ((n: number) => void) | null = null;
 export function onSmsAdded(fn: (n: number) => void) {
   onSms = fn;
 }
+export const smsAdded = (n: number) => n > 0 && onSms?.(n);
 
 export async function syncNow(): Promise<void> {
   if (!getSync()) return;

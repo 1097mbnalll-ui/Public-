@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.0',
+    day: '2026-10-31',
+    items: [
+      ['أندرويد: رسائل الشراء من البنك تنضاف كمصاريف لحالها (تفعّلها من «مصاريفي»)', 'Android: bank purchase texts become expenses by themselves (switch it on in Spending)'],
+      ['أندرويد: اضغط مطوّل على أيقونة «مدار» ← «مصروف جديد» يفتح المصروف على طول', 'Android: long-press the Madar icon › «New expense» opens the form straight away'],
+    ],
+  },
+  {
     v: '1.5.0',
     day: '2026-10-31',
     items: [
