@@ -25,6 +25,8 @@ sees it; someone who doesn't never sees it.
 - A shopping list for the week's self-cooked meals.
 - Add your own foods/meals (name, portion, calories, protein — e.g. from a label) and use them
   in the plan like built-in ones.
+- «اصنع جدولك»: build the day yourself from foods you choose, inside budgets the system sets
+  (meals per day, a budget per meal, a cap per item), with additions past the budget refused.
 - Gym and the meal plan are each switched on in settings; the tab shows only what's on.
 
 ## Non-goals
@@ -98,6 +100,24 @@ family's lunch (most days / sometimes / rarely) — decides how many family-dish
 - Each meal: «أكلتها» / «أكلت شي ثاني» (pick a food + amount from the base or your own, or
   «ما أدري — تقريبًا كذا سعرة»). That gives the intake the weekly correction needs; unmarked
   days count as planned.
+
+### Build your own plan (the user's addition)
+Besides the ready plan, «اصنع جدولك»: you pick the food, the system keeps the numbers.
+- The system sets how many meals a day (from the setup: 3 + snack by default) and each meal's
+  calorie budget (breakfast 25 %, lunch 35 %, dinner 25 %, snack 15 % of the day's target).
+- You add foods to a meal from the base or your own foods, choosing the portion (household
+  measure + grams). Every item shows its calories as you pick the amount.
+- A cap per item, by kind, so one thing can't take the whole meal: starch (rice, bread, pasta)
+  ≤ 50 % of the meal, fats/sweets/drinks with sugar ≤ 20 %, protein foods and vegetables free
+  within the meal. The portion picker stops at the cap and says why.
+- The meal and the day show a running total against the budget. Adding something that would
+  pass the meal's budget is refused — with a way out instead of a dead end: «تقدر تاخذ ٣ ملاعق
+  بدل ٤» (the largest portion that fits), or take the room from a later meal that's still empty.
+  The day as a whole can't pass its target (+5 % tolerance); past that, no more additions.
+- A protein check: if the day ends under 90 % of the protein target, it says which swap fixes it.
+- Days you build can be saved as templates and reused («يوم الكبسة»); the weekly adjustment
+  scales their portions to the new target and re-checks the caps.
+- Your own days count toward the weekly correction exactly like the ready plan.
 
 ### Weigh-ins
 Daily, morning; a one-tap entry on Today when it's on and you haven't weighed in. Reuses the Gym's
