@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Collapse, Empty, Seg, Switch, useNow } from '../ui/kit';
+import { Collapse, Empty, Seg, useNow } from '../ui/kit';
 import { Icon } from '../ui/Icon';
 import { PageTop } from '../ui/PageTop';
 import { openSheet } from '../ui/sheets';
@@ -25,35 +25,46 @@ function GoalCard({ goal, monthly }: { goal: NonNullable<AppState['money']['goal
   const [opts, setOpts] = useState(false);
   const hn = !!goal.hide?.name;
   const ha = !!goal.hide?.amount;
-  // hidden amounts read as dots; the percentage always shows
-  const money = (n: number) => (ha ? '••••' : fmtMoney(n));
+  const mode = ha && hn ? 'pct' : ha ? 'noamt' : hn ? 'noname' : 'all';
+  const setMode = (m: string) => A.hideGoal({ name: m === 'noname' || m === 'pct', amount: m === 'noamt' || m === 'pct' });
+  const r = 46;
+  const c = 2 * Math.PI * r;
+  const pc = (n: number) => `\u2066${n}%\u2069`;
   return (
-    <div className="card m-goal">
-      <div className="m-goal-top">
-        <div>
-          <div className="k">🎯 {L('هدفك', 'Your goal')}<button className="icon-btn sm m-goal-eye" aria-label={L('إخفاء الاسم أو المبالغ', 'Hide the name or amounts')} aria-expanded={opts} onClick={() => setOpts(!opts)}><Icon name="eye" size={15} /></button></div>
-          <h3>{hn ? L('هدفي', 'My goal') : goal.name}</h3>
-          {!ha && <span className="faint small">{fmtMoney(goal.target)}</span>}
-        </div>
-        <div className="m-goal-ring" style={{ ['--p' as string]: pct / 100 }} role="img" aria-label={L(`وصلت ${pct}%`, `${pct}% there`)}><b className="num">{pct}<small>%</small></b></div>
+    <section className="gl">
+      <div className="gl-head">
+        <span className="gl-k"><Icon name="target" size={14} /> {L('هدف التوفير', 'Savings goal')}{(hn || ha) && <i className="gl-lock">{L('مخفي', 'hidden')}</i>}</span>
+        <button className={`gl-eye ${opts ? 'on' : ''}`} aria-label={L('وش يظهر', 'What shows')} aria-expanded={opts} onClick={() => setOpts(!opts)}><Icon name="eye" size={17} /></button>
       </div>
       {opts && (
-        <div className="m-goal-hide">
-          <label><Switch on={hn} onChange={(v) => A.hideGoal({ name: v })} label={L('أخفِ الاسم', 'Hide the name')} /> {L('أخفِ الاسم', 'Hide the name')}</label>
-          <label><Switch on={ha} onChange={(v) => A.hideGoal({ amount: v })} label={L('أخفِ المبالغ', 'Hide the amounts')} /> {L('أخفِ المبالغ', 'Hide the amounts')}</label>
+        <div className="gl-opts">
+          <Seg value={mode} onChange={setMode} label={L('وش يظهر', 'What shows')} options={[{ v: 'all', l: L('الكل', 'All') }, { v: 'noname', l: L('بدون الاسم', 'No name') }, { v: 'noamt', l: L('بدون المبالغ', 'No amounts') }, { v: 'pct', l: L('النسبة بس', 'Only %') }]} />
         </div>
       )}
-      <div className="ln"><i style={{ width: `${pct}%` }} /></div>
-      <div className="ft">
-        <span>{L('جمّعت', 'Saved')} <b>{ha ? `\u2066${pct}%\u2069` : fmtMoney(goal.saved)}</b></span>
-        <span>{left <= 0 ? L('وصلت! 🎉', 'Reached! 🎉') : <>{L('باقي', 'Left')} <b>{ha ? `\u2066${100 - pct}%\u2069` : `${money(left)} · \u2066${100 - pct}%\u2069`}</b></>}</span>
+      <div className="gl-main">
+        <svg className="gl-ring" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label={L(`وصلت ${pct}%`, `${pct}% there`)}>
+          <circle cx="56" cy="56" r={r} className="t" />
+          <circle cx="56" cy="56" r={r} className="b" strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 56 56)" />
+          <text x="56" y="62" textAnchor="middle" className="v">{pct}%</text>
+        </svg>
+        <div className="gl-txt">
+          <h3>{hn ? L('هدفي', 'My goal') : goal.name}</h3>
+          {ha ? (
+            <p>{left <= 0 ? L('وصلت هدفك 🎉', 'Goal reached 🎉') : L(`باقي ${pc(100 - pct)} وتوصل`, `${pc(100 - pct)} to go`)}</p>
+          ) : (
+            <>
+              <p><b className="num">{fmtMoney(goal.saved)}</b> {L('من', 'of')} <span className="num">{fmtMoney(goal.target)}</span></p>
+              <small>{left <= 0 ? L('وصلت هدفك 🎉', 'Goal reached 🎉') : L(`باقي ${fmtMoney(left)}`, `${fmtMoney(left)} to go`)}</small>
+            </>
+          )}
+        </div>
       </div>
       {left > 0 && monthly > 0 && !ha && (
-        <div className="tip">💡 {L(`لو طبّقت البدائل تحت (${fmtMoney(monthly)} بالشهر) توصل له بعد ≈ ${Math.max(1, Math.ceil(left / monthly))} شهور.`, `With the swaps below (${fmtMoney(monthly)} a month) you'd get there in ≈ ${Math.max(1, Math.ceil(left / monthly))} months.`)}</div>
+        <div className="gl-tip">{L(`بالبدائل تحت (${fmtMoney(monthly)} بالشهر) توصل بعد ≈ ${Math.max(1, Math.ceil(left / monthly))} شهور.`, `With the swaps below (${fmtMoney(monthly)} a month) you'd get there in ≈ ${Math.max(1, Math.ceil(left / monthly))} months.`)}</div>
       )}
-      <div className="m-goal-a">
-        <button className="btn sm primary" onClick={() => openSheet({ type: 'goal-move', dir: 'in' })}><Icon name="plus" size={14} /> {L('إيداع', 'Add')}</button>
-        <button className="btn sm" disabled={!goal.saved} onClick={() => openSheet({ type: 'goal-move', dir: 'out' })}>{L('➖ سحب', '➖ Withdraw')}</button>
+      <div className="gl-a">
+        <button className="gl-in" onClick={() => openSheet({ type: 'goal-move', dir: 'in' })}><Icon name="plus" size={16} /> {L('إيداع', 'Add')}</button>
+        <button className="gl-out" disabled={!goal.saved} onClick={() => openSheet({ type: 'goal-move', dir: 'out' })}><Icon name="minus" size={16} /> {L('سحب', 'Withdraw')}</button>
       </div>
       {log.length > 0 && (
         <Collapse title={L('الحركات', 'History')} count={log.length}>
@@ -68,7 +79,7 @@ function GoalCard({ goal, monthly }: { goal: NonNullable<AppState['money']['goal
           </ul>
         </Collapse>
       )}
-    </div>
+    </section>
   );
 }
 

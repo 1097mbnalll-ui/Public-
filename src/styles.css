@@ -4465,6 +4465,30 @@ html[data-size='lg'] { zoom: 1.12; }
 .si-course { display: grid; gap: 6px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
 .si-course small { color: var(--muted); font-size: 12.5px; }
 
-.m-goal-eye { margin-inline-start: 4px; vertical-align: middle; color: var(--faint); }
-.m-goal-hide { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 0 4px; font-size: 13.5px; animation: fold-in .2s var(--ease); }
-.m-goal-hide label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+/* the savings goal: one ring, the name, what's saved — or just the percentage */
+.gl { display: grid; gap: 14px; padding: 18px; border-radius: 26px; background: var(--surface-2); box-shadow: 0 10px 30px rgba(0,0,0,.05); }
+.gl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gl-k { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.gl-k svg { color: var(--accent); }
+.gl-lock { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--line); color: var(--muted); }
+.gl-eye { width: 38px; height: 38px; border-radius: 12px; border: 0; background: var(--line); color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: background-color .15s, color .15s; }
+.gl-eye.on { background: var(--text); color: var(--bg); }
+.gl-opts { animation: fold-in .2s var(--ease); }
+.gl-opts .seg { width: 100%; display: flex; }
+.gl-opts .seg button { flex: 1; }
+.gl-main { display: flex; align-items: center; gap: 18px; }
+.gl-ring { flex: none; }
+.gl-ring .t { fill: none; stroke: var(--line-2); stroke-width: 10; }
+.gl-ring .b { fill: none; stroke: var(--green); stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray .6s var(--ease); }
+.gl-ring .v { font-family: var(--font); font-weight: 800; font-size: 24px; fill: var(--text); direction: ltr; }
+.gl-txt { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.gl-txt h3 { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
+.gl-txt p { margin: 0; font-size: 15px; color: var(--muted); }
+.gl-txt p b { font-size: 18px; color: var(--text); }
+.gl-txt small { font-size: 13px; color: var(--muted); }
+.gl-tip { padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); font-size: 13px; line-height: 1.6; }
+.gl-a { display: flex; gap: 10px; }
+.gl-a button { flex: 1; height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 16px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.gl-in { border: 0; background: var(--text); color: var(--bg); }
+.gl-out { border: 1px solid var(--line-2); background: transparent; color: inherit; }
+.gl-out:disabled { opacity: .4; cursor: default; }
