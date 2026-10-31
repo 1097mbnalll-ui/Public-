@@ -39,6 +39,10 @@ export type SheetSpec =
   | { type: 'fu-item'; id: string }
   | { type: 'fu-add' }
   | { type: 'fu-swap' }
+  | { type: 'diet-setup' }
+  | { type: 'diet-other'; day: string; i: number }
+  | { type: 'diet-pick'; day: string; i: number; food?: string; at?: number }
+  | { type: 'diet-food' }
   | { type: 'study-session'; examId?: string }
   | { type: 'note'; id?: string; text?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };

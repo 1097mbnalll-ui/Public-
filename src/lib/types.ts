@@ -257,6 +257,8 @@ export interface CoachState {
 
 export interface Settings {
   name: string;
+  /** optional sections: shown only when switched on */
+  sections?: { gym?: boolean; diet?: boolean };
   /** prayer times: a study session plans around them and pauses at the adhan (location stays on this device) */
   prayer?: { on: boolean; lat?: number; lng?: number; city?: string; /** minutes after the prayer until you're back */ back?: number };
   /** free minutes for planned work (tasks + study) per weekday, Sunday = 0 */
@@ -706,6 +708,97 @@ export interface DrillAttempt {
   updatedAt?: number;
 }
 
+/** «أكلي»: a meal plan for losing weight, adjusted every week */
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'meal' | 'snack';
+export type FoodKind = 'starch' | 'protein' | 'veg' | 'fat' | 'dairy' | 'fruit' | 'sweet' | 'drink' | 'mixed';
+
+/** one food in a meal: `qty` in the food's household unit (spoons, pieces, cups…) */
+export interface DietItem { food: string; qty: number }
+
+export interface DietMeal {
+  slot: MealSlot;
+  /** the dish it came from (a ready plan); none when you built it yourself */
+  dish?: string;
+  items: DietItem[];
+  /** «أكلتها» / «أكلت شي ثاني» — unmarked counts as eaten as planned */
+  eaten?: 'yes' | 'other';
+  other?: { kcal: number; protein: number; note?: string };
+}
+
+export interface DietDay {
+  day: string;
+  meals: DietMeal[];
+  /** you built it yourself (اصنع جدولك) */
+  built?: boolean;
+  updatedAt: number;
+}
+
+/** a food of your own: everything per one household unit */
+export interface DietFood {
+  id: string;
+  name: string;
+  unit: string;
+  /** grams (or ml) in one unit */
+  g: number;
+  kcal: number;
+  protein: number;
+  carbs?: number;
+  fat?: number;
+  kind: FoodKind;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface DietSetup {
+  goalKg: number;
+  /** % of body weight a week */
+  pace: 0.5 | 0.75 | 1;
+  /** meals a day, your choice (1–6), and whether there's a snack */
+  meals: number;
+  snack: boolean;
+  /** each slot's share of the day in %, in slot order; unset = the default split */
+  split?: number[];
+  /** tags you don't eat: fish, dairy, egg, redmeat, mushroom… */
+  avoid: string[];
+  /** how often lunch is the family's dish */
+  family: 'most' | 'some' | 'rare';
+  /** activity multiplier when the Gym isn't on */
+  activity?: number;
+  /** the day it started — the weekly check-in falls on this weekday */
+  start: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+/** one weekly check-in */
+export interface DietWeek {
+  id: string;
+  day: string;
+  kcal: number;
+  protein: number;
+  /** energy burned a day, estimated from the weight trend and what you ate */
+  expenditure?: number;
+  /** trend weight at the start and end of the window */
+  from?: number;
+  to?: number;
+  /** share of planned meals eaten as planned (0–1) */
+  adherence?: number;
+  createdAt: number;
+}
+
+export interface DietState {
+  setup?: DietSetup;
+  /** today's targets: calories and protein a day */
+  kcal?: number;
+  protein?: number;
+  weeks: DietWeek[];
+  days: Record<string, DietDay>;
+  foods: DietFood[];
+  templates: { id: string; name: string; meals: DietMeal[]; createdAt: number }[];
+  /** shopping list ticks for the week starting `week` */
+  shop?: { week: string; got: string[] };
+}
+
 export interface TrainState {
   setup?: { field?: string; branch?: string; time?: string; days: number[]; remindId?: string; createdAt: number; updatedAt?: number };
   levels: Partial<Record<SkillId, number>>;
@@ -769,6 +862,7 @@ export interface AppState {
   future: FutureState;
   reminds: Remind[];
   train: TrainState;
+  diet: DietState;
   /** reminders that fired while you were away and haven't been seen */
   missed: { id: string; title: string; at: number; ref?: string }[];
   meta: {

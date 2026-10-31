@@ -1,6 +1,6 @@
 // All state changes go through these functions.
 
-import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, DrillAttempt, DrillTask, Mark, SkillId, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
+import type { AppState, Area, BodyLog, GymCustom, GymProfile, GymSession, GymSet, GymState, ClassBlock, Course, Exam, Expense, ExpenseCat, MoneyState, Priority, Procedure, Remind, Step, DietDay, DietFood, DietMeal, DietSetup, DrillAttempt, DrillTask, Mark, SkillId, StepKind, Subscription, Task, Template, Timer, Unit } from './types';
 import { getState, mutate } from './store';
 import { uid } from './text';
 import { addDays, addMonths, atTime, todayKey } from './dates';
@@ -14,6 +14,7 @@ import { CAT_ORDER, guessCat } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
 import { nextLevel } from './engine/train';
+import { startTargets as dietStartTargets, trendNow as dietTrendNow } from './engine/diet';
 
 const now = () => Date.now();
 
@@ -1323,4 +1324,97 @@ export function deleteFieldTask(id: string) {
   mutate((s) => {
     s.train.custom = s.train.custom.filter((x) => x.id !== id);
   }, L('حذف مهمة', 'Delete task'));
+}
+
+// ---------------- «أكلي» and the optional sections ----------------
+
+export function setSections(patch: { gym?: boolean; diet?: boolean }) {
+  mutate((s) => {
+    s.settings.sections = { ...s.settings.sections, ...patch };
+  });
+}
+
+/** the first setup (or a change of it): your details, today's weight, and the starting targets */
+export function setupDiet(p: { setup: Omit<DietSetup, 'start' | 'createdAt' | 'updatedAt'>; info?: { sex?: 'm' | 'f'; birthYear?: number; height?: number }; weight?: number }) {
+  const t = now();
+  mutate((s) => {
+    if (p.info) s.gym.info = { ...s.gym.info, ...p.info };
+    if (p.weight) {
+      const day = todayKey(t);
+      const same = s.gym.body.find((b) => b.day === day);
+      if (same) Object.assign(same, { weight: p.weight, updatedAt: t });
+      else s.gym.body.push({ id: uid(), day, weight: p.weight, createdAt: t });
+    }
+    const old = s.diet.setup;
+    s.diet.setup = { ...p.setup, start: old?.start ?? todayKey(t), createdAt: old?.createdAt ?? t, updatedAt: t };
+    const kg = dietTrendNow(s) ?? p.weight;
+    const tg = kg ? dietStartTargets(s, s.diet.setup, kg, t) : null;
+    if (tg && (!old || old.pace !== p.setup.pace || s.diet.kcal == null)) {
+      s.diet.kcal = tg.kcal;
+      s.diet.protein = tg.protein;
+    }
+    s.settings.sections = { ...s.settings.sections, diet: true };
+  }, L('إعداد خطة الأكل', 'Set up the meal plan'));
+}
+
+/** keep a day as it is now (marking, swapping or building makes it yours) */
+export function saveDietDay(d: DietDay) {
+  mutate((s) => {
+    s.diet.days[d.day] = { ...structuredClone(d), updatedAt: now() };
+    // a long history isn't needed: keep the last 120 days
+    const keys = Object.keys(s.diet.days).sort();
+    for (const k of keys.slice(0, Math.max(0, keys.length - 120))) delete s.diet.days[k];
+  });
+}
+
+/** forget a day you changed: it goes back to the ready plan */
+export function dropDietDay(day: string) {
+  mutate((s) => {
+    delete s.diet.days[day];
+  });
+}
+
+export function addDietFood(f: Omit<DietFood, 'id' | 'createdAt'>): string {
+  const id = `own_${uid()}`;
+  mutate((s) => {
+    s.diet.foods.push({ ...f, id, createdAt: now() });
+  }, L('أكلة جديدة', 'New food'));
+  return id;
+}
+
+export function deleteDietFood(id: string) {
+  mutate((s) => {
+    s.diet.foods = s.diet.foods.filter((x) => x.id !== id);
+  }, L('حذف أكلة', 'Delete food'));
+}
+
+export function saveDietTemplate(name: string, meals: DietMeal[]) {
+  mutate((s) => {
+    s.diet.templates.push({ id: uid(), name: name.trim().slice(0, 60) || L('يومي', 'My day'), meals: structuredClone(meals).map((m) => ({ slot: m.slot, items: m.items })), createdAt: now() });
+  }, L('حفظ قالب', 'Save template'));
+}
+
+export function deleteDietTemplate(id: string) {
+  mutate((s) => {
+    s.diet.templates = s.diet.templates.filter((x) => x.id !== id);
+  });
+}
+
+/** the weekly check-in: the new targets take over from today */
+export function applyCheckIn(c: { kcal: number; protein: number; expenditure?: number; from?: number; to?: number; adherence?: number }) {
+  const t = now();
+  mutate((s) => {
+    s.diet.weeks.push({ id: uid(), day: todayKey(t), ...c, createdAt: t });
+    s.diet.kcal = c.kcal;
+    s.diet.protein = c.protein;
+    // days ahead that you didn't touch follow the new numbers
+    for (const k of Object.keys(s.diet.days)) if (k > todayKey(t) && !s.diet.days[k].built) delete s.diet.days[k];
+  }, L('تعديل الأسبوع', 'Weekly check-in'));
+}
+
+export function toggleShop(week: string, food: string) {
+  mutate((s) => {
+    const cur = s.diet.shop?.week === week ? s.diet.shop.got : [];
+    s.diet.shop = { week, got: cur.includes(food) ? cur.filter((x) => x !== food) : [...cur, food] };
+  });
 }

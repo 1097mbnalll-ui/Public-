@@ -126,6 +126,11 @@ export function Settings() {
         <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => go('schedule')}><Icon name="week" size={16} />{L(" جدولي — محاضراتك أو دوامك", " My timetable — lectures or shifts")}<Icon name="chevron" size={14} /></button>
       </Section>
 
+      <Section title={L("الأقسام", "Sections")} desc={L("اللي تطفيه ما يطلع لك في القائمة ولا في «اليوم». بياناته تبقى محفوظة لو رجعت فعّلته.", "What you switch off disappears from the menu and Today. Its data stays if you turn it back on.")}>
+        <Row label={L('خطة الأكل', 'Meal plan')} sub={L('جدول أكل جاهز لنزول الوزن، يتعدل كل أسبوع', 'A ready meal plan for losing weight, adjusted weekly')} end={<Switch on={!!st.sections?.diet} onChange={(v) => { A.setSections({ diet: v }); if (v && !s.diet.setup) { go('health'); } }} label={L('خطة الأكل', 'Meal plan')} />} />
+        <Row label={L('النادي', 'Gym')} sub={L('برنامج تمرينك، عضلاتك، وسجل تمارينك', 'Your program, muscles and workout log')} end={<Switch on={!!st.sections?.gym} onChange={(v) => A.setSections({ gym: v })} label={L('النادي', 'Gym')} />} />
+      </Section>
+
       <Section title={L("أوقات الصلاة", "Prayer times")} desc={L("جلسة المذاكرة تحسب حساب الصلاة: من الأذان للإقامة للصلاة لين ترجع. وعند الأذان توقف جلستك مكانها.", "Study sessions plan around prayer: adhan, iqama, the prayer, and getting back. At the adhan your session pauses where it is.")}>
         <PrayerSettings />
       </Section>

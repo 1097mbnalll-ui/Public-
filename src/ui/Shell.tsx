@@ -27,6 +27,7 @@ import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
 import { FutureAddSheet, FutureItemSheet, FutureSetupSheet, FutureSwapSheet } from '../pages/Future';
+import { DietFoodSheet, DietOtherSheet, DietPickSheet, DietSetupSheet } from '../pages/Health';
 import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
 import { ExpenseSheet, GoalMoveSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
@@ -107,6 +108,14 @@ export function SheetHost() {
       return <FutureAddSheet />;
     case 'fu-swap':
       return <FutureSwapSheet />;
+    case 'diet-setup':
+      return <DietSetupSheet />;
+    case 'diet-other':
+      return <DietOtherSheet key={`${sh.day}:${sh.i}`} day={sh.day} i={sh.i} />;
+    case 'diet-pick':
+      return <DietPickSheet key={`${sh.day}:${sh.i}:${sh.at ?? ''}`} day={sh.day} i={sh.i} food={sh.food} at={sh.at} />;
+    case 'diet-food':
+      return <DietFoodSheet />;
     case 'study-session':
       return <StudySessionSheet examId={sh.examId} />;
     case 'note':

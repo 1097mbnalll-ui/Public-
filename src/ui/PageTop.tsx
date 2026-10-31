@@ -1,13 +1,17 @@
 import { Icon } from './Icon';
 import { openSheet } from './sheets';
 import { go, useRoute } from './router';
-import { pairOf } from './pairs';
+import { pairOf, shown } from './pairs';
+import { useApp } from '../lib/store';
 import { L } from '../lib/i18n';
 
 /** shared page header: big title, optional subtitle, search + profile on phones */
 export function PageTop({ title, sub, actions, back }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode; back?: { label: string; to: string } }) {
   const page = useRoute().page;
-  const pair = back ? undefined : pairOf(page);
+  const s = useApp();
+  const p0 = back ? undefined : pairOf(page);
+  const items = p0 ? shown(p0.items, s) : [];
+  const pair = p0 && items.length > 1 ? { ...p0, items } : undefined;
   return (
     <header style={{ marginBottom: 18 }}>
       <div className="top">

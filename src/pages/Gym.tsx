@@ -39,6 +39,27 @@ export function Gym() {
   return <GymHome tab={tab} />;
 }
 
+/** «جسمي» inside «صحتي» */
+export function GymBody() {
+  const now = useNow(60_000);
+  return <BodyTab now={now} />;
+}
+
+/** «تمريني» inside «صحتي»: today's training and the exercises */
+export function GymTabs({ tab }: { tab: 'train' | 'moves' }) {
+  const s = useApp();
+  const now = useNow(60_000);
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 14, gap: 8, alignItems: 'center' }}>
+        <div className="grow"><Seg value={tab} onChange={(v) => go(v === 'train' ? 'health/gym' : 'health/moves')} label={L('أقسام النادي', 'Gym sections')} options={[{ v: 'train', l: L('تمريني', 'Train') }, { v: 'moves', l: L('التمارين', 'Exercises') }]} /></div>
+        {s.gym.profile && <button className="icon-btn" onClick={() => openSheet({ type: 'gym-setup' })} aria-label={L('برنامجي', 'My program')}><Icon name="settings" /></button>}
+      </div>
+      {tab === 'train' ? <TrainTab now={now} /> : <MovesTab />}
+    </>
+  );
+}
+
 function GymHome({ tab }: { tab: 'train' | 'body' | 'moves' }) {
   const s = useApp();
   const now = useNow(60_000);
@@ -1014,6 +1035,7 @@ export function GymInfoSheet() {
 export function GymTodayCard() {
   const s = useApp();
   const now = useNow(60_000);
+  if (!s.settings.sections?.gym) return null;
   const live = liveSession(s);
   const t = gymToday(s, now);
   if (!live && !t) return null;

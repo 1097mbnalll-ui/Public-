@@ -15,6 +15,7 @@ import { Study } from './pages/Study';
 import { Schedule } from './pages/Schedule';
 import { Gym } from './pages/Gym';
 import { Future, ReviewBackPage, ReviewPage } from './pages/Future';
+import { Health } from './pages/Health';
 import { registerCustom } from './lib/engine/gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
@@ -32,7 +33,7 @@ import { PipHost, PipView, usePip } from './ui/PipTimer';
 import { RemindersPage } from './ui/Remind';
 import { NotesPage } from './ui/Notes';
 import { todayKey } from './lib/dates';
-import { lastOf, PAIRS, remember } from './ui/pairs';
+import { lastOf, PAIRS, remember, shown } from './ui/pairs';
 import { L } from './lib/i18n';
 
 // Five places, each answering one question:
@@ -44,29 +45,33 @@ const NAV = [
   { id: 'work', get label() { return L('العمل', "Work"); }, icon: 'work' },
   { id: 'study', get label() { return L('الدراسة', "Study"); }, icon: 'study' },
   { id: 'money', get label() { return L('مصاريفي', 'Spending'); }, icon: 'wallet' },
-  { id: 'gym', get label() { return L('النادي', 'Gym'); }, icon: 'gym' },
+  { id: 'health', get label() { return L('صحتي', 'Health'); }, icon: 'heart' },
 ];
 
 /** a tab two places share: it shows the page you're on, or the one you used last */
 function PairTab({ pr, page }: { pr: (typeof PAIRS)[number]; page: string }) {
-  const here = pr.items.find((i) => i.id === page);
-  const it = here || lastOf(pr.key);
+  const s = useApp();
+  const items = shown(pr.items, s);
+  const here = items.find((i) => i.id === page);
+  const it = here || lastOf(pr.key, s);
   return (
-    <button className={`tab ${here ? 'active' : ''}`} onClick={() => go(it.id)} aria-label={`${it.label()} — ${pr.items.map((x) => x.label()).join(L(' و', ' & '))}`}>
+    <button className={`tab ${here ? 'active' : ''}`} onClick={() => go(it.id)} aria-label={items.length > 1 ? `${it.label()} — ${items.map((x) => x.label()).join(L(' و', ' & '))}` : it.label()}>
       <Icon name={it.icon} size={22} /> {it.label()}
-      <span className="tab-pair" aria-hidden><i className={pr.items[0].id === it.id ? 'on' : ''} /><i className={pr.items[1].id === it.id ? 'on' : ''} /></span>
+      {items.length > 1 && <span className="tab-pair" aria-hidden>{items.map((x) => <i key={x.id} className={x.id === it.id ? 'on' : ''} />)}</span>}
     </button>
   );
 }
 
 /** old links keep working */
 function resolve(page: string, id?: string): { page: string; id?: string } {
-  if (page === 'club') return { page: 'gym' };
+  if (page === 'club') return { page: 'health', id: 'gym' };
+  // the gym's own screens stay; its home and «جسمي» live in «صحتي» now
+  if (page === 'gym' && (!id || id === 'body' || id === 'moves')) return { page: 'health', id: id || 'gym' };
   if (page === 'week') return { page: 'today', id: 'week' };
   if (page === 'settings') return { page: 'me' };
   if (page === 'install') return { page: 'install' };
   if (page === 'insights') return { page: 'me', id: 'insights' };
-  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders' || page === 'notes' || page === 'review' || page === 'review-back') return { page, id };
+  if (NAV.some((n) => n.id === page) || page === 'me' || page === 'coach' || page === 'import' || page === 'receive' || page === 'sync' || page === 'schedule' || page === 'reminders' || page === 'notes' || page === 'review' || page === 'review-back' || page === 'gym') return { page, id };
   return { page: 'today' };
 }
 
@@ -154,6 +159,9 @@ export function App() {
     case 'gym':
       body = <Gym />;
       break;
+    case 'health':
+      body = <Health />;
+      break;
     case 'future':
       body = <Future />;
       break;
@@ -192,7 +200,7 @@ export function App() {
         <button className="btn primary block side-add" onClick={() => openSheet(page === 'money' ? { type: 'expense' } : { type: 'quick' })}>
           <Icon name="plus" size={17} />{L(" جديد ", " New ")}<span className="kbd" style={{ borderColor: 'currentColor', color: 'inherit', opacity: 0.8 }}>N</span>
         </button>
-        {NAV.map((n) => (
+        {NAV.filter((n) => n.id !== 'health' || s.settings.sections?.diet || s.settings.sections?.gym).map((n) => (
           <button key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
             <Icon name={n.icon} /> {n.label}
             {counts[n.id] ? <span className="count">{counts[n.id]}</span> : null}

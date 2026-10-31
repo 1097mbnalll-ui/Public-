@@ -180,6 +180,19 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     custom: unionById(tm.custom || [], tt.custom || []),
     ...(tm.setup || tt.setup ? { setup: (tm.setup?.updatedAt ?? tm.setup?.createdAt ?? 0) >= (tt.setup?.updatedAt ?? tt.setup?.createdAt ?? 0) ? tm.setup || tt.setup : tt.setup } : {}),
   };
+  const dm = mine.diet || ({} as AppState['diet']);
+  const dt = theirs.diet || ({} as AppState['diet']);
+  const days: AppState['diet']['days'] = { ...(dt.days || {}) };
+  for (const [k, v] of Object.entries(dm.days || {})) if (!days[k] || (v.updatedAt || 0) >= (days[k].updatedAt || 0)) days[k] = v;
+  out.diet = {
+    ...dt,
+    ...dm,
+    weeks: unionById(dm.weeks || [], dt.weeks || []),
+    foods: unionById(dm.foods || [], dt.foods || []),
+    templates: unionById(dm.templates || [], dt.templates || []),
+    days,
+    ...(dm.setup || dt.setup ? { setup: (dm.setup?.updatedAt ?? dm.setup?.createdAt ?? 0) >= (dt.setup?.updatedAt ?? dt.setup?.createdAt ?? 0) ? dm.setup || dt.setup : dt.setup } : {}),
+  };
   out.money = {
     ...theirs.money,
     ...mine.money,

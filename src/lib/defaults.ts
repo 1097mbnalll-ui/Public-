@@ -97,6 +97,7 @@ export function initialState(): AppState {
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] },
     reminds: [],
     train: { levels: {}, attempts: [], custom: [] },
+    diet: { weeks: [], days: {}, foods: [], templates: [] },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -114,8 +115,18 @@ export function migrate(raw: any): AppState {
     gym: { rot: 0, sessions: [], body: [], info: {}, ...(raw.gym || {}) },
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [], ...(raw.future || {}) },
     train: { levels: {}, attempts: [], custom: [], ...(raw.train && typeof raw.train === 'object' ? raw.train : {}) },
+    diet: { weeks: [], days: {}, foods: [], templates: [], ...(raw.diet && typeof raw.diet === 'object' ? raw.diet : {}) },
     meta: { ...base.meta, ...(raw.meta || {}) },
   };
+  {
+    const d: any = s.diet;
+    for (const k of ['weeks', 'foods', 'templates'] as const) d[k] = (Array.isArray(d[k]) ? d[k] : []).filter((x: any) => x && typeof x.id === 'string');
+    if (!d.days || typeof d.days !== 'object' || Array.isArray(d.days)) d.days = {};
+    for (const [k, v] of Object.entries(d.days)) if (!v || typeof v !== 'object' || !Array.isArray((v as any).meals)) delete d.days[k];
+    if (d.setup && (typeof d.setup !== 'object' || !(d.setup.goalKg > 0))) delete d.setup;
+  }
+  // the Gym was always on: someone who already used it keeps it
+  if (!s.settings.sections) s.settings.sections = { gym: !!(s.gym?.profile || (s.gym?.sessions as unknown[] | undefined)?.length || (s.gym?.body as unknown[] | undefined)?.length), diet: !!s.diet.setup };
   for (const k of ['tasks', 'goals', 'procedures', 'templates', 'courses', 'units', 'exams', 'sessions', 'missed', 'thoughts', 'expenses', 'subs', 'schedule', 'reminds'] as const) {
     // a damaged entry (null, a number…) would crash every page that lists it
     (s as any)[k] = Array.isArray(s[k]) ? (s[k] as unknown[]).filter((x) => x && typeof x === 'object' && typeof (x as any).id === 'string') : [];
