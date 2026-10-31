@@ -115,3 +115,14 @@ describe('a date of your own', () => {
     expect(earliestSafe(92, 80, '2026-11-01') > '2027-02-01').toBe(true);
   });
 });
+
+import { migrate } from '../src/lib/defaults';
+describe('hand portions', () => {
+  it('a day saved in spoons keeps its grams in hands', () => {
+    const raw = initialState() as any;
+    raw.diet = { weeks: [], foods: [], templates: [], days: { '2026-11-01': { day: '2026-11-01', updatedAt: 1, meals: [{ slot: 'lunch', items: [{ food: 'rice_kabsa', qty: 6 }, { food: 'olive_oil', qty: 1 }] }] } } };
+    const s = migrate(raw);
+    expect(s.diet.days['2026-11-01'].meals[0].items).toEqual([{ food: 'rice_kabsa', qty: 2 }, { food: 'olive_oil', qty: 0.5 }]);
+    expect(migrate(s).diet.days['2026-11-01'].meals[0].items[0].qty).toBe(2);
+  });
+});

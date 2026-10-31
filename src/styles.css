@@ -4457,3 +4457,8 @@ html[data-size='lg'] { zoom: 1.12; }
 
 .hl-warn { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--amber-soft); color: var(--amber); font-size: 13.5px; line-height: 1.6; }
 .hl-warn .btn { justify-self: start; }
+
+.hl-hand { display: grid; gap: 10px; }
+.hl-hand > div { display: grid; grid-template-columns: 82px 1fr; gap: 2px 10px; font-size: 13.5px; }
+.hl-hand b { grid-row: span 2; font-size: 14.5px; }
+.hl-hand small { color: var(--muted); font-size: 12.5px; }

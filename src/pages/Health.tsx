@@ -216,6 +216,23 @@ function DietWelcome() {
   );
 }
 
+/** the hand measures, once: your hand grows with your body, so it's sized to you */
+function HandGuide() {
+  const rows: [string, string, string][] = [
+    [L('كف', 'Palm'), L('باطن كفك بدون الأصابع وبسماكته', 'your palm, no fingers, as thick as it'), L('دجاج، لحم، سمك · ~120 جم', 'chicken, meat, fish · ~120 g')],
+    [L('كف مقعّر', 'Cupped hand'), L('اللي يملأ كفك وهو مقعّر', 'what fills your cupped hand'), L('رز، مكرونة، شوفان · ~90 جم رز', 'rice, pasta, oats · ~90 g rice')],
+    [L('قبضة', 'Fist'), L('بحجم قبضة يدك', 'the size of your fist'), L('سلطة وخضار · ~100 جم', 'salad, vegetables · ~100 g')],
+    [L('إبهام', 'Thumb'), L('بطول إبهامك وعرضه', 'as long and wide as your thumb'), L('زيت، طحينة، زبدة فول · ~10–15 جم', 'oil, tahini, nut butter · ~10–15 g')],
+  ];
+  return (
+    <Collapse title={L('كيف أقيس بكفي؟', 'How do I measure by hand?')}>
+      <div className="hl-hand">
+        {rows.map((r) => <div key={r[0]}><b>{r[0]}</b><span>{r[1]}</span><small>{r[2]}</small></div>)}
+      </div>
+    </Collapse>
+  );
+}
+
 // ---------------- one meal ----------------
 
 function MealPage() {
@@ -279,6 +296,7 @@ function MealPage() {
               );
             })}
           </section>
+          <HandGuide />
           {dish?.cook && !dish.family && (
             <Collapse title={L(`طريقة التحضير · ${dish.cook.min} د`, `How to make it · ${dish.cook.min} min`)}>
               <ol className="hl-steps">{dish.cook.steps.map((x, k) => <li key={k}>{L(...x)}</li>)}</ol>

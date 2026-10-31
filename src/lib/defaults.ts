@@ -97,7 +97,7 @@ export function initialState(): AppState {
     future: { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] },
     reminds: [],
     train: { levels: {}, attempts: [], custom: [] },
-    diet: { weeks: [], days: {}, foods: [], templates: [] },
+    diet: { weeks: [], days: {}, foods: [], templates: [], units: 2 },
     meta: { createdAt: Date.now(), onboarded: false },
   };
 }
@@ -124,6 +124,14 @@ export function migrate(raw: any): AppState {
     if (!d.days || typeof d.days !== 'object' || Array.isArray(d.days)) d.days = {};
     for (const [k, v] of Object.entries(d.days)) if (!v || typeof v !== 'object' || !Array.isArray((v as any).meals)) delete d.days[k];
     if (d.setup && (typeof d.setup !== 'object' || !(d.setup.goalKg > 0))) delete d.setup;
+    // spoons became hand portions: the same grams, in the new units
+    if ((d.units ?? 1) < 2) {
+      const was: Record<string, [number, number]> = { rice_kabsa: [30, 90], rice_white: [30, 90], oats: [10, 30], pasta: [140, 80], salad: [150, 100], veg_mix: [160, 150], olive_oil: [5, 10], labneh: [30, 20] };
+      const conv = (meals: any[]) => { for (const m of meals || []) for (const it of m.items || []) { const w = was[it.food]; if (w) it.qty = Math.max(0.5, Math.round(((it.qty * w[0]) / w[1]) * 2) / 2); } };
+      for (const day of Object.values(d.days) as any[]) conv(day.meals);
+      for (const t of d.templates) conv(t.meals);
+      d.units = 2;
+    }
   }
   // the Gym was always on: someone who already used it keeps it
   if (!s.settings.sections) s.settings.sections = { gym: !!(s.gym?.profile || (s.gym?.sessions as unknown[] | undefined)?.length || (s.gym?.body as unknown[] | undefined)?.length), diet: !!s.diet.setup };

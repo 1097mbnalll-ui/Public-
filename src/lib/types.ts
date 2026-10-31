@@ -799,6 +799,8 @@ export interface DietState {
   days: Record<string, DietDay>;
   foods: DietFood[];
   templates: { id: string; name: string; meals: DietMeal[]; createdAt: number }[];
+  /** 2 = amounts by hand (palm, cupped hand, fist, thumb) rather than spoons */
+  units?: number;
   /** shopping list ticks for the week starting `week` */
   shop?: { week: string; got: string[] };
 }
