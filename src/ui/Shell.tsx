@@ -23,6 +23,7 @@ import { StepConfirm, TemplateEditor } from './WorkSheets';
 import { GoalSheet, Palette, ReplanSheet, ShortcutsSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
+import { StudyImportSheet } from './StudyImportSheet';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
@@ -66,6 +67,8 @@ export function SheetHost() {
       return <TransferSheet />;
     case 'ai-import':
       return <AiImportSheet />;
+    case 'study-import':
+      return <StudyImportSheet />;
     case 'expense':
       return <ExpenseSheet key={sh.id || sh.text || 'new'} id={sh.id} text={sh.text} />;
     case 'sms':

@@ -765,6 +765,26 @@ export function readCoursePack(raw: any): CoursePack {
   return { course, units, exam, ...extra };
 }
 
+/**
+ * a study pack with several courses at once ({ "app": "masar", "courses": [ { name, units, exam, … } ] }),
+ * each read and checked like a single-course pack
+ */
+export function readStudyPack(raw: any): CoursePack[] {
+  const list = Array.isArray(raw?.courses) ? raw.courses : raw?.course ? [{ ...raw.course, units: raw.units, exam: raw.exam }] : [];
+  const out: CoursePack[] = [];
+  for (const c of list.slice(0, 30)) {
+    try {
+      const { units, exam, ...course } = c || {};
+      const p = readCoursePack({ app: 'masar', course, units: Array.isArray(units) ? units : [], ...(exam ? { exam } : {}) });
+      if (p.course && p.units.length) out.push(p);
+    } catch {
+      /* a broken course is left out, the rest come in */
+    }
+  }
+  if (!out.length) throw new Error(L('ما لقيت مواد بدروسها في الرد — انسخ الرد كامل (من { إلى }).', 'No courses with lessons in the reply — copy the whole reply (from { to }).'));
+  return out;
+}
+
 /** adds a course with its units (and exam) without touching anything else */
 export function importCoursePack(p: CoursePack, replaceSchedule = true): string {
   if (p.schedule?.length) setSchedule(p.schedule, replaceSchedule);

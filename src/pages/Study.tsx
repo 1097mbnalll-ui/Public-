@@ -429,7 +429,7 @@ function StudyWelcome() {
       </ol>
       <div className="row wrap" style={{ gap: 8 }}>
         <button className="btn primary" onClick={() => openSheet({ type: 'course' })}><Icon name="plus" size={16} /> {L('أول مادة', 'First course')}</button>
-        <button className="btn" onClick={() => openSheet({ type: 'ai-import' })}>{L('استورد من الذكاء الاصطناعي', 'Import from an AI')}</button>
+        <button className="btn" onClick={() => openSheet({ type: 'study-import' })}>{L('استورد موادك من الذكاء الاصطناعي', 'Import your courses from an AI')}</button>
       </div>
     </section>
   );
@@ -854,7 +854,7 @@ function StudyOverview() {
               <div className="group-title">
                 <span>{L('موادي', 'My courses')}</span>
                 <span className="row" style={{ gap: 12 }}>
-                  <button onClick={() => openSheet({ type: 'ai-import' })}>{L('استيراد', 'Import')}</button>
+                  <button onClick={() => openSheet({ type: 'study-import' })}>{L('استيراد', 'Import')}</button>
                   <button onClick={() => openSheet({ type: 'exam' })}>{L('+ اختبار', '+ Exam')}</button>
                   <button onClick={() => openSheet({ type: 'course' })}>{L('+ مادة', '+ Course')}</button>
                 </span>
