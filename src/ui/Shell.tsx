@@ -24,6 +24,7 @@ import { GoalSheet, Palette, ReplanSheet, ShortcutsSheet } from './MiscSheets';
 import { TransferSheet } from './TransferSheet';
 import { AiImportSheet } from './AiImportSheet';
 import { StudyImportSheet } from './StudyImportSheet';
+import { WhatsNewSheet } from './Updates';
 import { SyncSheet } from './SyncSheet';
 import { BlockSheet } from '../pages/Schedule';
 import { SubjectSheet, TrySheet } from '../pages/Study';
@@ -69,6 +70,8 @@ export function SheetHost() {
       return <AiImportSheet />;
     case 'study-import':
       return <StudyImportSheet />;
+    case 'whats-new':
+      return <WhatsNewSheet since={sh.since} />;
     case 'expense':
       return <ExpenseSheet key={sh.id || sh.text || 'new'} id={sh.id} text={sh.text} />;
     case 'sms':

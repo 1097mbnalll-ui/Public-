@@ -44,6 +44,7 @@ export type SheetSpec =
   | { type: 'diet-pick'; day: string; i: number; food?: string; at?: number }
   | { type: 'diet-food' }
   | { type: 'study-import' }
+  | { type: 'whats-new'; since?: string }
   | { type: 'study-session'; examId?: string }
   | { type: 'note'; id?: string; text?: string }
   | { type: 'remind'; id?: string; title?: string; ref?: string; at?: number };

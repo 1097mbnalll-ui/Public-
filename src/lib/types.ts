@@ -883,6 +883,8 @@ export interface AppState {
     createdAt: number;
     onboarded: boolean;
     lastExportAt?: number;
+    /** the version you last saw «what's new» for */
+    seenVersion?: string;
     lastBriefDay?: string;
   };
 }

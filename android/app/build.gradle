@@ -9,7 +9,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // GitHub builds number themselves so each test build installs as an update
         versionCode((System.getenv("GITHUB_RUN_NUMBER") ?: "1") as Integer)
-        versionName "1.0.0"
+        // the version number lives in src/lib/changelog.ts, shared with the web app
+        def ver = (new File(rootDir, "../src/lib/changelog.ts").text =~ /v: '([0-9.]+)'/)
+        versionName(ver.find() ? ver.group(1) : "1.0.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

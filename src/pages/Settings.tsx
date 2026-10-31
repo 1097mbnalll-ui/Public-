@@ -24,6 +24,7 @@ import { useSyncConf } from '../lib/sync';
 import { isNative } from '../lib/native';
 import { NotifyStatus } from '../ui/Remind';
 import { clearOwnFont, setOwnFont, useOwnFont } from '../lib/localFont';
+import { VERSION } from '../lib/changelog';
 
 /** each settings group folds behind its title, so the page reads as a short list */
 function Section({ title, children, desc }: { title: string; desc?: string; children: React.ReactNode }) {
@@ -294,7 +295,11 @@ export function Settings() {
                   </div>
         </Collapse>
         <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet({ type: 'shortcuts' })}><Icon name="question" size={15} />{L(" اختصارات لوحة المفاتيح", " Keyboard shortcuts")}<span className="kbd">?</span></button>
-        <div className="faint tiny" dir="ltr" style={{ textAlign: 'end' }}>Madar · {__BUILD__}</div>
+        <button className="set-ver" onClick={() => openSheet({ type: 'whats-new' })}>
+          <span>{L('الإصدار', 'Version')} <b className="num">{VERSION}</b></span>
+          <span>{L('وش الجديد', "What's new")}</span>
+        </button>
+        <div className="faint tiny" dir="ltr" style={{ textAlign: 'end' }}>Madar {VERSION} · {__BUILD__}</div>
       </Section>
     </div>
   );

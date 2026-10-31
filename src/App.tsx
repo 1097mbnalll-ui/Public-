@@ -16,6 +16,7 @@ import { Schedule } from './pages/Schedule';
 import { Gym } from './pages/Gym';
 import { Future, ReviewBackPage, ReviewPage } from './pages/Future';
 import { Health } from './pages/Health';
+import { UpdateNotice, useWhatsNew } from './ui/Updates';
 import { registerCustom } from './lib/engine/gym';
 
 // pages that most visits never open load on demand (the service worker still caches them for offline)
@@ -82,6 +83,7 @@ export function App() {
   registerCustom(s.gym.custom);
   useQuotaLog();
   useShortcuts();
+  useWhatsNew();
   const pip = usePip();
 
   const lng = s.settings.lang;
@@ -218,6 +220,7 @@ export function App() {
       </aside>
 
       <main className={`main ${wide ? 'wide' : ''}`} key={page + (id || '')}>
+        <UpdateNotice />
         <Suspense fallback={null}>{body}</Suspense>
       </main>
 
