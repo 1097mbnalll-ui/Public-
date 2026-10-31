@@ -810,7 +810,7 @@ input[type='datetime-local'] {
 }
 
 .fields.two {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .switch {
@@ -4440,3 +4440,17 @@ div.gy-h:has(.gy-h-main) { padding: 0; padding-inline-end: 8px; }
 .hl-pace button small { color: var(--muted); font-size: 11.5px; }
 .hl-pace button.on { background: var(--surface-2); color: var(--accent); font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
 .hl-ok { color: var(--green); font-size: 12.5px; }
+
+/* one size everywhere: the page never zooms by itself; the size is a setting */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+html, body { overflow-x: hidden; }
+html[data-size='sm'] { zoom: 0.9; }
+html[data-size='lg'] { zoom: 1.12; }
+/* phones zoom into a text field smaller than 16px when you tap it */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: max(16px, 1em) !important; }
+}
+
+/* nothing in a form may push the sheet wider than the screen (it matters most at the large size) */
+.fields > *, .field { min-width: 0; }
+.input, .select, .textarea { min-width: 0; max-width: 100%; }

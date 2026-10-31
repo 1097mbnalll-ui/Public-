@@ -3,6 +3,7 @@ package io.github.madar.planner;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.WebSettings;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.PluginHandle;
@@ -12,6 +13,14 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PipPlugin.class);
         super.onCreate(savedInstanceState);
+        // the phone's font-size setting would enlarge every screen unevenly; the app has its own size setting
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebSettings ws = getBridge().getWebView().getSettings();
+            ws.setTextZoom(100);
+            ws.setSupportZoom(false);
+            ws.setBuiltInZoomControls(false);
+            ws.setDisplayZoomControls(false);
+        }
     }
 
     /** leaving the app with a timer running: shrink into the floating window (Android 12+ does this itself) */

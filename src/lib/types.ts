@@ -257,6 +257,8 @@ export interface CoachState {
 
 export interface Settings {
   name: string;
+  /** how big everything is drawn, the same on every screen */
+  uiSize?: 'sm' | 'md' | 'lg';
   /** optional sections: shown only when switched on */
   sections?: { gym?: boolean; diet?: boolean };
   /** prayer times: a study session plans around them and pauses at the adhan (location stays on this device) */

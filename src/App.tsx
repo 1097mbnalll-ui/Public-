@@ -87,6 +87,9 @@ export function App() {
   const lng = s.settings.lang;
   const theme = s.settings.theme;
   useLayoutEffect(() => applyTheme(theme), [theme]);
+  // one size everywhere, chosen in settings (the page itself doesn't zoom)
+  const size = s.settings.uiSize || 'md';
+  useLayoutEffect(() => { document.documentElement.dataset.size = size; }, [size]);
   useEffect(() => {
     if (theme !== AUTO) return;
     const mq = matchMedia('(prefers-color-scheme: dark)');

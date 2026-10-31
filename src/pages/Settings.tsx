@@ -95,6 +95,11 @@ export function Settings() {
             <span className="grow">{L("اللغة", "Language")}</span>
             <Seg label={L("اللغة", "Language")} value={st.lang} options={[{ v: 'ar', l: 'العربية' }, { v: 'en', l: 'English' }]} onChange={(v) => A.updateSettings({ lang: v })} />
           </div>
+          <div className="r">
+            <span className="ic"><Icon name="search" size={16} /></span>
+            <span className="grow">{L("حجم الشاشة", "Screen size")}</span>
+            <Seg label={L("حجم الشاشة", "Screen size")} value={st.uiSize || 'md'} options={[{ v: 'sm', l: L('صغير', 'Small') }, { v: 'md', l: L('وسط', 'Medium') }, { v: 'lg', l: L('كبير', 'Large') }]} onChange={(v) => A.updateSettings({ uiSize: v })} />
+          </div>
           <Row icon="insights" iconColor="var(--accent)" label={L("ما تعلمته عنك", "What I've learned about you")} sub={L("دقة تقديراتك، سرعة مذاكرتك، أنماط التأجيل", "Estimate accuracy, study speed, postponing patterns")} chevron onClick={() => go('me/insights')} />
         </Group>
       </div>
