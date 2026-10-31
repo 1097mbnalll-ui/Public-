@@ -77,7 +77,7 @@ From secondary summaries that agree with each other (primary NICE/ISSN texts wer
 
 ### Setup (one sheet, once)
 Sex, birth year, height (reuses the Gym's `info`), current weight, goal weight, pace
-(gentle 0.5 % / normal 0.75 % / fast 1 % per week), meals per day (3 + snack default), foods you
+(gentle 0.5 % / normal 0.75 % / fast 1 % per week), meals per day and whether there's a snack (your choice, 3 + snack only as the default), foods you
 don't eat (multi-select: fish, dairy, eggs, red meat… + free text), and whether you eat the
 family's lunch (most days / sometimes / rarely) — decides how many family-dish meals the plan uses.
 
@@ -103,8 +103,10 @@ family's lunch (most days / sometimes / rarely) — decides how many family-dish
 
 ### Build your own plan (the user's addition)
 Besides the ready plan, «اصنع جدولك»: you pick the food, the system keeps the numbers.
-- The system sets how many meals a day (from the setup: 3 + snack by default) and each meal's
-  calorie budget (breakfast 25 %, lunch 35 %, dinner 25 %, snack 15 % of the day's target).
+- **You choose** how many meals (1–6) and whether there's a snack; the system only splits the
+  day's calories between them (default shares, e.g. 3 meals + snack = 25/35/25/15 %; you can move
+  the split). The rule of the user: nothing about *what* or *how many meals* is forced — only the
+  limits are: the day's target, the per-meal budget you set, the per-item caps.
 - You add foods to a meal from the base or your own foods, choosing the portion (household
   measure + grams). Every item shows its calories as you pick the amount.
 - A cap per item, by kind, so one thing can't take the whole meal: starch (rice, bread, pasta)
