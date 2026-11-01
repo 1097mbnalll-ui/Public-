@@ -122,6 +122,8 @@ export function Palette() {
       { key: 'c-ins', icon: 'insights', title: L('ما تعلمته عنك', "What I've learned about you"), run: () => go('me/insights') },
       { key: 'c-set', icon: 'settings', title: L('الإعدادات', "Settings"), run: () => go('me') },
       { key: 'c-tt', icon: 'cal', title: L('جدولي', "My timetable"), run: () => go('schedule') },
+      { key: 'c-imp', icon: 'download', title: L('استيراد مهام أو مصاريف من الذكاء الاصطناعي', 'Import tasks or spending from an AI'), run: () => openSheet({ type: 'ai-import' }) },
+      { key: 'c-simp', icon: 'study', title: L('استيراد موادي من الذكاء الاصطناعي', 'Import my courses from an AI'), run: () => openSheet({ type: 'study-import' }) },
       { key: 'c-sync', icon: 'repeat', title: L('المزامنة بين أجهزتك', "Sync across devices"), run: () => openSheet({ type: 'sync' }) },
       { key: 'c-move', icon: 'share', title: L('نقل بياناتي لجهاز آخر', "Move my data to another device"), run: () => openSheet({ type: 'transfer' }) },
       { key: 'c-keys', icon: 'question', title: L('اختصارات لوحة المفاتيح', "Keyboard shortcuts"), sub: '?', run: () => openSheet({ type: 'shortcuts' }) },

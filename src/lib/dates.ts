@@ -125,7 +125,3 @@ export function timeAgo(ms: number, now = Date.now()): string {
   return L(`قبل ${daysWord(Math.round(h / 24))}`, `${daysWord(Math.round(h / 24))} ago`);
 }
 
-/** short form for tight spaces: "27 س" for long durations */
-export function fmtMinutesShort(m: number): string {
-  return m >= 600 ? L(`${Math.round(m / 60)} س`, `${Math.round(m / 60)}h`) : fmtMinutes(m);
-}

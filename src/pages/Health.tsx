@@ -544,7 +544,7 @@ function WeekPage() {
           )}
           <div className="sq-stats">
             {c.adherence != null && <div><b className="num">{Math.round(c.adherence * 100)}%</b><span>{L('وجبات مشيت فيها على الخطة', 'Meals as planned')}</span></div>}
-            <div><b className="num">{c.expenditure ? n0(c.expenditure) : '—'}</b><span>{L('حرقك الحقيقي باليوم (تقدير)', 'Real daily burn (estimate)')}</span></div>
+            {c.expenditure ? <div><b className="num">{n0(c.expenditure)}</b><span>{L('حرقك الحقيقي باليوم (تقدير)', 'Real daily burn (estimate)')}</span></div> : null}
           </div>
           <section className="hl-card hl-new">
             <small>{due ? L('خطتك الجاية', 'Your next plan') : L('خطتك الحالية', 'Your current plan')}</small>

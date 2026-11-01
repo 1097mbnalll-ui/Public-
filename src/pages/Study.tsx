@@ -461,7 +461,8 @@ function finish(ep: ExamPlan) {
 /** the hours as a number with a small unit: <b>2:50</b> ساعة, under an hour <b>45</b> د */
 function Hours({ m }: { m: number }) {
   const r = Math.round(m);
-  return r < 60 ? <span className="hn num"><b>{r}</b><small>{L('د', 'min')}</small></span> : <span className="hn num"><b>{Math.floor(r / 60)}:{String(r % 60).padStart(2, '0')}</b><small>{L('ساعة', 'h')}</small></span>;
+  // «20 س 50 د», the way the rest of the app writes durations
+  return r < 60 ? <span className="hn num"><b>{r}</b><small>{L('د', 'min')}</small></span> : <span className="hn num"><b>{Math.floor(r / 60)}</b><small>{L('س', 'h')}</small>{r % 60 ? <><b>{r % 60}</b><small>{L('د', 'm')}</small></> : null}</span>;
 }
 
 /** «وش أذاكر اليوم»: today's total, then one row per subject — tap it for everything about it */

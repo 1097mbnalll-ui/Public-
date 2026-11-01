@@ -143,11 +143,6 @@ export function clockAfter(from: number, activeMs: number, pauses: SessionPause[
   return t + need;
 }
 
-export function sessionLeft(elapsedMs: number, total: number, r: Rhythm): number {
-  const plan = planSession(0, total, r);
-  return Math.max(0, plan.end - elapsedMs);
-}
-
 /** the moments a running timer changes phase from now on — the phone alerts at each even if the app sleeps */
 export function focusAlerts(t: Timer, st: Settings, now: number): { at: number; kind: 'break' | 'long' | 'work' | 'end'; min: number; round?: number }[] {
   if (!t.running) return [];

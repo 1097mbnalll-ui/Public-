@@ -1203,13 +1203,6 @@ export function deleteGymSession(sid: string) {
   }, L('حذف التمرين', 'Delete workout'));
 }
 
-/** skip to the next day of the program */
-export function skipGymSlot() {
-  mutate((s) => {
-    s.gym.rot = (s.gym.rot || 0) + 1;
-  });
-}
-
 export function logBody(p: Omit<BodyLog, 'id' | 'createdAt'>) {
   mutate((s) => {
     // one entry a day: a second weigh-in the same day updates it
@@ -1226,14 +1219,6 @@ export function deleteBody(id: string) {
 }
 
 // ---------------- Future (مستقبلي) ----------------
-
-/** after moving the old «مستقبلي» (skills, projects, wins…) into the CV, clear it */
-export function clearOldFuture() {
-  mutate((s) => {
-    Object.assign(s.future, { stages: [], skills: [], projects: [], wins: [], postings: [], reviews: [] });
-    delete s.future.vision;
-  });
-}
 
 // ---------- «ذكّرني» ----------
 

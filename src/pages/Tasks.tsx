@@ -107,7 +107,6 @@ export function Tasks() {
         title={L("المهام", "Tasks")}
         sub={openCount ? L(`${openCount} مفتوحة`, `${openCount} open`) : L('كل ما تريد إنجازه، مرتب حسب الموعد والأهمية', "Everything you want to get done, sorted by date and importance")}
         actions={<>
-          <button className="btn sm ghost" onClick={() => openSheet({ type: 'ai-import' })}>{L('استيراد', 'Import')}</button>
           <button className="btn sm primary" onClick={() => openSheet({ type: 'quick' })}><Icon name="plus" size={15} />{L(" مهمة", " Task")}</button>
         </>}
       />
@@ -159,7 +158,7 @@ export function Tasks() {
             </div>
           ))
         ) : (
-          <div className="card"><Empty icon="tasks" title={q ? L('لا نتائج', "No results") : L('لا مهام مفتوحة', "No open tasks")}>{q ? '' : L('أضف مهمة بزر + أو اضغط N.', "Add a task with the + button or press N.")}</Empty></div>
+          <div className="card"><Empty icon="tasks" title={q ? L('لا نتائج', "No results") : L('لا مهام مفتوحة', "No open tasks")}>{q ? '' : <>{L('أضف مهمة بزر + أو اضغط N.', "Add a task with the + button or press N.")}<br /><button className="btn sm ghost" style={{ marginTop: 8 }} onClick={() => openSheet({ type: 'ai-import' })}>{L('أو استوردها من الذكاء الاصطناعي', 'Or import them from an AI')}</button></>}</Empty></div>
         ))}
 
       {view === 'waiting' &&

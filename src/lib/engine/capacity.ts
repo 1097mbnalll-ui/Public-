@@ -58,9 +58,3 @@ export function dayRecord(state: AppState, day: string) {
   return state.days[day] || { done: 0, minutes: 0, study: 0 };
 }
 
-/** study capacity still usable today */
-export function studyCapToday(state: AppState, now: number): number {
-  const today = todayKey(now);
-  const left = studyCapFor(state, today) - dayRecord(state, today).study;
-  return Math.max(0, Math.min(left, minutesLeftToday(state, now)));
-}

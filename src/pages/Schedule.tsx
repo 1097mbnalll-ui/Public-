@@ -82,12 +82,14 @@ export function Schedule() {
     <div>
       <PageTop title={L('جدولي', 'My timetable')} sub={L('محاضراتك ودوامك — وأرتب يومك حولها', 'Your lectures and shifts — I plan your day around them')} back={{ label: L('أنت', 'You'), to: 'me' }} />
       <div className="stack">
-        <div className="src3">
-          <button onClick={() => fileRef.current?.click()} disabled={reading}><i>📷</i>{reading ? L('أقرأ الجدول…', 'Reading…') : L('صورة الجدول', 'Timetable photo')}</button>
-          <button onClick={() => openSheet({ type: 'block' })}><i>✍️</i>{L('أكتبه', 'Type it')}</button>
-          <button onClick={() => openSheet({ type: 'ai-import' })}><i>🤖</i>{L('من الذكاء', 'From AI')}</button>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { fromPhoto(e.target.files?.[0]); e.target.value = ''; }} />
-        </div>
+        {(s.schedule.length === 0 || !!draft) && (
+          <div className="src3">
+            <button onClick={() => fileRef.current?.click()} disabled={reading}><i>📷</i>{reading ? L('أقرأ الجدول…', 'Reading…') : L('صورة الجدول', 'Timetable photo')}</button>
+            <button onClick={() => openSheet({ type: 'block' })}><i>✍️</i>{L('أكتبه', 'Type it')}</button>
+            <button onClick={() => openSheet({ type: 'ai-import' })}><i>🤖</i>{L('من الذكاء', 'From AI')}</button>
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { fromPhoto(e.target.files?.[0]); e.target.value = ''; }} />
 
         {draft && (
           <section>
@@ -142,7 +144,10 @@ export function Schedule() {
               <b>{[sum.freeDays.length ? L(`${sum.freeDays.join(' و')} كامل`, `all of ${sum.freeDays.join(', ')}`) : '', L(`بعد ${fmtClock(sum.latest)} يوميًا`, `after ${fmtClock(sum.latest)} daily`), L('والفراغات بين المحاضرات', 'and the gaps between lectures')].filter(Boolean).join(' + ')}</b>.
             </div>
             <TravelCard />
-            <button className="btn" onClick={() => openSheet({ type: 'block' })}><Icon name="plus" size={15} /> {L('محاضرة أو دوام', 'Lecture or shift')}</button>
+            <div className="row wrap" style={{ gap: 8 }}>
+              <button className="btn grow" onClick={() => openSheet({ type: 'block' })}><Icon name="plus" size={15} /> {L('محاضرة أو دوام', 'Lecture or shift')}</button>
+              <button className="btn ghost" onClick={() => fileRef.current?.click()} disabled={reading}>{reading ? L('أقرأ…', 'Reading…') : L('من صورة الجدول', 'From a photo')}</button>
+            </div>
           </>
         ) : (
           !draft && (

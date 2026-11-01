@@ -97,7 +97,7 @@ export function Settings() {
             <Seg label={L("اللغة", "Language")} value={st.lang} options={[{ v: 'ar', l: 'العربية' }, { v: 'en', l: 'English' }]} onChange={(v) => A.updateSettings({ lang: v })} />
           </div>
           <div className="r">
-            <span className="ic"><Icon name="search" size={16} /></span>
+            <span className="ic"><Icon name="layers" size={16} /></span>
             <span className="grow">{L("حجم الشاشة", "Screen size")}</span>
             <Seg label={L("حجم الشاشة", "Screen size")} value={st.uiSize || 'md'} options={[{ v: 'sm', l: L('صغير', 'Small') }, { v: 'md', l: L('وسط', 'Medium') }, { v: 'lg', l: L('كبير', 'Large') }]} onChange={(v) => A.updateSettings({ uiSize: v })} />
           </div>

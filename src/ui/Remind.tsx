@@ -159,15 +159,6 @@ export function RemindSheet({ id, title, refTo, at }: { id?: string; title?: str
   );
 }
 
-/** a «ذكّرني» chip for any page: opens the sheet with its title and a way back to the page */
-export function RemindButton({ title, refTo, className = 'btn sm' }: { title: string; refTo?: string; className?: string }) {
-  return (
-    <button className={className} onClick={() => openSheet({ type: 'remind', title, ref: refTo })}>
-      <Icon name="bell" size={15} /> {L('ذكّرني', 'Remind me')}
-    </button>
-  );
-}
-
 function RemindRow({ r, now }: { r: Remind; now: number }) {
   const soon = !r.done && r.at - now < 3600_000;
   return (
@@ -202,7 +193,7 @@ export function RemindersPage() {
   ].filter((g) => g.list.length);
   return (
     <div className="rm-page">
-      <PageTop title={L('تذكيراتي', 'My reminders')} sub={next.length ? L(`${next.length} جاية`, `${next.length} coming`) : undefined} back={{ label: L('حسابي', 'Me'), to: 'me' }} actions={<button className="btn primary sm" onClick={() => openSheet({ type: 'remind' })}><Icon name="plus" size={15} /> {L('تذكير', 'Reminder')}</button>} />
+      <PageTop title={L('تذكيراتي', 'My reminders')} sub={next.length ? L(`${next.length} جاية`, `${next.length} coming`) : undefined} back={{ label: L('أنت', 'You'), to: 'me' }} actions={<button className="btn primary sm" onClick={() => openSheet({ type: 'remind' })}><Icon name="plus" size={15} /> {L('تذكير', 'Reminder')}</button>} />
       <NotifyStatus />
       {!next.length && !done.length ? (
         <Empty icon="bell" title={L('ولا تذكير', 'No reminders')}>

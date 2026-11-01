@@ -107,11 +107,6 @@ export function unitMinutes(u: Unit, course: Course, pace: number, reviewFactor:
   return unitWork(u, course, pace, reviewFactor).minutes;
 }
 
-/** minutes of study logged for a course on a day */
-export function studiedOn(state: AppState, courseId: string, day: string): number {
-  return state.sessions.filter((x) => x.courseId === courseId && x.date === day).reduce((a, x) => a + x.minutes, 0);
-}
-
 /**
  * What you studied on a day, measured the way the plan measures: the material covered, at your
  * current pace. Finish today's pages in half the time and today's share still reads as done (not

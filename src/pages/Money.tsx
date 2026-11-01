@@ -264,10 +264,10 @@ function SaveView({ now }: { now: number }) {
 
   return (
     <div className="stack">
-      <div className="card m-sum">
+      {pot.monthly > 0 && <div className="card m-sum">
         <div><div className="k">{L('تقدر توفر شهريًا', 'You could save a month')}</div><b className="money">{fmtMoney(pot.monthly)}</b></div>
         <div style={{ textAlign: 'end' }}><div className="k">{L('بالسنة', 'A year')}</div><b className="money yr">{fmtNum(pot.yearly)}</b></div>
-      </div>
+      </div>}
 
       {goal ? (
         <GoalCard goal={goal} monthly={pot.monthly} />
@@ -298,7 +298,7 @@ function SaveView({ now }: { now: number }) {
             })}
           </div>
         ) : (
-          <div className="card"><Empty icon="wallet" title={L('ما فيه اقتراحات بعد', 'No suggestions yet')}>{L('سجّل مصاريفك أسبوع أو أكثر، وأطلع لك وين تروح فلوسك وكيف توفر.', "Log your spending for a week or so and I'll show where it goes and how to save.")}</Empty></div>
+          <p className="faint small" style={{ margin: 0, padding: '0 4px' }}>{L('سجّل مصاريفك أسبوع أو أكثر، وأطلع لك وين تروح فلوسك وكيف توفر.', "Log your spending for a week or so and I'll show where it goes and how to save.")}</p>
         )}
       </section>
 

@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.1',
+    day: '2026-11-01',
+    items: [
+      ['مراجعة شاملة: صفحة «المهام» ما عاد تطلع أزرارها برا الشاشة، وصفحة «جدولي» أخف، و«التوفير» بدون بطاقات فاضية', 'Full review: Tasks no longer overflows, the timetable page is lighter, Savings has no empty cards'],
+      ['«جسمي» يعرض أرقام خطة «أكلي» لو شغّالة بدل رقم ثاني مختلف', '«Body» shows the meal plan’s numbers when it’s on, instead of a second, different estimate'],
+      ['حذف كود وتنسيقات ما لها داعي، والموقع أخف', 'Removed unused code and styles; the site is lighter'],
+    ],
+  },
+  {
     v: '1.6.0',
     day: '2026-10-31',
     items: [

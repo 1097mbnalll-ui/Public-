@@ -202,8 +202,6 @@ export const allExercises = (): Exercise[] => [...EXERCISES, ...CUSTOM.values()]
 const UNKNOWN = (id: string): Exercise => X(id, 'تمرين', 'Exercise', 'core', 'body', ['', ''], {});
 export const exercise = (id: string): Exercise => BY_ID.get(id) || CUSTOM.get(id) || UNKNOWN(id);
 export const exName = (id: string) => L(exercise(id).ar, exercise(id).en);
-export const muscleName = (m: Muscle) =>
-  ({ chest: L('صدر', 'Chest'), back: L('ظهر', 'Back'), legs: L('أرجل', 'Legs'), glutes: L('أرداف', 'Glutes'), shoulders: L('كتف', 'Shoulders'), arms: L('ذراع', 'Arms'), core: L('بطن', 'Core'), cardio: L('كارديو', 'Cardio') })[m];
 
 // ---------------- the days of a program ----------------
 

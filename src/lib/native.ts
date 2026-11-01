@@ -58,15 +58,6 @@ export async function requestNativeExact() {
   return exact;
 }
 
-/** how many alerts the phone is holding for us right now (shown in settings) */
-export async function nativePendingCount() {
-  try {
-    return (await (await plugin()).getPending()).notifications.length;
-  } catch {
-    return 0;
-  }
-}
-
 /** shows now (the settings "test" button) */
 export async function nativeNotifyNow(title: string, body: string) {
   const ln = await plugin();

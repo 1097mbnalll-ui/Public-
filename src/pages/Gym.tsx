@@ -31,12 +31,11 @@ export function Gym() {
   const s = useApp();
   if (r.id === 'live') {
     const live = liveSession(s);
-    return live ? <Live key={live.id} ses={live} /> : <GymHome tab="train" />;
+    return live ? <Live key={live.id} ses={live} /> : <div><PageTop title={L('النادي', 'Gym')} back={{ label: L('صحتي', 'Health'), to: 'health/gym' }} /><GymTabs tab="train" /></div>;
   }
   if (r.id === 'today') return <TodayScreen />;
   if (r.id === 'log') return <LogScreen />;
-  const tab = r.id === 'body' ? 'body' : r.id === 'moves' ? 'moves' : 'train';
-  return <GymHome tab={tab} />;
+  return <div><PageTop title={L('النادي', 'Gym')} back={{ label: L('صحتي', 'Health'), to: 'health/gym' }} /><GymTabs tab={r.id === 'moves' ? 'moves' : 'train'} /></div>;
 }
 
 /** «جسمي» inside «صحتي» */
@@ -51,8 +50,12 @@ export function GymTabs({ tab }: { tab: 'train' | 'moves' }) {
   const now = useNow(60_000);
   return (
     <>
-      <div className="row" style={{ marginBottom: 14, gap: 8, alignItems: 'center' }}>
-        <div className="grow"><Seg value={tab} onChange={(v) => go(v === 'train' ? 'health/gym' : 'health/moves')} label={L('أقسام النادي', 'Gym sections')} options={[{ v: 'train', l: L('تمريني', 'Train') }, { v: 'moves', l: L('التمارين', 'Exercises') }]} /></div>
+      <div className="gy-bar">
+        {tab === 'moves' ? (
+          <button className="gy-link" onClick={() => go('health/gym')}><Icon name="back" size={14} /> {L('تمريني', 'Train')}</button>
+        ) : (
+          <button className="gy-link" onClick={() => go('health/moves')}>{L('كل التمارين', 'All exercises')}</button>
+        )}
         {s.gym.profile && <button className="icon-btn" onClick={() => openSheet({ type: 'gym-setup' })} aria-label={L('برنامجي', 'My program')}><Icon name="settings" /></button>}
       </div>
       {tab === 'train' ? <TrainTab now={now} /> : <MovesTab />}
@@ -60,25 +63,6 @@ export function GymTabs({ tab }: { tab: 'train' | 'moves' }) {
   );
 }
 
-function GymHome({ tab }: { tab: 'train' | 'body' | 'moves' }) {
-  const s = useApp();
-  const now = useNow(60_000);
-  return (
-    <div>
-      <PageTop
-        title={L('النادي', 'Gym')}
-        sub={fmtDate(todayKey(now))}
-        actions={s.gym.profile ? <button className="icon-btn" onClick={() => openSheet({ type: 'gym-setup' })} aria-label={L('برنامجي', 'My program')}><Icon name="settings" /></button> : undefined}
-      />
-      <div style={{ marginBottom: 14 }}>
-        <Seg value={tab} onChange={(v) => go(v === 'train' ? 'gym' : `gym/${v}`)} label={L('أقسام النادي', 'Gym sections')} options={[
-          { v: 'train', l: L('تمريني', 'Train') }, { v: 'body', l: L('جسمي', 'Body') }, { v: 'moves', l: L('التمارين', 'Exercises') },
-        ]} />
-      </div>
-      {tab === 'train' ? <TrainTab now={now} /> : tab === 'body' ? <BodyTab now={now} /> : <MovesTab />}
-    </div>
-  );
-}
 
 // ---------------- تمريني ----------------
 
@@ -620,23 +604,35 @@ function BodyTab({ now }: { now: number }) {
         </section>
       )}
 
+      {s.settings.sections?.diet && s.diet.kcal != null ? (
+        // the meal plan is on: one set of numbers — the plan's (adjusted weekly), not a second estimate
+        <section>
+          <div className="group-title"><span className="sh-h2">{L('أكلك اليومي', 'Daily food')}</span></div>
+          <button className="gy-food gy-food-plan" onClick={() => go('health')}>
+            <div className="acc"><b className="num">{s.diet.kcal.toLocaleString('en')}</b><span>{L('سعرة', 'kcal')}</span></div>
+            <div><b className="num">{s.diet.protein}</b><span>{L('جم بروتين', 'g protein')}</span></div>
+            <p>{L('من خطة «أكلي»، وتتعدل كل أسبوع من وزنك.', 'From your «Food» plan, adjusted weekly from your weight.')}{bm ? L(` مؤشر كتلة الجسم ${num(bm)}.`, ` BMI ${num(bm)}.`) : ''}</p>
+          </button>
+        </section>
+      ) : (
       <section>
-        <div className="group-title"><span className="sh-h2">{L('أكلك اليومي', 'Daily food')}</span></div>
-        {n ? (
-          <div className="gy-food">
-            <div className="acc"><b className="num">{n.kcal.toLocaleString('en')}</b><span>{L('سعرة', 'kcal')}</span></div>
-            <div><b className="num">{n.protein}</b><span>{L('جم بروتين', 'g protein')}</span></div>
-            <div><b className="num">{n.water}</b><span>{L('لتر موية', 'L water')}</span></div>
-            <p>{goal === 'fat' ? L(`أقل من ثباتك (${n.maintain.toLocaleString('en')}) بـ ٢٠٪ عشان تنزل دهون بدون ما تخسر عضل.`, `20% under your maintenance (${n.maintain.toLocaleString('en')}) to lose fat, not muscle.`) : goal === 'muscle' ? L(`فوق ثباتك (${n.maintain.toLocaleString('en')}) بشوي عشان تبني عضل.`, `A little over maintenance (${n.maintain.toLocaleString('en')}) to build muscle.`) : L(`ثباتك تقريبًا ${n.maintain.toLocaleString('en')} سعرة.`, `Your maintenance is about ${n.maintain.toLocaleString('en')} kcal.`)}{bm ? L(` مؤشر كتلة الجسم ${num(bm)}.`, ` BMI ${num(bm)}.`) : ''}</p>
-            <button className="btn ghost sm" onClick={() => openSheet({ type: 'gym-info' })}>{L('عدّل بياناتي', 'Edit my details')}</button>
-          </div>
-        ) : (
-          <div className="gy-food empty">
-            <p>{L('أعطني طولك وعمرك وجنسك ووزنك، وأحسب لك كم سعرة وكم بروتين تحتاج لهدفك.', 'Give me your height, age, sex and weight and I’ll work out calories and protein for your goal.')}</p>
-            <button className="btn sm primary" onClick={() => openSheet({ type: 'gym-info' })}>{L('أكمل بياناتي', 'Add my details')}</button>
-          </div>
-        )}
-      </section>
+          <div className="group-title"><span className="sh-h2">{L('أكلك اليومي', 'Daily food')}</span></div>
+          {n ? (
+            <div className="gy-food">
+              <div className="acc"><b className="num">{n.kcal.toLocaleString('en')}</b><span>{L('سعرة', 'kcal')}</span></div>
+              <div><b className="num">{n.protein}</b><span>{L('جم بروتين', 'g protein')}</span></div>
+              <div><b className="num">{n.water}</b><span>{L('لتر موية', 'L water')}</span></div>
+              <p>{goal === 'fat' ? L(`أقل من ثباتك (${n.maintain.toLocaleString('en')}) بـ ٢٠٪ عشان تنزل دهون بدون ما تخسر عضل.`, `20% under your maintenance (${n.maintain.toLocaleString('en')}) to lose fat, not muscle.`) : goal === 'muscle' ? L(`فوق ثباتك (${n.maintain.toLocaleString('en')}) بشوي عشان تبني عضل.`, `A little over maintenance (${n.maintain.toLocaleString('en')}) to build muscle.`) : L(`ثباتك تقريبًا ${n.maintain.toLocaleString('en')} سعرة.`, `Your maintenance is about ${n.maintain.toLocaleString('en')} kcal.`)}{bm ? L(` مؤشر كتلة الجسم ${num(bm)}.`, ` BMI ${num(bm)}.`) : ''}</p>
+              <button className="btn ghost sm" onClick={() => openSheet({ type: 'gym-info' })}>{L('عدّل بياناتي', 'Edit my details')}</button>
+            </div>
+          ) : (
+            <div className="gy-food empty">
+              <p>{L('أعطني طولك وعمرك وجنسك ووزنك، وأحسب لك كم سعرة وكم بروتين تحتاج لهدفك.', 'Give me your height, age, sex and weight and I’ll work out calories and protein for your goal.')}</p>
+              <button className="btn sm primary" onClick={() => openSheet({ type: 'gym-info' })}>{L('أكمل بياناتي', 'Add my details')}</button>
+            </div>
+          )}
+        </section>
+      )}
 
       {logs.length > 0 && (
         <section>
