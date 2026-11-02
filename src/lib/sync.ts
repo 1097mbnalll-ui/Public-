@@ -137,7 +137,17 @@ export async function decryptState(data: string, key: string): Promise<AppState>
 async function call(c: Pick<SyncConf, 'url' | 'token'>, a: string, body?: string, extra = '') {
   const u = `${c.url.trim()}?a=${a}&t=${encodeURIComponent(c.token)}${extra}`;
   // text/plain keeps it a "simple" request — Apps Script can't answer CORS preflights
-  const r = await fetch(u, body === undefined ? { cache: 'no-store' } : { method: 'POST', body, headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+  // a request the phone froze in the background must not hang forever and block every later sync
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 25_000);
+  let r: Response;
+  try {
+    r = await fetch(u, body === undefined ? { cache: 'no-store', signal: stop.signal } : { method: 'POST', body, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, signal: stop.signal });
+  } catch (e) {
+    throw stop.signal.aborted ? new Error(L('قوقل ما رد — بأحاول مرة ثانية.', "Google didn't answer — will try again.")) : e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!r.ok) throw new Error(L(`خطأ من قوقل (${r.status})`, `Google error (${r.status})`));
   let j: any;
   try {
@@ -230,12 +240,6 @@ const stamp = (ms: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-/** bank messages waiting in the script → expenses (each message is handed to one device only) */
-async function takeSms(c: SyncConf) {
-  const t = await call(c, 'take');
-  return addBankTexts(t?.sms || []);
-}
-
 /** bank texts (from the sync script or the phone itself) → expenses, each message once */
 export function addBankTexts(list: { id: string; at: number; text: string }[]): number {
   if (!list.length) return 0;
@@ -256,17 +260,49 @@ export function onSmsAdded(fn: (n: number) => void) {
 }
 export const smsAdded = (n: number) => n > 0 && onSms?.(n);
 
+const busyLs = new Set<() => void>();
+let busySince = 0;
+const setBusy = (b: boolean) => {
+  busy = b;
+  busySince = b ? Date.now() : 0;
+  busyLs.forEach((f) => f());
+};
+/** true while a sync is running — so a page can say «checking your bank texts…» */
+export function useSyncing(): boolean {
+  return useSyncExternalStore(
+    (f) => {
+      busyLs.add(f);
+      return () => busyLs.delete(f);
+    },
+    () => busy,
+    () => false,
+  );
+}
+
 export async function syncNow(): Promise<void> {
   if (!getSync()) return;
-  if (busy) {
+  // a run stuck longer than any request can take (the phone slept mid-way) no longer blocks
+  if (busy && Date.now() - busySince < 60_000) {
     again = true;
     return;
   }
-  busy = true;
+  setBusy(true);
   try {
     let c = getSync()!;
-    // 1) bring in what the other device did
-    const p = await call(c, 'pull', undefined, `&rev=${c.rev}`);
+    // 1) what the other device did, and the bank texts waiting — both asked at once, so a new
+    //    purchase shows up in one round trip after opening the app
+    const [pr, tr] = await Promise.allSettled([call(c, 'pull', undefined, `&rev=${c.rev}`), call(c, 'take')]);
+    // the texts were handed to this device (and deleted there): they go in whatever happens next
+    const addTaken = () => {
+      if (tr.status !== 'fulfilled') return;
+      const n = addBankTexts(tr.value?.sms || []);
+      if (n) onSms?.(n);
+    };
+    if (pr.status === 'rejected') {
+      addTaken();
+      throw pr.reason;
+    }
+    const p = pr.value;
     if (p.rev > c.rev) {
       if (p.data) {
         const remote = await decryptState(p.data, c.key);
@@ -277,9 +313,9 @@ export async function syncNow(): Promise<void> {
       }
       patch({ rev: p.rev });
     }
-    // 2) bank messages from the Shortcut
-    const n = await takeSms(getSync()!);
-    if (n) onSms?.(n);
+    // 2) bank messages from the Shortcut, on top of what was just pulled
+    addTaken();
+    if (tr.status === 'rejected') throw tr.reason;
     // 3) send what changed here
     for (let tries = 0; tries < 3 && getSync()?.dirty; tries++) {
       c = getSync()!;
@@ -299,7 +335,7 @@ export async function syncNow(): Promise<void> {
   } catch (e) {
     patch({ error: e instanceof Error ? e.message : String(e) });
   } finally {
-    busy = false;
+    setBusy(false);
     if (again) {
       again = false;
       void syncNow();
@@ -315,10 +351,13 @@ export function startSync() {
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(() => void syncNow(), 1500);
   });
-  const tick = () => document.visibilityState === 'visible' && navigator.onLine !== false && void syncNow();
+  // the app coming back fires several of these at once — one run is enough
+  const tick = () => document.visibilityState === 'visible' && navigator.onLine !== false && !(busy && Date.now() - busySince < 60_000) && void syncNow();
   addEventListener('visibilitychange', tick);
   addEventListener('online', tick);
   addEventListener('focus', tick);
+  // iPhone home-screen apps come back through the page cache, sometimes without the events above
+  addEventListener('pageshow', tick);
   setInterval(tick, 30_000);
   tick();
 }

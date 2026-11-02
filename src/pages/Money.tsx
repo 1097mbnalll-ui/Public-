@@ -7,6 +7,7 @@ import { go, useRoute } from '../ui/router';
 import { toast } from '../ui/toast';
 import { worthColor, worthLabel } from '../ui/MoneySheets';
 import { useApp } from '../lib/store';
+import { useSyncConf, useSyncing } from '../lib/sync';
 import * as A from '../lib/actions';
 import { addDays, fmtClock, fmtDate, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
 import {
@@ -160,6 +161,9 @@ function DayView({ now }: { now: number }) {
   const bills = upcomingBills(s, now);
   const limits = catLimits(s, now);
   const todo = repeatMerchants(s).filter((x) => !x.set).length;
+  const syncing = useSyncing();
+  const synced = !!useSyncConf();
+  const checking = syncing && synced;
   return (
     <div className="stack">
       <div className="m-card">
@@ -195,6 +199,8 @@ function DayView({ now }: { now: number }) {
           </button>
         ))}
       </div>
+
+      {checking && <div className="m-checking">{L('يجيب رسائل البنك الجديدة…', 'Fetching new bank texts…')}</div>}
 
       {todo > 0 && (
         <button className="m-merch-card" onClick={() => openSheet({ type: 'merchants' })}>

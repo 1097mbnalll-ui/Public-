@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.4',
+    day: '2026-11-02',
+    items: [
+      ['رسائل البنك تدخل لحالها أول ما تفتح «مدار» بدون «زامن الحين»: المزامنة ما عاد تعلق لو نام الجوال في نصها، وصارت أسرع', 'Bank texts come in by themselves when you open Madar, no «Sync now» needed: sync no longer gets stuck if the phone slept mid-way, and it is faster'],
+      ['«مصاريفي» يوضح لك لما يجيب رسائل البنك الجديدة', 'Spending shows when it is fetching new bank texts'],
+    ],
+  },
+  {
     v: '1.6.3',
     day: '2026-11-02',
     items: [
