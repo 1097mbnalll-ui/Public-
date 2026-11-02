@@ -78,6 +78,8 @@ export interface ExamPlan {
   canPostpone: boolean;
   /** minutes with no day left to go to (every day left is a day off) */
   unplanned?: number;
+  /** the days after today as concrete lessons: what each day's share covers, in course order */
+  ahead: Record<string, Portion[]>;
 }
 
 export interface Portion {
@@ -189,6 +191,39 @@ export function portionOf(work: UnitWork[], minutes: number): Portion[] {
 }
 
 const round5 = (m: number) => Math.round(m / 5) * 5;
+
+/**
+ * walk the work day by day: today's share first, then each later day's — so every day shows the
+ * lessons it covers (lessons in course order, then their review), the same way today does
+ */
+export function portionsByDay(work: UnitWork[], today: number, days: [string, number][]): Record<string, Portion[]> {
+  const q = [
+    ...work.filter((w) => w.learn >= 1).map((w) => ({ unit: w.unit, m: w.learn, total: w.learn, size: w.unit.size * (1 - clamp01(w.unit.progress)), review: false })),
+    ...work.filter((w) => w.review >= 1).map((w) => ({ unit: w.unit, m: w.review, total: w.review, size: w.unit.size, review: true })),
+  ];
+  let i = 0;
+  const eat = (minutes: number) => {
+    const out: Portion[] = [];
+    let left = minutes;
+    while (left >= 1 && i < q.length) {
+      const x = q[i];
+      const take = left >= x.m - 3 ? x.m : left;
+      const whole = take === x.total;
+      out.push({ unit: x.unit, minutes: Math.round(take), amount: Math.max(1, Math.round((x.size * take) / x.total)), whole, review: x.review });
+      x.m -= take;
+      left -= take;
+      if (x.m < 1) i++;
+    }
+    return out;
+  };
+  eat(today);
+  const res: Record<string, Portion[]> = {};
+  for (const [d, m] of days) {
+    const list = eat(m);
+    if (list.length) res[d] = list;
+  }
+  return res;
+}
 
 interface Job {
   p: ExamPlan;
@@ -319,6 +354,7 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
       todayMinutes: 0,
       todayUnits: [],
       portion: [],
+      ahead: {},
       inReview: false,
       unreachable: [],
       work,
@@ -371,6 +407,8 @@ export function planStudy(state: AppState, now = Date.now()): StudyPlan {
     // today's quota as concrete material: lessons in order, then review
     p.portion = portionOf(p.work, p.todayMinutes);
     p.todayUnits = p.portion.map((x) => p.work.find((w) => w.unit.id === x.unit.id)!).filter((w, i, a) => a.indexOf(w) === i);
+    // a postponed share is still today's work as far as the order goes: it comes first tomorrow
+    p.ahead = portionsByDay(p.work, p.todayMinutes, Object.keys(p.alloc).filter((d) => d > today && round5(p.alloc[d]) > 0).sort().map((d) => [d, round5(p.alloc[d])]));
 
     if (p.todayMinutes > 0) (byDay[today] ||= []).push({ examId: id, minutes: p.todayMinutes });
     for (const [day, m] of Object.entries(p.alloc)) if (day > today && round5(m) > 0) (byDay[day] ||= []).push({ examId: id, minutes: round5(m) });

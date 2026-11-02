@@ -4278,3 +4278,17 @@ html[data-size='lg'] { zoom: 1.12; }
 .m-checking::before { content: ''; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent, currentColor); animation: m-spin .8s linear infinite; }
 @keyframes m-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .m-checking::before { animation: none; } }
+
+/* the days ahead, each opening to its lessons */
+.st-dwrap + .st-dwrap { border-top: 1px solid var(--line); }
+.st-dwrap .st-day { width: 100%; color: inherit; text-align: start; }
+.st-dwrap .st-day + .st-day { border-top: 0; }
+.st-dwrap .st-day .flip { transform: rotate(180deg); }
+.st-dles { display: grid; gap: 10px; padding: 0 0 12px; }
+.st-dsub .h { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.st-dsub .h b { flex: 1; min-width: 0; }
+.st-dsub .h .num { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.st-dsub ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
+.st-dsub li button { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 10px; border-radius: 10px; color: inherit; text-align: start; background: var(--surface-2, transparent); }
+.st-dsub li .t { font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.st-dsub li small { font-size: 11.5px; color: var(--faint); white-space: nowrap; }

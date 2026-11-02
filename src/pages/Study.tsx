@@ -120,9 +120,9 @@ function DayBar({ rows }: { rows: ExamPlan[] }) {
 
 /** what's in today's share — folded away behind one button, opened on tap */
 function TodayLessons({ ep }: { ep: ExamPlan }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   if (!ep.portion.length || ep.todayMinutes <= 0) return null;
-  const what = (x: ExamPlan['portion'][number]) => (x.review ? L('مراجعة', 'Review') : x.whole ? (x.unit.progress > 0 ? L('الباقي', 'The rest') : L('كامل', 'Whole')) : szn(x.amount, ep.course.sizeLabel));
+  const what = (x: ExamPlan['portion'][number]) => portionWhat(x, ep.course.sizeLabel);
   return (
     <div className="sx-les">
       <button className="sx-les-btn" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
@@ -329,34 +329,71 @@ function Postpone({ ep }: { ep: ExamPlan }) {
 }
 
 /** every day until the last exam: each subject's hours that day, and the day's total */
+/** what one lesson in a day's share is: the whole lesson, the rest of it, part of it, or its review */
+function portionWhat(x: ExamPlan['portion'][number], sizeLabel: string): string {
+  // a course sized in minutes would say «25 دقيقة · 25 د» — just call it a part
+  return x.review ? L('مراجعة', 'Review') : x.whole ? (x.unit.progress > 0 ? L('الباقي', 'The rest') : L('كامل', 'Whole')) : /دقيق|min/i.test(sizeLabel) ? L('جزء', 'Part') : szn(x.amount, sizeLabel);
+}
+
+/** the days ahead: each day's total, and — tap it — every subject's lessons that day with their minutes */
 function DaysAhead({ plan }: { plan: StudyPlan }) {
   const today = todayKey();
   const [all, setAll] = useState(false);
   const days = Object.keys(plan.byDay).filter((d) => d > today).sort();
+  const [open, setOpen] = useState<string | null>(days[0] || null);
   if (!days.length) return null;
   const shown = all ? days : days.slice(0, 5);
   const ep = (id: string) => plan.exams.find((e) => e.exam.id === id)!;
   return (
     <section>
-      <div className="group-title"><span>{L('الأيام الجاية', 'The days ahead')}</span><span className="faint">{L(`لين ${fmtDate(days[days.length - 1], false)}`, `to ${fmtDate(days[days.length - 1], false)}`)}</span></div>
+      <div className="group-title"><span className="sh-h2">{L('دروس الأيام الجاية', 'Lessons in the days ahead')}</span><span className="faint">{L(`لين ${fmtDate(days[days.length - 1], false)}`, `to ${fmtDate(days[days.length - 1], false)}`)}</span></div>
       <div className="st-days">
         {shown.map((d) => {
           const list = plan.byDay[d];
           const total = list.reduce((a, x) => a + x.minutes, 0);
+          const isOpen = open === d;
           return (
-            <div key={d} className="st-day">
-              <b className="dd">{relDay(d, today)}</b>
-              <div className="ch">
-                {list.map((x) => (
-                  <span key={x.examId} style={{ ['--c' as string]: ep(x.examId).course.color }} title={ep(x.examId).course.name}><i />{hrs(x.minutes)}</span>
-                ))}
-              </div>
-              <span className="tt num">{hrs(total)}</span>
+            <div key={d} className={`st-dwrap ${isOpen ? 'open' : ''}`}>
+              <button className="st-day" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : d)}>
+                <b className="dd">{relDay(d, today)}</b>
+                <span className="ch">
+                  {list.map((x) => (
+                    <span key={x.examId} style={{ ['--c' as string]: ep(x.examId).course.color }} title={ep(x.examId).course.name}><i />{hrs(x.minutes)}</span>
+                  ))}
+                </span>
+                <span className="tt num">{hrs(total)}</span>
+                <Icon name="down" size={13} className={isOpen ? 'flip' : ''} />
+              </button>
+              {isOpen && (
+                <div className="st-dles">
+                  {list.map((x) => {
+                    const e = ep(x.examId);
+                    const les = e.ahead?.[d] || [];
+                    return (
+                      <div key={x.examId} className="st-dsub">
+                        <div className="h"><span className="sx-dot" style={{ background: e.course.color }} /><b>{e.course.name}</b><span className="num">{fmtMinutes(x.minutes)}</span></div>
+                        {les.length ? (
+                          <ul>
+                            {les.map((p) => (
+                              <li key={p.unit.id + (p.review ? 'r' : '')}>
+                                <button onClick={() => openSheet({ type: 'unit', id: p.unit.id })}>
+                                  <span className="t">{p.unit.title}</span>
+                                  <small>{portionWhat(p, e.course.sizeLabel)} · {fmtMinutes(p.minutes)}</small>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : <small className="faint">{L('تكملة اللي قبله', 'Carrying on from before')}</small>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-      {days.length > 7 && <button className="st-pp-btn" onClick={() => setAll(!all)}>{all ? L('أقل', 'Less') : L(`كل الأيام (${days.length})`, `All days (${days.length})`)}</button>}
+      {days.length > 5 && <button className="st-pp-btn" onClick={() => setAll(!all)}>{all ? L('أقل', 'Less') : L(`كل الأيام (${days.length})`, `All days (${days.length})`)}</button>}
     </section>
   );
 }
@@ -573,11 +610,10 @@ function StudyHome({ plan }: { plan: StudyPlan }) {
         </section>
       )}
 
-      <Collapse title={L('خطة الأيام الجاية وآخر أسبوع', 'The days ahead and last week')}>
-        <div className="stack">
-          <DaysAhead plan={plan} />
-          <WeekStrip />
-        </div>
+      <DaysAhead plan={plan} />
+
+      <Collapse title={L('آخر أسبوع', 'Last week')}>
+        <WeekStrip />
       </Collapse>
     </>
   );

@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.7',
+    day: '2026-11-02',
+    items: [
+      ['«الدراسة»: دروس اليوم ظاهرة على طول، وجنب كل درس كم دقيقة منه', '«Study»: today’s lessons show straight away, each with its minutes'],
+      ['«دروس الأيام الجاية»: اضغط أي يوم وتشوف دروس كل مادة فيه وكم دقيقة من كل درس', '«Lessons in the days ahead»: tap any day for each subject’s lessons and the minutes of each'],
+    ],
+  },
+  {
     v: '1.6.6',
     day: '2026-11-02',
     items: [['زر «احذف المصاريف المستوردة» في إعدادات «مصاريفي»: يرجّعك مثل قبل الاستيراد، ويبقى اللي سجّلته أنت أو جاء من رسائل البنك', 'A «Delete imported expenses» button in Spending settings: back to before the import, keeping what you or the bank texts logged']],
