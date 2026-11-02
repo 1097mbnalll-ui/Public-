@@ -891,6 +891,16 @@ export function updateExpense(id: string, patch: Partial<Expense>) {
   });
 }
 
+/** take back every imported expense (from a file or an AI) — the ones you or the bank texts logged stay */
+export function deleteImported(): number {
+  const n = getState().expenses.filter((e) => e.source === 'import').length;
+  if (n)
+    mutate((s) => {
+      s.expenses = s.expenses.filter((e) => e.source !== 'import');
+    }, L('حذف المستوردة', 'Delete imported'));
+  return n;
+}
+
 export function deleteExpense(id: string) {
   mutate((s) => {
     s.expenses = s.expenses.filter((x) => x.id !== id);

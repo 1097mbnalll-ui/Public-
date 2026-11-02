@@ -353,6 +353,7 @@ export function MoneySettingsSheet() {
   // the categories you actually spend on come first
   const spent = new Map<ExpenseCat, number>();
   for (const e of s.expenses) spent.set(e.cat, (spent.get(e.cat) || 0) + e.amount);
+  const imported = s.expenses.filter((e) => e.source === 'import');
   const cats = allCats().filter((c) => c !== 'other').sort((x, y) => (spent.get(y) || 0) - (spent.get(x) || 0));
   return (
     <Sheet
@@ -370,6 +371,12 @@ export function MoneySettingsSheet() {
         <SmsAutoRow />
         {isIOS() && <SmsAutoIos />}
         <button className="btn ghost" onClick={() => openSheet({ type: 'ai-import' })}><Icon name="download" size={15} /> {L('استيراد مصاريف (من ملف أو ذكاء اصطناعي)', 'Import expenses (from a file or an AI)')}</button>
+        {imported.length > 0 && (
+          <div className="notice">
+            <div className="small">{L(`عندك ${imported.length} مصروف مستورد (${fmtMoney(imported.reduce((a, e) => a + e.amount, 0))}). تلخبطت؟ احذفها كلها وارجع مثل قبل الاستيراد — اللي سجّلته أنت أو جاء من رسائل البنك يبقى.`, `${imported.length} imported expenses (${fmtMoney(imported.reduce((a, e) => a + e.amount, 0))}). Messed up? Delete them all and go back to before the import — what you or the bank texts logged stays.`)}</div>
+            <button className="btn sm" style={{ marginTop: 8 }} onClick={() => { if (!confirm(L(`أحذف ${imported.length} مصروف مستورد؟`, `Delete ${imported.length} imported expenses?`))) return; const n = A.deleteImported(); toast(L(`انحذفت ${n} مصاريف مستوردة`, `Deleted ${n} imported expenses`), { undoable: true, ms: 8000 }); }}>{L('احذف المصاريف المستوردة', 'Delete imported expenses')}</button>
+          </div>
+        )}
         <div className="fields two">
           <div className="field">
             <label>{L('ميزانية الشهر', 'Monthly budget')}</label>

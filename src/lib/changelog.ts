@@ -11,6 +11,11 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.6',
+    day: '2026-11-02',
+    items: [['زر «احذف المصاريف المستوردة» في إعدادات «مصاريفي»: يرجّعك مثل قبل الاستيراد، ويبقى اللي سجّلته أنت أو جاء من رسائل البنك', 'A «Delete imported expenses» button in Spending settings: back to before the import, keeping what you or the bank texts logged']],
+  },
+  {
     v: '1.6.5',
     day: '2026-11-02',
     items: [
