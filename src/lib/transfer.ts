@@ -199,6 +199,7 @@ export function mergeStates(mine: AppState, theirs: AppState): AppState {
     swaps: { ...theirs.money?.swaps, ...mine.money?.swaps },
     cats: unionById(mine.money?.cats || [], theirs.money?.cats || []),
     smsSeen: [...new Set([...(theirs.money?.smsSeen || []), ...(mine.money?.smsSeen || [])])].slice(-3000),
+    merchants: { ...theirs.money?.merchants, ...mine.money?.merchants },
     ...(mine.money?.goal || theirs.money?.goal ? { goal: mine.money?.goal && theirs.money?.goal ? { ...mine.money.goal, saved: Math.max(mine.money.goal.saved, theirs.money.goal.saved) } : mine.money?.goal || theirs.money?.goal } : {}),
   };
   // templates: same name means the same template — keep one

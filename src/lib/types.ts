@@ -406,6 +406,8 @@ export interface MoneyState {
   swaps: Record<string, string>;
   /** fingerprints of bank messages already imported */
   smsSeen?: string[];
+  /** merchant (normalised name from a bank text) → the category you gave it; used for every later purchase there */
+  merchants?: Record<string, ExpenseCat>;
   /** day of the month the salary comes in — the budget month runs payday to payday */
   payday?: number;
   /** monthly limit per category */

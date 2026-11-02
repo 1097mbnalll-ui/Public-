@@ -8,9 +8,9 @@ import { toast } from '../ui/toast';
 import { worthColor, worthLabel } from '../ui/MoneySheets';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, fmtDate, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
+import { addDays, fmtClock, fmtDate, monthNames, parseKey, relDay, todayKey } from '../lib/dates';
 import {
-  catInfo, catLimits, cutHabit, noSpend, suggestBudget, upcomingBills, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
+  catInfo, catLimits, cutHabit, noSpend, repeatMerchants, suggestBudget, upcomingBills, favorites, fmtMoney, fmtNum, fmtRenew, freeAlternatives, moneyToday, potential, regrets, report,
   rangeOf, subIdle, subMonthly, suggestions, upcomingSubs, weekStrip, type Period,
 } from '../lib/engine/money';
 import type { AppState, Expense } from '../lib/types';
@@ -124,12 +124,12 @@ function MoneyHome() {
 
 function ExpenseRow({ e }: { e: Expense }) {
   const c = catInfo(e.cat);
-  const sub = [e.time ? e.time : '', e.worth ? worthLabel(e.worth) : '', e.source === 'sub' ? L('تجديد اشتراك', 'renewal') : ''].filter(Boolean).join(' · ') || c.label;
+  const sub = [e.worth ? worthLabel(e.worth) : '', e.source === 'sub' ? L('تجديد اشتراك', 'renewal') : ''].filter(Boolean).join(' · ') || c.label;
   return (
     <button className="m-ex" onClick={() => openSheet({ type: 'expense', id: e.id })}>
       <span className="em" style={{ background: c.bg }}>{c.emoji}</span>
       <span className="grow"><b>{e.title}</b><span>{sub}</span></span>
-      <b className="money">{fmtNum(e.amount)}</b>
+      <span className="m-amt"><b className="money">{fmtNum(e.amount)}</b>{e.time && <small className="num">{fmtClock(e.time)}</small>}</span>
       <span className="m-dot" style={{ background: worthColor(e.worth) }} />
     </button>
   );
@@ -159,6 +159,7 @@ function DayView({ now }: { now: number }) {
   const ns = noSpend(s, now);
   const bills = upcomingBills(s, now);
   const limits = catLimits(s, now);
+  const todo = repeatMerchants(s).filter((x) => !x.set).length;
   return (
     <div className="stack">
       <div className="m-card">
@@ -194,6 +195,12 @@ function DayView({ now }: { now: number }) {
           </button>
         ))}
       </div>
+
+      {todo > 0 && (
+        <button className="m-merch-card" onClick={() => openSheet({ type: 'merchants' })}>
+          <span>🏷️</span><span className="grow"><b>{L(`${todo} ${todo === 1 ? 'متجر تكرر' : 'متاجر تكررت'} بدون تصنيف`, `${todo} repeat ${todo === 1 ? 'merchant needs' : 'merchants need'} a category`)}</b><small>{L('صنّفها مرة وحدة وتنحفظ لكل عملية جاية', 'Name each once; later purchases follow it')}</small></span><Icon name="chevron" size={16} />
+        </button>
+      )}
 
       {(ns.days > 0 || bills.length > 0) && (
         <div className="m-badges">

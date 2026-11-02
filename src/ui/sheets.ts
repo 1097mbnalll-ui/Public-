@@ -20,6 +20,7 @@ export type SheetSpec =
   | { type: 'ai-import' }
   | { type: 'expense'; id?: string; text?: string }
   | { type: 'sms' }
+  | { type: 'merchants' }
   | { type: 'money-settings' }
   | { type: 'goal-move'; dir: 'in' | 'out' }
   | { type: 'sub'; id?: string }

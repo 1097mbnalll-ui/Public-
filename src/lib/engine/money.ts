@@ -522,6 +522,40 @@ export function upcomingSubs(state: AppState) {
 
 // ---------------- bank SMS ----------------
 
+/** «STARBUCKS 1234 RIYADH» and «Starbucks 88 Riyadh» are one merchant: lower-case, no digits or punctuation */
+export function merchantKey(title: string): string {
+  return toWestern(title).toLowerCase().replace(/[\d_*#.,:;/\\()\-–—]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** the category you gave this merchant, if any */
+export function merchantCat(title: string): ExpenseCat | undefined {
+  const k = merchantKey(title);
+  return k ? getState().money?.merchants?.[k] : undefined;
+}
+
+/** merchants from bank texts that came up `min`+ times: the ones worth naming a category for. Unassigned first, then the most frequent. */
+export function repeatMerchants(state: AppState, min = 2) {
+  const g = new Map<string, { key: string; name: string; n: number; sum: number; cats: Map<ExpenseCat, number> }>();
+  for (const e of state.expenses) {
+    if (e.source !== 'sms') continue;
+    const key = merchantKey(e.title);
+    if (!key) continue;
+    const x = g.get(key) || { key, name: e.title, n: 0, sum: 0, cats: new Map() };
+    x.n++;
+    x.sum += e.amount;
+    x.cats.set(e.cat, (x.cats.get(e.cat) || 0) + 1);
+    g.set(key, x);
+  }
+  return [...g.values()]
+    .filter((x) => x.n >= min)
+    .map((x) => {
+      const set = state.money.merchants?.[x.key];
+      const cat = set || [...x.cats.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      return { key: x.key, name: x.name, n: x.n, sum: x.sum, cat, set: !!set };
+    })
+    .sort((a, b) => Number(a.set) - Number(b.set) || b.n - a.n || b.sum - a.sum);
+}
+
 const INCOME = /إيداع|ايداع|راتب|حوالة واردة|واردة|استرداد|استرجاع|deposit|credited|refund|received|incoming|salary/i;
 const SPEND = /شراء|مشتريات|purchase|pos|مدى|mada|apple ?pay|سداد|دفع|خصم|debit|صادرة|withdraw|سحب|payment|online/i;
 
@@ -631,7 +665,7 @@ export function parseBankSms(text: string, now = Date.now()) {
     const when = readWhen(c, today);
     const day = when.day;
     const tm = when.time;
-    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: tm } : {}), cat: guessCat(title), key: smsKey(c) });
+    out.push({ title: title || L('مشتريات', 'Purchase'), amount, day, ...(tm ? { time: tm } : {}), cat: merchantCat(title) || guessCat(title), key: smsKey(c) });
   }
   return out;
 }

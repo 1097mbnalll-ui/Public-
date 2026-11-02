@@ -10,7 +10,7 @@ import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro, rhythmOf, splitWorked } from './engine/focus';
 import { L } from './i18n';
 import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
-import { CAT_ORDER, guessCat } from './engine/money';
+import { CAT_ORDER, guessCat, merchantKey } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
 import { nextLevel } from './engine/train';
@@ -873,6 +873,14 @@ export function deleteExpense(id: string) {
 export function setBudget(budget: number | undefined) {
   mutate((s) => {
     s.money.budget = budget && budget > 0 ? budget : undefined;
+  });
+}
+
+/** give a bank-text merchant a category: past purchases there move to it and every later one lands in it */
+export function setMerchantCat(key: string, cat: ExpenseCat) {
+  mutate((s) => {
+    s.money.merchants = { ...s.money.merchants, [key]: cat };
+    for (const e of s.expenses) if (e.source === 'sms' && merchantKey(e.title) === key && e.cat !== cat) Object.assign(e, { cat, updatedAt: now() });
   });
 }
 

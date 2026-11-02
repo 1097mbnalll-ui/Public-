@@ -5,9 +5,9 @@ import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, addMonths, atTime, fmtDate, timeAgo, todayKey } from '../lib/dates';
+import { addDays, addMonths, atTime, fmtClock, fmtDate, timeAgo, todayKey } from '../lib/dates';
 import { smsHookUrl, useSyncConf } from '../lib/sync';
-import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, parseMoney, suggestBudget } from '../lib/engine/money';
+import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, parseMoney, repeatMerchants, suggestBudget } from '../lib/engine/money';
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
 import { L } from '../lib/i18n';
@@ -259,7 +259,7 @@ export function SmsSheet() {
             <span className="em">{catInfo(f.cat).emoji}</span>
             <span className="grow">
               <b>{f.title}</b>
-              <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${f.time}` : ''}{added(f) ? L(' · مضافة ✓', ' · already added ✓') : ''}</span>
+              <span className="faint tiny">{fmtDate(f.day)}{f.time ? ` · ${fmtClock(f.time)}` : ''}{added(f) ? L(' · مضافة ✓', ' · already added ✓') : ''}</span>
             </span>
             <b className="money">{fmtMoney(f.amount)}</b>
           </label>
@@ -509,6 +509,30 @@ export function GoalMoveSheet({ dir: initial }: { dir: 'in' | 'out' }) {
           </div>
         )}
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} placeholder={dir === 'in' ? L('ملاحظة (اختياري): من الراتب، هدية…', 'Note (optional): salary, a gift…') : L('ملاحظة (اختياري): ليش سحبت؟', 'Note (optional): why?')} />
+      </div>
+    </Sheet>
+  );
+}
+
+/** merchants from your bank texts that came up twice or more: name a category once, every later purchase there follows it */
+export function MerchantsSheet() {
+  const s = useApp();
+  const list = repeatMerchants(s);
+  const cats = allCats();
+  return (
+    <Sheet title={L('متاجر تكررت', 'Repeat merchants')} onClose={closeSheet}>
+      <div className="faint small">{L('اختر تصنيف كل متجر مرة وحدة، وأي عملية جاية من نفس المتجر تنحط فيه لحالها. وعملياته السابقة تتغير بعد.', 'Pick a category once per merchant: later purchases there go into it, and the earlier ones move too.')}</div>
+      {!list.length && <div className="faint small" style={{ marginTop: 12 }}>{L('ما فيه متجر تكرر مرتين بعد. بتطلع هنا أول ما تتكرر عمليات من نفس المتجر.', 'No merchant has repeated twice yet. They show up here as they do.')}</div>}
+      <div className="m-merch">
+        {list.map((m) => (
+          <div key={m.key} className="m-mr">
+            <div className="grow"><b>{m.name}</b><span>{L(`${m.n} مرات · ${fmtMoney(m.sum)}`, `${m.n} times · ${fmtMoney(m.sum)}`)}{m.set ? ' ✓' : ''}</span></div>
+            <select className="input" value={m.set ? m.cat : ''} aria-label={m.name} onChange={(e) => { A.setMerchantCat(m.key, e.target.value); toast(L(`تم: ${m.name} ← ${catInfo(e.target.value).label}`, `Done: ${m.name} → ${catInfo(e.target.value).label}`)); }}>
+              {!m.set && <option value="" disabled>{L('اختر التصنيف', 'Pick a category')}</option>}
+              {cats.map((c) => <option key={c} value={c}>{catInfo(c).emoji} {catInfo(c).label}</option>)}
+            </select>
+          </div>
+        ))}
       </div>
     </Sheet>
   );

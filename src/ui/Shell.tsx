@@ -31,7 +31,7 @@ import { SubjectSheet, TrySheet } from '../pages/Study';
 import { FutureAddSheet, FutureItemSheet, FutureSetupSheet, FutureSwapSheet } from '../pages/Future';
 import { DietFoodSheet, DietOtherSheet, DietPickSheet, DietSetupSheet } from '../pages/Health';
 import { GymBodySheet, GymCustomSheet, GymDoneSheet, GymExSheet, GymInfoSheet, GymPickSheet, GymSessionSheet, GymSetupSheet } from '../pages/Gym';
-import { ExpenseSheet, GoalMoveSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
+import { ExpenseSheet, GoalMoveSheet, MerchantsSheet, MoneySettingsSheet, SmsSheet, SubSheet } from './MoneySheets';
 import { L } from '../lib/i18n';
 
 export function SheetHost() {
@@ -76,6 +76,8 @@ export function SheetHost() {
       return <ExpenseSheet key={sh.id || sh.text || 'new'} id={sh.id} text={sh.text} />;
     case 'sms':
       return <SmsSheet />;
+    case 'merchants':
+      return <MerchantsSheet />;
     case 'money-settings':
       return <MoneySettingsSheet />;
     case 'goal-move':

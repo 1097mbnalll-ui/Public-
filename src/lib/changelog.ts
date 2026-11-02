@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.3',
+    day: '2026-11-02',
+    items: [
+      ['وقت العملية يظهر بنظام ١٢ ساعة (٥:٣٠ م) بجانب المبلغ', 'The time of each purchase shows in 12-hour format (5:30 pm) next to the amount'],
+      ['«متاجر تكررت»: المتاجر اللي تكرّرت في رسائل البنك مرتين أو أكثر، تصنّف كل واحد مرة وحدة وأي عملية جاية منه تنحط في تصنيفه', '«Repeat merchants»: merchants that came up twice or more in bank texts; name a category once and every later purchase there follows it'],
+    ],
+  },
+  {
     v: '1.6.2',
     day: '2026-11-02',
     items: [

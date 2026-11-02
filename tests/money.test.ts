@@ -233,3 +233,26 @@ describe('bank texts from the phone', () => {
     expect(getState().expenses.length).toBe(1);
   });
 });
+
+import { merchantKey, repeatMerchants } from '../src/lib/engine/money';
+import * as Act from '../src/lib/actions';
+describe('merchants from bank texts', () => {
+  it('lists repeats, remembers the category, applies it to old and new purchases', () => {
+    replaceState(initialState(), '', false);
+    const at = new Date('2026-10-22T13:05:00').getTime();
+    addBankTexts([
+      { id: 'a', at, text: 'Purchase SAR 24 at ZXQ MARKET 112' },
+      { id: 'b', at: at + 3600_000, text: 'Purchase SAR 31 at Zxq Market 305' },
+      { id: 'c', at: at + 7200_000, text: 'Purchase SAR 9 at ONCE ONLY' },
+    ]);
+    expect(merchantKey('ZXQ MARKET 112')).toBe(merchantKey('Zxq Market 305'));
+    const r = repeatMerchants(getState());
+    expect(r.length).toBe(1);
+    expect(r[0]).toMatchObject({ n: 2, set: false });
+    Act.setMerchantCat(r[0].key, 'fun');
+    expect(getState().expenses.filter((e) => /zxq/i.test(e.title)).every((e) => e.cat === 'fun')).toBe(true);
+    addBankTexts([{ id: 'd', at: at + 9000_000, text: 'Purchase SAR 12 at ZXQ MARKET 777' }]);
+    expect(getState().expenses.find((e) => e.amount === 12)?.cat).toBe('fun');
+    expect(repeatMerchants(getState())[0]).toMatchObject({ n: 3, set: true, cat: 'fun' });
+  });
+});

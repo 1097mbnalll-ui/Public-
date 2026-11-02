@@ -4261,3 +4261,16 @@ html[data-size='lg'] { zoom: 1.12; }
 
 .gy-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px 0 12px; }
 .gy-bar .gy-link { display: inline-flex; align-items: center; gap: 4px; }
+
+.m-amt { display: grid; justify-items: end; gap: 1px; }
+.m-amt small { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+.m-merch-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--glass-border); color: inherit; text-align: start; }
+.m-merch-card b { display: block; font-size: 13.5px; }
+.m-merch-card small { font-size: 11.5px; color: var(--faint); }
+.m-merch { display: grid; gap: 4px; margin-top: 10px; }
+.m-mr { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.m-mr:last-child { border-bottom: 0; }
+.m-mr .grow { min-width: 0; }
+.m-mr b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.m-mr .grow span { font-size: 11.5px; color: var(--faint); }
+.m-mr select { width: 46%; min-width: 0; flex: none; }
