@@ -245,6 +245,7 @@ export function addBankTexts(list: { id: string; at: number; text: string }[]): 
   mutate((s) => {
     for (const { key: _k, ...f } of found) s.expenses.push({ ...f, id: uid(), source: 'sms', createdAt: Date.now() });
     s.money.smsSeen = [...(s.money.smsSeen || []), ...found.map((f) => f.key)].slice(-3000);
+    s.meta.lastSmsAt = Date.now();
   });
   return found.length;
 }

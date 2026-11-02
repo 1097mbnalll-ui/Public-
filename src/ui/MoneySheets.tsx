@@ -5,7 +5,8 @@ import { closeSheet, openSheet } from './sheets';
 import { toast } from './toast';
 import { useApp } from '../lib/store';
 import * as A from '../lib/actions';
-import { addDays, addMonths, atTime, fmtDate, todayKey } from '../lib/dates';
+import { addDays, addMonths, atTime, fmtDate, timeAgo, todayKey } from '../lib/dates';
+import { smsHookUrl, useSyncConf } from '../lib/sync';
 import { CAT_COLORS, CAT_ORDER, allCats, catInfo, fmtMoney, fmtNum, guessCat, limitNote, parseBankSms, parseExpense, parseMoney, suggestBudget } from '../lib/engine/money';
 import { getState } from '../lib/store';
 import type { ExpenseCat, Worth } from '../lib/types';
@@ -233,6 +234,7 @@ export function SmsSheet() {
     >
       <div className="fields">
         <SmsAutoRow />
+        {!isNative() && <SmsAutoIos />}
         <label className="btn block">
           📂 {L('افتح ملف الرسائل', 'Open the messages file')}
           <input type="file" hidden onChange={(e) => readFile(e.target.files?.[0])} />
@@ -262,8 +264,7 @@ export function SmsSheet() {
             <b className="money">{fmtMoney(f.amount)}</b>
           </label>
         ))}
-        <button className="m-link" onClick={() => openSheet({ type: 'sync' })}>⚡ {L('أسهل: شغّل المزامنة وخلّ الرسائل تدخل لحالها بدون ملف', 'Easier: turn on sync and let messages come in by themselves, no file')}</button>
-        <Collapse title={L('خلّ رسائل البنك تنحفظ لحالها (آيفون)', 'Save bank messages automatically (iPhone)')} defaultOpen={!s.money.smsSeen?.length && !text}>
+        <Collapse title={L('بدون مزامنة: ملف تفتحه بنفسك (آيفون)', 'Without sync: a file you open yourself (iPhone)')} defaultOpen={!s.money.smsSeen?.length && !text}>
           <ol className="m-guide">
             <li>{L('افتح تطبيق «الاختصارات» ← «الأتمتة» ← زر +.', 'Open Shortcuts → Automation → +.')}</li>
             <li>{L('اختر «رسالة»: في «المرسل» اختر رقم البنك، وفي «الرسالة تحتوي» اكتب: شراء — ثم «تشغيل فورًا».', 'Choose “Message”: Sender = your bank, Message Contains = Purchase — then “Run Immediately”.')}</li>
@@ -281,6 +282,45 @@ export function SmsSheet() {
 }
 
 /** monthly budget, payday, category limits + savings goal */
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+/**
+ * iPhone: an app can't read texts, but a Shortcut can hand each purchase text over. It posts the
+ * text to the sync address in the background; Madar picks it up whenever it syncs and adds the expense.
+ */
+function SmsAutoIos() {
+  const s = useApp();
+  const conf = useSyncConf();
+  const copy = async (text: string, done: string) => {
+    try { await navigator.clipboard.writeText(text); toast(done); } catch { toast(L('ما قدرت أنسخ — جرّب مرة ثانية', "Couldn't copy — try again")); }
+  };
+  const last = s.meta.lastSmsAt;
+  return (
+    <div className="m-smsauto ios">
+      <span className="m">
+        <b>{L('أضفها تلقائيًا بدون ما تفتح شي (آيفون)', 'Add them automatically, nothing to open (iPhone)')}</b>
+        <small>{conf ? (last ? L(`✓ شغّال · آخر رسالة وصلت ${timeAgo(last)}`, `✓ Working · last text came in ${timeAgo(last)}`) : L('جاهز — بقي تسوي الاختصار مرة وحدة (الخطوات تحت)', 'Ready — now make the Shortcut once (steps below)')) : L('الاختصار يرسل كل رسالة شراء لحسابك بالخلفية، وتنضاف هنا لحالها. يحتاج تشغّل المزامنة أول.', 'A Shortcut sends each purchase text to your account in the background and it appears here by itself. Needs sync turned on first.')}</small>
+        {!conf ? (
+          <button className="btn sm primary" style={{ marginTop: 8, justifySelf: 'start' }} onClick={() => openSheet({ type: 'sync' })}>{L('ابدأ: شغّل المزامنة', 'Start: turn on sync')}</button>
+        ) : (
+          <>
+            <Collapse title={L('خطوات الاختصار (مرة وحدة)', 'The Shortcut steps (once)')} defaultOpen={!last}>
+              <ol className="m-guide">
+                <li>{L('انسخ الرابط:', 'Copy the link:')} <button className="btn sm" onClick={() => void copy(smsHookUrl(), L('نُسخ الرابط ✓', 'Link copied ✓'))}><Icon name="copy" size={13} /> {L('انسخ الرابط', 'Copy link')}</button></li>
+                <li>{L('افتح «الاختصارات» ← «الأتمتة» ← + ← «رسالة». في «المرسل» اختر رقم البنك، وفي «الرسالة تحتوي» اكتب: شراء. اختر «تشغيل فورًا».', 'Open Shortcuts → Automation → + → Message. Sender = your bank, Message Contains = Purchase. Choose “Run Immediately”.')}</li>
+                <li>{L('أضف إجراء «الحصول على محتويات عنوان URL»، والصق الرابط.', 'Add the action “Get Contents of URL” and paste the link.')}</li>
+                <li>{L('الأسلوب: POST · نص الطلب: JSON · أضف حقل نص اسمه text وقيمته «مُدخل الاختصار ← المحتوى».', 'Method: POST · Request Body: JSON · add a Text field named text = “Shortcut Input → Content”.')}</li>
+                <li>{L('خلاص. أي رسالة شراء توصلك تنضاف هنا لما تفتح «مدار».', 'Done. Every purchase text you get is added here when you open Madar.')}</li>
+              </ol>
+              <div className="faint tiny">{L('البنك يرسل من أكثر من رقم؟ سوّ أتمتة لكل رقم بنفس الرابط.', 'Bank sends from several numbers? Make one automation per number, same link.')}</div>
+            </Collapse>
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 /** Android: bank texts become expenses by themselves */
 function SmsAutoRow() {
   const [st, setSt] = useState<{ on: boolean; granted: boolean } | null>(null);
@@ -328,6 +368,7 @@ export function MoneySettingsSheet() {
     >
       <div className="fields">
         <SmsAutoRow />
+        {isIOS() && <SmsAutoIos />}
         <div className="fields two">
           <div className="field">
             <label>{L('ميزانية الشهر', 'Monthly budget')}</label>

@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.2',
+    day: '2026-11-02',
+    items: [
+      ['آيفون: خيار «أضفها تلقائيًا بدون ما تفتح شي» في «رسائل البنك»، يعرض حالته وآخر رسالة وصلت، ومعه خطوات الاختصار ورابطه جاهز للنسخ', 'iPhone: an «add them automatically» option in Bank texts, showing its status and the last text that came in, with the Shortcut steps and a ready link to copy'],
+    ],
+  },
+  {
     v: '1.6.1',
     day: '2026-11-01',
     items: [

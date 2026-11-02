@@ -885,6 +885,8 @@ export interface AppState {
     lastExportAt?: number;
     /** the version you last saw «what's new» for */
     seenVersion?: string;
+    /** the last time a bank text came in by itself (the iPhone Shortcut) */
+    lastSmsAt?: number;
     lastBriefDay?: string;
   };
 }
