@@ -522,6 +522,13 @@ export function upcomingSubs(state: AppState) {
 
 // ---------------- bank SMS ----------------
 
+/** an expense already logged: the same amount that day, or the day either side when it came from a bank text
+ *  (the bank's date and yours can differ around midnight) — so an import never adds it twice */
+export function alreadyLogged(state: AppState, e: { amount: number; day: string; title?: string }): boolean {
+  const near = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) <= 86_400_000;
+  return state.expenses.some((x) => Math.abs(x.amount - e.amount) < 0.01 && (x.day === e.day || (near(x.day, e.day) && (x.source === 'sms' || x.title.trim() === (e.title || '').trim()))));
+}
+
 /** «STARBUCKS 1234 RIYADH» and «Starbucks 88 Riyadh» are one merchant: lower-case, no digits or punctuation */
 export function merchantKey(title: string): string {
   return toWestern(title).toLowerCase().replace(/[\d_*#.,:;/\\()\-–—]+/g, ' ').replace(/\s+/g, ' ').trim();

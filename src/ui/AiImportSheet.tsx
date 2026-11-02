@@ -95,6 +95,10 @@ export function AiImportSheet() {
           <div className="grow">{L('انسخ رده كامل والصقه هنا — أو الصق رابط «مدار» وصلك.', 'Copy its whole reply and paste it here — or paste a Madar link you received.')}</div>
         </div>
         <textarea className="input" rows={6} dir="auto" value={text} onChange={(e) => setText(e.target.value)} placeholder={L('الصق هنا…', 'Paste here…')} />
+        <label className="btn sm ghost" style={{ alignSelf: 'flex-start' }}>
+          <Icon name="download" size={14} /> {L('أو اختر ملف (.json)', 'Or pick a file (.json)')}
+          <input type="file" accept=".json,.txt,application/json,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) setText(await f.text()); e.target.value = ''; }} />
+        </label>
         {err && <div className="notice amber">{err}</div>}
       </div>
     </Sheet>

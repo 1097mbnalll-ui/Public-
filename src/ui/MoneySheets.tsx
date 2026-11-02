@@ -369,6 +369,7 @@ export function MoneySettingsSheet() {
       <div className="fields">
         <SmsAutoRow />
         {isIOS() && <SmsAutoIos />}
+        <button className="btn ghost" onClick={() => openSheet({ type: 'ai-import' })}><Icon name="download" size={15} /> {L('استيراد مصاريف (من ملف أو ذكاء اصطناعي)', 'Import expenses (from a file or an AI)')}</button>
         <div className="fields two">
           <div className="field">
             <label>{L('ميزانية الشهر', 'Monthly budget')}</label>

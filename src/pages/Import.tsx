@@ -10,7 +10,7 @@ import { toast } from '../ui/toast';
 import { PageTop } from '../ui/PageTop';
 import { L, sz } from '../lib/i18n';
 import { unpackLinkPack } from '../lib/transfer';
-import { catInfo, fmtMoney } from '../lib/engine/money';
+import { alreadyLogged, catInfo, fmtMoney } from '../lib/engine/money';
 import { DAY_NAMES } from '../lib/engine/schedule';
 
 /** two course names share a real word or number — «إنجليزي 106» ~ «ENGL 106» ~ «الإنجليزي» */
@@ -63,7 +63,10 @@ export function Import() {
 
   const course = pack.course;
   const tasks = pack.tasks || [];
-  const expenses = pack.expenses || [];
+  const allExp = pack.expenses || [];
+  // what you already logged (same amount, same day) is shown as such and skipped on import
+  const expenses = allExp.filter((e) => !alreadyLogged(s, e));
+  const dupes = allExp.length - expenses.length;
   const schedule = pack.schedule || [];
   const kinds = [course, tasks.length, expenses.length, schedule.length].filter(Boolean).length;
   const home = course ? 'study' : tasks.length ? 'tasks' : expenses.length ? 'money' : 'schedule';
@@ -172,9 +175,13 @@ export function Import() {
         {expenses.length > 0 && (
           <Group title={L("المصاريف", "Expenses")}>
             {expenses.slice(0, 50).map((e, i) => (
-              <Row key={i} label={`${catInfo(e.cat).emoji} ${e.title || catInfo(e.cat).label}`} sub={fmtDate(e.day)} value={fmtMoney(e.amount)} />
+              <Row key={i} label={`${e.catName ? pack.catEmoji?.[e.catName] || '🏷️' : catInfo(e.cat).emoji} ${e.title || e.catName || catInfo(e.cat).label}`} sub={[fmtDate(e.day), e.time ? fmtClock(e.time) : '', e.catName || catInfo(e.cat).label].filter(Boolean).join(' · ')} value={fmtMoney(e.amount)} />
             ))}
+            {expenses.length > 50 && <Row label={L(`و${expenses.length - 50} غيرها`, `and ${expenses.length - 50} more`)} />}
           </Group>
+        )}
+        {dupes > 0 && (
+          <p className="faint small" style={{ margin: 0 }}>{L(`${dupes} ${dupes === 1 ? 'عملية مسجّلة' : 'عمليات مسجّلة'} عندك من قبل (نفس المبلغ واليوم) — ما بتنضاف مرة ثانية.`, `${dupes} already logged (same amount and day) — they won't be added again.`)}</p>
         )}
         <p className="faint tiny" style={{ margin: 0 }}>{L("لا يُمسح شيء من بياناتك الأخرى. تقدر تعدّل أو تحذف أي شيء بعد الإضافة.", "Nothing else in your data is removed. You can edit or delete anything after adding.")}</p>
       </div>

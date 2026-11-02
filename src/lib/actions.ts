@@ -10,7 +10,7 @@ import { isProcDone, kindInfo } from './engine/procedures';
 import { pomodoro, rhythmOf, splitWorked } from './engine/focus';
 import { L } from './i18n';
 import { dayPlan, exercise, liveSession, nextWorkout, registerCustom, scheme, slotGroups, target, type GroupId } from './engine/gym';
-import { CAT_ORDER, guessCat, merchantKey } from './engine/money';
+import { CAT_COLORS, CAT_ORDER, alreadyLogged, guessCat, merchantKey } from './engine/money';
 import { readSchedule } from './engine/schedule';
 import { nextAfter } from './engine/remind';
 import { nextLevel } from './engine/train';
@@ -693,7 +693,10 @@ export interface PackExpense {
   title: string;
   amount: number;
   day: string;
+  time?: string;
   cat: ExpenseCat;
+  /** a category of your own by name («بنزين»): found among yours, or made on import */
+  catName?: string;
 }
 
 export interface CoursePack {
@@ -701,6 +704,8 @@ export interface CoursePack {
   schedule?: Omit<ClassBlock, 'id' | 'createdAt'>[];
   tasks?: PackTask[];
   expenses?: PackExpense[];
+  /** emoji for the categories of your own the pack names */
+  catEmoji?: Record<string, string>;
   course?: { name: string; difficulty?: number; sizeLabel?: string; paceGuess?: number; notes?: string; color?: string };
   units: { title: string; size: number; difficulty?: number; notes?: string }[];
   exam?: { title: string; date: string; time?: string; reviewDays?: number };
@@ -726,13 +731,24 @@ export function readCoursePack(raw: any): CoursePack {
     .slice(0, 1000)
     .map((e: any) => {
       const title = typeof e.title === 'string' ? e.title.trim().slice(0, 100) : '';
-      return { title, amount: Math.round(Number(e.amount) * 100) / 100, day: day.test(e.date || e.day) ? e.date || e.day : todayKey(), cat: (CAT_ORDER as string[]).includes(e.cat) ? e.cat : guessCat(title) };
+      const builtin = (CAT_ORDER as string[]).includes(e.cat);
+      const own = !builtin && typeof e.cat === 'string' && e.cat.trim() && e.cat.trim().length <= 24 ? e.cat.trim() : '';
+      return {
+        title,
+        amount: Math.round(Number(e.amount) * 100) / 100,
+        day: day.test(e.date || e.day) ? e.date || e.day : todayKey(),
+        ...(/^\d{2}:\d{2}$/.test(e.time) ? { time: e.time } : {}),
+        cat: builtin ? e.cat : own ? 'other' : guessCat(title),
+        ...(own ? { catName: own } : {}),
+      };
     });
+  const catEmoji: Record<string, string> = {};
+  if (raw?.cats && typeof raw.cats === 'object') for (const [k, v] of Object.entries(raw.cats).slice(0, 12)) if (typeof v === 'string' && v.length <= 8) catEmoji[k.trim()] = v;
   const schedule = readSchedule(raw?.schedule || []);
   const hasCourse = !!raw?.course?.name && Array.isArray(raw.units);
   if (!raw || !['masar-course', 'masar'].includes(raw.app) || (!hasCourse && !tasks.length && !expenses.length && !schedule.length))
     throw new Error(L('هذا ليس ملف مادة أو مهام من «مدار».', "This is not a Madar course or task file."));
-  const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}), ...(schedule.length ? { schedule } : {}) };
+  const extra = { ...(tasks.length ? { tasks } : {}), ...(expenses.length ? { expenses } : {}), ...(Object.keys(catEmoji).length ? { catEmoji } : {}), ...(schedule.length ? { schedule } : {}) };
   if (!hasCourse) return { ...extra, units: [] };
   // a pack can come from any link: keep only well-typed, bounded values
   const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
@@ -790,7 +806,18 @@ export function importCoursePack(p: CoursePack, replaceSchedule = true): string 
   if (p.schedule?.length) setSchedule(p.schedule, replaceSchedule);
   for (const { steps, ...t } of p.tasks || [])
     addTask({ ...t, notes: t.notes || '', checklist: (steps || []).map((title) => ({ id: uid(), title, done: false })) });
-  if (p.expenses?.length) addExpenses(p.expenses.map((e) => ({ ...e, source: 'import' as const })));
+  if (p.expenses?.length) {
+    // your own categories by name: reuse yours, make the missing ones (a few at most)
+    const ids = new Map((getState().money.cats || []).map((c) => [c.name.trim(), c.id]));
+    for (const name of [...new Set(p.expenses.map((e) => e.catName).filter(Boolean) as string[])].slice(0, 12))
+      if (!ids.has(name)) ids.set(name, addCat(name, p.catEmoji?.[name] || '🏷️', CAT_COLORS[ids.size % CAT_COLORS.length]));
+    const st = getState();
+    addExpenses(
+      p.expenses
+        .filter((e) => !alreadyLogged(st, e))
+        .map(({ catName, ...e }) => ({ ...e, cat: (catName && ids.get(catName)) || e.cat, source: 'import' as const })),
+    );
+  }
   if (!p.course) return '';
   const { name, difficulty, sizeLabel, paceGuess, notes, color } = p.course;
   const cid = addCourse({ name, difficulty: difficulty || 3, sizeLabel: sizeLabel || 'صفحة', paceGuess, notes: notes || '', ...(color ? { color } : {}) });

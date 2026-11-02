@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.5',
+    day: '2026-11-02',
+    items: [
+      ['استيراد مصاريف من ملف: زر جديد في إعدادات «مصاريفي»، والعمليات المسجّلة عندك من قبل ما تتكرر', 'Import expenses from a file: a new button in Spending settings; what you already logged is never added twice'],
+      ['المصاريف المستوردة تحتفظ بوقتها، وتقدر تجي بتصنيفات من عندك (مثل «بنزين» و«بقالة») تنضاف لحالها', 'Imported expenses keep their time and can bring categories of your own (like Fuel or Groceries), made for you'],
+    ],
+  },
+  {
     v: '1.6.4',
     day: '2026-11-02',
     items: [

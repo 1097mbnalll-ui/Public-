@@ -256,3 +256,22 @@ describe('merchants from bank texts', () => {
     expect(repeatMerchants(getState())[0]).toMatchObject({ n: 3, set: true, cat: 'fun' });
   });
 });
+
+import { importCoursePack, readCoursePack } from '../src/lib/actions';
+describe('importing expenses', () => {
+  it('keeps the time, makes your own categories by name, skips what is already logged', () => {
+    replaceState(initialState(), '', false);
+    Act.addExpense({ title: 'مشتريات', amount: 35, cat: 'shopping', day: '2026-10-25', source: 'sms' });
+    const p = readCoursePack({ app: 'masar', cats: { 'بنزين': '⛽' }, expenses: [
+      { title: 'الدريس', amount: 20, date: '2026-10-25', time: '19:16', cat: 'بنزين' },
+      { title: 'عهد للمواد الغذائية', amount: 35, date: '2026-10-26', cat: 'food' },
+      { title: 'كودو', amount: 50, date: '2026-10-01', cat: 'food' },
+    ] });
+    importCoursePack(p);
+    const s = getState();
+    expect(s.expenses.length).toBe(3);
+    const fuel = s.money.cats!.find((c) => c.name === 'بنزين')!;
+    expect(fuel.emoji).toBe('⛽');
+    expect(s.expenses.find((e) => e.title === 'الدريس')).toMatchObject({ cat: fuel.id, time: '19:16' });
+  });
+});
