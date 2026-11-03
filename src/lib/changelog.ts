@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGES: Release[] = [
   {
+    v: '1.6.8',
+    day: '2026-11-03',
+    items: [
+      ['إصلاح: المذاكرة اللي تسجّلها ما عاد تنحذف لما يتزامن جهازك الثاني — آخر تعديل على الدرس أو الاختبار هو اللي يبقى', 'Fix: study you log no longer disappears when your other device syncs — the latest edit to a lesson or exam is the one kept'],
+    ],
+  },
+  {
     v: '1.6.7',
     day: '2026-11-02',
     items: [

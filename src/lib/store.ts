@@ -81,9 +81,29 @@ export function mutate(fn: (s: AppState) => void, undo?: string) {
   }
   const next = structuredClone(state);
   fn(next);
+  stampChanged(state, next);
   state = next;
   emit();
   scheduleSave();
+}
+
+// lists whose items sync one by one: an edited item gets a fresh updatedAt, so when two devices
+// meet, the copy edited last wins (a finished lesson isn't undone by a device that only added a task)
+const STAMPED = ['tasks', 'procedures', 'goals', 'courses', 'units', 'exams', 'thoughts', 'templates', 'expenses', 'subs', 'schedule', 'reminds'] as const;
+const noStamp = (k: string, v: unknown) => (k === 'updatedAt' ? undefined : v);
+function stampChanged(prev: AppState, next: AppState) {
+  const t = Date.now();
+  for (const k of STAMPED) {
+    const a = prev[k] as { id: string; updatedAt?: number }[] | undefined;
+    const b = next[k] as { id: string; updatedAt?: number }[] | undefined;
+    if (!b || a === b) continue;
+    const old = new Map((a || []).map((x) => [x.id, x]));
+    for (const x of b) {
+      const o = old.get(x.id);
+      if (o && (x.updatedAt ?? 0) > (o.updatedAt ?? 0)) continue; // the change already stamped itself
+      if (o && JSON.stringify(o, noStamp) !== JSON.stringify(x, noStamp)) x.updatedAt = t;
+    }
+  }
 }
 
 export function undo(): string | null {

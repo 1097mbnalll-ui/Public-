@@ -282,7 +282,7 @@ export function useSyncing(): boolean {
 export async function syncNow(): Promise<void> {
   if (!getSync()) return;
   // a run stuck longer than any request can take (the phone slept mid-way) no longer blocks
-  if (busy && Date.now() - busySince < 60_000) {
+  if (busy && Date.now() - busySince < 150_000) {
     again = true;
     return;
   }
@@ -352,7 +352,7 @@ export function startSync() {
     pushTimer = setTimeout(() => void syncNow(), 1500);
   });
   // the app coming back fires several of these at once — one run is enough
-  const tick = () => document.visibilityState === 'visible' && navigator.onLine !== false && !(busy && Date.now() - busySince < 60_000) && void syncNow();
+  const tick = () => document.visibilityState === 'visible' && navigator.onLine !== false && !(busy && Date.now() - busySince < 150_000) && void syncNow();
   addEventListener('visibilitychange', tick);
   addEventListener('online', tick);
   addEventListener('focus', tick);

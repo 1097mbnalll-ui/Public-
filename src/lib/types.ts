@@ -170,6 +170,8 @@ export interface Course {
   notes: string;
   archived: boolean;
   createdAt: number;
+  /** last edited — the newer copy wins when two devices sync */
+  updatedAt?: number;
 }
 
 export interface Unit {
@@ -185,6 +187,8 @@ export interface Unit {
   order: number;
   /** study notes / summary for this lesson */
   notes?: string;
+  /** last edited — the newer copy wins when two devices sync */
+  updatedAt?: number;
 }
 
 export interface Exam {
@@ -201,6 +205,8 @@ export interface Exam {
   /** you sat it (with or without a grade): it leaves the plan and stops asking */
   finished?: boolean;
   createdAt: number;
+  /** last edited — the newer copy wins when two devices sync */
+  updatedAt?: number;
 }
 
 export interface StudySession {
